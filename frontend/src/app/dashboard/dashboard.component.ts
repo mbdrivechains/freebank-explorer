@@ -454,7 +454,7 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       badges: creditBadgeCounts(summary.houses_by_badge),
       notesUnits: formatUnits(summary.minted_units_total),
       notesTooltip: `Notes of every house in circulation (${formatGrams(summary.minted_grams_total)} at the node's presentation scale). ` +
-        'Each unit is a claim on 1 sat of ECX at the house that issued it.',
+        'Each unit is a claim on 1 szat of ECX at the house that issued it.',
       goldFixGrams: fix ? formatGoldFixGrams(fix.raw) : '',
       goldFixTooltip: fix
         ? `Grams of gold one ECX buys at the gold fix, formed at block ${fix.fixheight} (${formatBlockCount(age)} ago). ` +

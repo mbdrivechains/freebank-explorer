@@ -52,7 +52,7 @@ export function formatGoldFixSatsPerGram(mgPer1000Ecx: number): string {
   if (sats === null) {
     return '';
   }
-  return (sats >= 100 ? integerFormat.format(sats) : smallSatsFormat.format(sats)) + ' sats';
+  return (sats >= 100 ? integerFormat.format(sats) : smallSatsFormat.format(sats)) + ' szats';
 }
 
 /** ECX that buys one gram of gold at this price: 800000000 -> '0.00125 ECX' */

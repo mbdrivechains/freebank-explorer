@@ -222,7 +222,7 @@
             <tbody>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="Notes outstanding. One unit redeems for 1 sat at the house. The bar shows how much of the mint cap they use.">Notes issued</span></td>
+                  ngbTooltip="Notes outstanding. One unit redeems for 1 szat at the house. The bar shows how much of the mint cap they use.">Notes issued</span></td>
                 <td>
                   <app-credit-amount [units]="d.house.mintedunits" [grams]="d.house.mintedunits_grams"
                     [unitLabel]="d.house.classid + ' units'"></app-credit-amount>
@@ -466,7 +466,7 @@
     <div class="title"><h2>Pool</h2></div>
     <div class="box house-scroll">
       <p class="house-box-intro">
-        A pool trades this house's notes against ECX at a market price. At par, one note unit is worth 1 sat.
+        A pool trades this house's notes against ECX at a market price. At par, one note unit is worth 1 szat.
       </p>
       <table class="table table-borderless table-striped house-rows" *ngIf="d.pools.length; else noPool">
         <thead>
@@ -477,7 +477,7 @@
             <th class="text-right col-hide-xs"><span class="credit-term" tabindex="0" container="body" placement="bottom"
               ngbTooltip="The ECX held in the pool.">ECX in pool</span></th>
             <th class="text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
-              ngbTooltip="The pool's current price for one note unit, from its reserves, before the fee. Par is 1 sat.">Price per unit</span></th>
+              ngbTooltip="The pool's current price for one note unit, from its reserves, before the fee. Par is 1 szat.">Price per unit</span></th>
             <th class="text-right col-hide-sm"><span class="credit-term" tabindex="0" container="body" placement="bottom"
               ngbTooltip="The fee a swap pays to the pool.">Fee</span></th>
             <th class="col-hide-md">Opened</th>
@@ -490,7 +490,7 @@
             <td class="text-right col-hide-xs"><app-credit-amount [sats]="row.pool.btx_reserve" [grams]="row.pool.btx_reserve_grams"></app-credit-amount></td>
             <td class="text-right">
               <ng-container *ngIf="row.spotSatsPerUnit !== null; else noPrice">
-                {{ row.spotSatsPerUnit | number: '1.4-4' }} <span class="symbol">sats</span>
+                {{ row.spotSatsPerUnit | number: '1.4-4' }} <span class="symbol">szats</span>
                 <div class="sub">{{ row.parText }}</div>
               </ng-container>
               <ng-template #noPrice><span class="muted">no notes in the pool</span></ng-template>
@@ -614,7 +614,7 @@
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="The gold weight the house declared for one note. It is not used by the current rules: notes redeem in ECX, one unit for 1 sat.">Declared denomination</span></td>
+                  ngbTooltip="The gold weight the house declared for one note. It is not used by the current rules: notes redeem in ECX, one unit for 1 szat.">Declared denomination</span></td>
                 <td>{{ d.house.denominationmggold / 1000 | grams }} of gold per unit</td>
               </tr>
             </tbody>
@@ -625,7 +625,7 @@
 
     <p class="credit-footnote">
       Figures are as of block <a [routerLink]="['/block/' | relativeUrl, d.tip]">{{ d.tip }}</a>. Grams of gold use the
-      chain's display rate and are for reading only: notes redeem in ECX, one unit for 1 sat.
+      chain's display rate and are for reading only: notes redeem in ECX, one unit for 1 szat.
       <a [routerLink]="['/houses' | relativeUrl]">See every house</a>.
     </p>
   </ng-container>

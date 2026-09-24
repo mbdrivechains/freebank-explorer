@@ -183,7 +183,7 @@ export class AccelerationFeesGraphComponent implements OnInit, OnChanges, OnDest
               if (tick.data[1] > 10_000_000) {
                 tooltip += `${tick.marker} ${tick.seriesName}: ${formatNumber(tick.data[1] / 100_000_000, this.locale, '1.0-8')} BTC<br>`;
               } else {
-                tooltip += `${tick.marker} ${tick.seriesName}: ${formatNumber(tick.data[1], this.locale, '1.0-0')} sats<br>`;
+                tooltip += `${tick.marker} ${tick.seriesName}: ${formatNumber(tick.data[1], this.locale, '1.0-0')} szats<br>`;
               }
             } else if (tick && tick.seriesName === 'Accelerated') {
               tooltip += `${tick.marker} ${tick.seriesName}: ${formatNumber(tick.data[1], this.locale, '1.0-0')}<br>`;
@@ -256,7 +256,7 @@ export class AccelerationFeesGraphComponent implements OnInit, OnChanges, OnDest
               if (val >= 100_000) {
                 return `${(val / 100_000_000).toFixed(3)} BTC`;
               } else {
-                return `${val} sats`;
+                return `${val} szats`;
               }
             }
           },

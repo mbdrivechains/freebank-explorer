@@ -5,8 +5,7 @@ import { formatUnits } from '@app/freebank/credit-units';
 // bid on the block cubes).
 // Pure TypeScript. Links to the eCash explorer are built here from the explorer_url the API
 // sends; the browser never fetches anything from that host, it only links to it.
-// Amounts on the eCash side (bids) are in szats, the eCash beta's name for its smallest unit
-// (operator, 2026-09-25); FreeBank's own amounts stay in sats.
+// Bids are in szats, the eCash subunit's name, which FreeBank uses too (operator, 2026-09-25).
 
 const rateFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shareFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });

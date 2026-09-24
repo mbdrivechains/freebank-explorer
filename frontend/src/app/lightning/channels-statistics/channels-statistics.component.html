@@ -14,7 +14,7 @@
       <div class="card-text">
         <div class="fee-text" [class]="!statistics.previous ? 'no-border' : ''">
           {{ statistics.latest?.avg_capacity || 0 | number: '1.0-0' }}
-          <span i18n="shared.sats">sats</span>
+          <span i18n="shared.sats">szats</span>
         </div>
         <span class="fiat" *ngIf="statistics.previous">
           <app-fiat [value]="statistics.latest?.avg_capacity" digitsInfo="1.0-0" ></app-fiat>
@@ -44,7 +44,7 @@
         <div class="card-text">
           <div class="fee-text" [class]="!statistics.previous ? 'no-border' : ''">
             {{ statistics.latest?.avg_base_fee_mtokens || 0 | number: '1.0-0' }}
-            <span i18n="shared.m-sats">mSats</span>
+            <span i18n="shared.m-sats">mSzats</span>
           </div>
           <span class="fiat" *ngIf="statistics.previous">
             <app-change [current]="statistics.latest?.avg_base_fee_mtokens" [previous]="statistics.previous?.avg_base_fee_mtokens"></app-change>
@@ -60,7 +60,7 @@
       <div class="card-text">
         <div class="fee-text" [class]="!statistics.previous ? 'no-border' : ''">
           {{ statistics.latest?.med_capacity || 0 | number: '1.0-0' }}
-          <span i18n="shared.sats">sats</span>
+          <span i18n="shared.sats">szats</span>
         </div>
         <span class="fiat" *ngIf="statistics.previous">
           <app-fiat [value]="statistics.latest?.med_capacity" digitsInfo="1.0-0" ></app-fiat>
@@ -90,7 +90,7 @@
         <div class="card-text">
           <div class="fee-text" [class]="!statistics.previous ? 'no-border' : ''">
             {{ statistics.latest?.med_base_fee_mtokens || 0 | number: '1.0-0' }}
-            <span i18n="shared.m-sats">mSats</span>
+            <span i18n="shared.m-sats">mSzats</span>
           </div>
         </div>
         <span class="fiat" *ngIf="statistics.previous">

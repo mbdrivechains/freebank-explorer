@@ -170,7 +170,7 @@
         <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet' && block.extras.reward > block.extras.totalFees">
           <td>Deposits paid</td>
           <td>
-            <span ngbTooltip="Coinbase outputs minus fees: the mainchain deposits credited in this block (each paid to its depositor less 1,000 sats, which go to the block producer) and any withdrawal refunds" placement="bottom">
+            <span ngbTooltip="Coinbase outputs minus fees: the mainchain deposits credited in this block (each paid to its depositor less 1,000 szats, which go to the block producer) and any withdrawal refunds" placement="bottom">
               <app-amount [satoshis]="block.extras.reward - block.extras.totalFees" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
             </span>
           </td>

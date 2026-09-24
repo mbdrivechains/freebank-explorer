@@ -211,7 +211,7 @@ export function renderSats(value: number, network: string, mode: 'sats' | 'btc' 
     if (prefix.length) {
       prefix += '-';
     }
-    return `${amountShortenerPipe.transform(value, 2)} ${prefix}sats`;
+    return `${amountShortenerPipe.transform(value, 2)} ${prefix}szats`;
   }
 }
 

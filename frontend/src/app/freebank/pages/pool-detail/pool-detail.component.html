@@ -34,7 +34,7 @@
     <p class="credit-intro">
       A market in house {{ pool.house_id }}'s {{ view.noteLabel }} against ECX, opened at block {{ pool.createheight }}.
       <ng-container *ngIf="view.price.spot !== null; else emptyPool">
-        One note unit trades at {{ view.price.spot | number: '1.4-4' }} sats here<ng-container *ngIf="view.notesImpaired; else introVsPar">;
+        One note unit trades at {{ view.price.spot | number: '1.4-4' }} szats here<ng-container *ngIf="view.notesImpaired; else introVsPar">;
         the house is insolvent, so its notes are claims on its pot, not par money.</ng-container>
         <ng-template #introVsPar>, {{ view.price.vsParText }}.</ng-template>
       </ng-container>
@@ -49,7 +49,7 @@
           <table class="table table-borderless table-striped credit-detail-table">
             <tbody>
               <tr>
-                <td><span class="help" ngbTooltip="The house's notes held by the pool. One note unit redeems for 1 sat at the house. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Notes</span></td>
+                <td><span class="help" ngbTooltip="The house's notes held by the pool. One note unit redeems for 1 szat at the house. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Notes</span></td>
                 <td>
                   <app-credit-amount [units]="pool.note_reserve" [grams]="pool.note_reserve_grams" [unitLabel]="view.noteLabel"></app-credit-amount>
                   <span class="sub" *ngIf="view.shareOfHouseNotes !== null">{{ view.shareOfHouseNotes | number: '1.0-2' }}% of the house's notes outstanding</span>
@@ -60,22 +60,22 @@
                 <td><app-credit-amount [sats]="pool.btx_reserve" [grams]="pool.btx_reserve_grams"></app-credit-amount></td>
               </tr>
               <tr *ngIf="view.totalAtParSats !== null && !view.notesImpaired">
-                <td><span class="help" ngbTooltip="Both sides added up, counting each note unit at par (1 sat), the sum the house redeems it for." placement="bottom" container="body">Both sides at par</span></td>
+                <td><span class="help" ngbTooltip="Both sides added up, counting each note unit at par (1 szat), the sum the house redeems it for." placement="bottom" container="body">Both sides at par</span></td>
                 <td>
                   <app-credit-amount [sats]="view.totalAtParSats" [grams]="view.totalGrams"></app-credit-amount>
                 </td>
               </tr>
               <tr>
-                <td><span class="help" ngbTooltip="The ECX side divided by the note side: what one note unit is worth in the pool, in sats. A real trade pays the fee as well, and moves the price as it goes." placement="bottom" container="body">Note price</span></td>
+                <td><span class="help" ngbTooltip="The ECX side divided by the note side: what one note unit is worth in the pool, in szats. A real trade pays the fee as well, and moves the price as it goes." placement="bottom" container="body">Note price</span></td>
                 <td>
                   <ng-container *ngIf="view.price.spot !== null; else noPrice">
-                    {{ view.price.spot | number: '1.4-4' }} <span class="symbol">sats per note unit</span>
+                    {{ view.price.spot | number: '1.4-4' }} <span class="symbol">szats per note unit</span>
                   </ng-container>
                   <ng-template #noPrice>None <span class="explain">The pool holds no notes.</span></ng-template>
                 </td>
               </tr>
               <tr *ngIf="view.price.spot !== null">
-                <td><span class="help" ngbTooltip="Par is 1 sat per note unit, what the house redeems a unit for. Below par, the market prices the house's notes at a discount; above par, at a premium." placement="bottom" container="body">Against par</span></td>
+                <td><span class="help" ngbTooltip="Par is 1 szat per note unit, what the house redeems a unit for. Below par, the market prices the house's notes at a discount; above par, at a premium." placement="bottom" container="body">Against par</span></td>
                 <td>
                   <span [class.below-par]="view.price.belowPar">{{ view.price.vsParText }}</span>
                   <ng-container *ngIf="view.notesImpaired; else parCheck">
@@ -128,7 +128,7 @@
                 <td><span class="help" ngbTooltip="What one share would take out of the pool today: its fraction of each side." placement="bottom" container="body">Behind one share</span></td>
                 <td>
                   <span class="nowrap">{{ view.unitsPerShare | number: '1.4-4' }} <span class="symbol">note units</span></span> and
-                  <span class="nowrap">{{ view.satsPerShare | number: '1.4-4' }} <span class="symbol">sats</span></span>
+                  <span class="nowrap">{{ view.satsPerShare | number: '1.4-4' }} <span class="symbol">szats</span></span>
                 </td>
               </tr>
               <tr>
@@ -187,7 +187,7 @@
                   <td>{{ house.classid }}</td>
                 </tr>
                 <tr>
-                  <td><span class="help" ngbTooltip="All the house's notes in circulation, the pool's included. Each unit redeems for 1 sat at the house." placement="bottom" container="body">Notes outstanding</span></td>
+                  <td><span class="help" ngbTooltip="All the house's notes in circulation, the pool's included. Each unit redeems for 1 szat at the house." placement="bottom" container="body">Notes outstanding</span></td>
                   <td><app-credit-amount [units]="house.mintedunits" [grams]="house.mintedunits_grams" [unitLabel]="view.noteLabel"></app-credit-amount></td>
                 </tr>
               </ng-container>
@@ -223,7 +223,7 @@
             </td>
             <td class="d-none d-md-table-cell"><ng-container *ngTemplateOutlet="poolDetails; context: { $implicit: row }"></ng-container></td>
             <td class="text-right">
-              <span *ngIf="row.price !== null; else noRowPrice" class="nowrap">{{ row.price | number: '1.4-4' }} <span class="symbol">sats</span></span>
+              <span *ngIf="row.price !== null; else noRowPrice" class="nowrap">{{ row.price | number: '1.4-4' }} <span class="symbol">szats</span></span>
               <ng-template #noRowPrice>&ndash;</ng-template>
             </td>
             <td class="d-none d-sm-table-cell text-right">

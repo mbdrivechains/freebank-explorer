@@ -199,7 +199,7 @@
                   </td>
                 </tr>
                 <tr *ngIf="discount.priceUnits !== null">
-                  <td><span class="help" ngbTooltip="What the house paid the seller, in notes it issued for the purpose. One note unit redeems for 1 sat at the house, so at par the price in ECX is the same number of sats." placement="bottom" container="body">Price paid</span></td>
+                  <td><span class="help" ngbTooltip="What the house paid the seller, in notes it issued for the purpose. One note unit redeems for 1 szat at the house, so at par the price in ECX is the same number of szats." placement="bottom" container="body">Price paid</span></td>
                   <td>
                     <app-credit-amount [units]="discount.priceUnits" [unitLabel]="view.ownerHouse ? view.ownerHouse.classid + ' notes' : 'note units'"></app-credit-amount>
                     <span class="sub">

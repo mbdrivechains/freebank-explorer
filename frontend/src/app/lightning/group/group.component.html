@@ -29,7 +29,7 @@
                 <app-amount *ngIf="nodes.sumLiquidity > 100000000; else smallnode" [satoshis]="nodes.sumLiquidity" [digitsInfo]="'1.2-2'" [noFiat]="false"></app-amount>
                 <ng-template #smallnode>
                   {{ nodes.sumLiquidity | amountShortener: 1 }}
-                  <span class="sats" i18n="shared.sats">sats</span>
+                  <span class="sats" i18n="shared.sats">szats</span>
                 </ng-template>
                 <span class="d-none d-md-inline-block">&nbsp;</span>
                 <span class="d-block d-md-none"></span>
@@ -80,7 +80,7 @@
             <a [routerLink]="['/lightning/node/' | relativeUrl, node.public_key]">{{ node.alias }}</a>
             <div class="second-line">{{ node.opened_channel_count }} channel(s), <app-amount *ngIf="node.capacity > 100000000; else smallnode" [satoshis]="node.capacity" [digitsInfo]="'1.2-2'" [noFiat]="true"></app-amount>
               <ng-template #smallnode>
-                {{ node.capacity | amountShortener: 1 }} <span class="sats" i18n="shared.sats">sats</span>
+                {{ node.capacity | amountShortener: 1 }} <span class="sats" i18n="shared.sats">szats</span>
               </ng-template>
             </div>
           </div>

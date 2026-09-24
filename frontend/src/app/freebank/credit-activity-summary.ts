@@ -97,7 +97,7 @@ function units(count: number): string {
 }
 
 function sats(count: number): string {
-  return `${formatUnits(count)} ${count === 1 ? 'sat' : 'sats'}`;
+  return `${formatUnits(count)} ${count === 1 ? 'szat' : 'szats'}`;
 }
 
 function house(id: number | null): string {

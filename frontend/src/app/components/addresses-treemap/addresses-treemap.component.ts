@@ -129,7 +129,7 @@ export class AddressesTreemap implements OnChanges {
     if (sats > 100000000) {
       return formatNumber(sats / 100000000, this.locale, '1.2-2') + ' BTC';
     } else {
-     return this.amountShortenerPipe.transform(sats, 2) + ' sats';
+     return this.amountShortenerPipe.transform(sats, 2) + ' szats';
     }
   }
 
