@@ -666,8 +666,9 @@ const FREEBANK_TX_TAGS: { [tag: string]: string } = {
   'fcd2e546': 'Withdrawal refund request',
 };
 // sidechain objects (tag acdcf66f): the byte after the tag is the object type
+const DEPOSIT_RECORD = 'Deposit record';
 const FREEBANK_COINBASE_OBJECTS: { [op: string]: string } = {
-  '44': 'Mainchain deposit', // 'D'
+  '44': DEPOSIT_RECORD, // 'D'
   '50': 'Withdrawal bundle', // 'P'
 };
 const FREEBANK_TX_OBJECTS: { [op: string]: string } = {
@@ -683,6 +684,62 @@ export function getFreebankOutputLabel(scriptpubkey: string, isCoinbase: boolean
     return (isCoinbase ? FREEBANK_COINBASE_OBJECTS : FREEBANK_TX_OBJECTS)[scriptpubkey.slice(10, 12)];
   }
   return (isCoinbase ? FREEBANK_COINBASE_TAGS : FREEBANK_TX_TAGS)[tag];
+}
+
+// FreeBank credit custody outputs: <push> OP_DROP OP_TRUE, open at script level and guarded by
+// consensus coin tags (freebank bill.cpp, house.cpp, pool.cpp, oracle.cpp, note.cpp). The push is
+// 32 bytes (bill, house and pool escrows), 33 (oracle bond pubkey) or 20 (note pre-auth custody);
+// the tx version says which family the output belongs to.
+const CREDIT_CUSTODY_SCRIPT = /^(?:14[0-9a-f]{40}|20[0-9a-f]{64}|21[0-9a-f]{66})7551$/;
+const CREDIT_CUSTODY_LABELS: { [version: number]: string } = {
+  11: 'Bill escrow',
+  12: 'House escrow',
+  15: 'Pool reserve',
+  17: 'Oracle bond',
+};
+// BIP 141 witness commitment: OP_RETURN, then a 36-byte push of aa21a9ed and the commitment hash
+const WITNESS_COMMITMENT_SCRIPT = /^6a24aa21a9ed[0-9a-f]{64}/;
+
+export interface FreebankOutputLabel {
+  label: string;
+  tooltip?: string;
+}
+
+function asciiToHex(text: string): string {
+  return Array.from(text, (c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+}
+
+// FreeBank labels for every output of a tx, by output index (undefined where there is none)
+export function getFreebankOutputLabels(tx: Transaction): (FreebankOutputLabel | undefined)[] {
+  const isCoinbase = !!tx?.vin?.[0]?.is_coinbase;
+  const custody = CREDIT_TX_LABELS[tx?.version] ? (CREDIT_CUSTODY_LABELS[tx.version] || 'Credit custody') : undefined;
+  const labels: (FreebankOutputLabel | undefined)[] = (tx?.vout || []).map((vout) => {
+    const script = vout?.scriptpubkey || '';
+    if (custody && CREDIT_CUSTODY_SCRIPT.test(script)) {
+      return { label: custody, tooltip: 'Locked by the FreeBank credit rules for this transaction type, not by a key' };
+    }
+    if (isCoinbase && WITNESS_COMMITMENT_SCRIPT.test(script)) {
+      return { label: 'Witness commitment', tooltip: 'SegWit witness commitment (BIP 141)' };
+    }
+    const label = getFreebankOutputLabel(script, isCoinbase);
+    return label ? { label } : undefined;
+  });
+  // A deposit that pays anything is paid in the output right before its record (freebank
+  // miner.cpp). The record carries the destination address, so check it: a withdrawal refund
+  // payout can also sit before a record whose deposit paid nothing.
+  if (isCoinbase) {
+    for (let i = 2; i < labels.length; i++) {
+      const payout = tx.vout[i - 1];
+      const address = payout?.scriptpubkey_address;
+      const record = tx.vout[i].scriptpubkey;
+      if (labels[i]?.label === DEPOSIT_RECORD && !labels[i - 1] && payout.value > 0 && address
+        && (record.includes(asciiToHex(address)) || record.includes(asciiToHex(address.toUpperCase())))) {
+        labels[i - 1] = { label: 'Deposit payout', tooltip: 'Pays out the mainchain deposit recorded in the output below' };
+        labels[i] = { label: DEPOSIT_RECORD, tooltip: 'Records a mainchain deposit. The deposit is paid out in the output above.' };
+      }
+    }
+  }
+  return labels;
 }
 
 const ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {

@@ -339,6 +339,9 @@
                   </ng-template>
                   <div>
                     <app-address-labels [vout]="vout" [channel]="tx._channels && tx._channels.outputs[vindex] ? tx._channels.outputs[vindex] : null"></app-address-labels>
+                    @if (vout.scriptpubkey_address && vout.freebankLabel) {
+                      <span class="badge badge-pill badge-secondary" [ngbTooltip]="vout['_freebankTooltip']" placement="bottom">{{ vout.freebankLabel }}</span>
+                    }
                   </div>
                   <ng-template #scriptpubkey_type>
                     <ng-template [ngIf]="vout.pegout" [ngIfElse]="defaultscriptpubkey_type">
@@ -355,7 +358,7 @@
                       </ng-template>
                     </ng-template>
                     <ng-template #defaultscriptpubkey_type>
-                      <ng-template [ngIf]="vout.scriptpubkey_type === 'op_return'" [ngIfElse]="otherPubkeyType">
+                      <ng-template [ngIf]="vout.scriptpubkey_type === 'op_return' && !vout.freebankLabel" [ngIfElse]="otherPubkeyType">
                         OP_RETURN&nbsp;
                         @if (vout.isRunestone) {
                           <button (click)="toggleOrdData(tx.txid, 'vout', vindex)" type="button" class="btn btn-sm badge badge-ord">Runestone</button>
@@ -378,7 +381,7 @@
                           </a>
                         }
                       </ng-template>
-                      <ng-template #otherPubkeyType>{{ vout.freebankLabel || (vout.scriptpubkey_type | scriptpubkeyType) }}</ng-template>
+                      <ng-template #otherPubkeyType><span [ngbTooltip]="vout['_freebankTooltip']" placement="bottom">{{ vout.freebankLabel || (vout.scriptpubkey_type | scriptpubkeyType) }}</span></ng-template>
                     </ng-template>
                   </ng-template>
                 </td>
@@ -396,7 +399,7 @@
                   </ng-template>
                 </td>
                 <td class="arrow-td">
-                  <span *ngIf="!tx._outspends || vout.scriptpubkey_type === 'op_return' || vout.scriptpubkey_type === 'fee' || vout.freebankLabel ; else outspend" class="grey">
+                  <span *ngIf="!tx._outspends || vout.scriptpubkey_type === 'op_return' || vout.scriptpubkey_type === 'fee' || (vout.freebankLabel && vout.scriptpubkey.startsWith('6a')) ; else outspend" class="grey">
                     <fa-icon [icon]="['fas', 'arrow-alt-circle-right']" [fixedWidth]="true"></fa-icon>
                   </span>
                   <ng-template #outspend>
