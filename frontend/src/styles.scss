@@ -1306,7 +1306,9 @@ a {
   border-color: #0b7a2b;
 }
 
-.btn-success:hover {
+// Bootstrap's focus/active shades are still derived from #0aab2f and would be lighter than the fill.
+.btn-success:hover, .btn-success:focus, .btn-success.focus,
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active {
   background-color: #096523;
   border-color: #096523;
 }
