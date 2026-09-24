@@ -652,7 +652,7 @@ class BitcoinRoutes {
 
   private async getAddress(req: Request, res: Response) {
     if (config.MEMPOOL.BACKEND === 'none') {
-      handleError(req, res, 405, 'Address lookups cannot be used with bitcoind as backend.');
+      handleError(req, res, 405, 'Address pages are not available on this explorer yet (it runs without an address index).');
       return;
     }
     if (!ADDRESS_REGEX.test(req.params.address)) {
@@ -678,7 +678,7 @@ class BitcoinRoutes {
 
   private async getAddressTransactions(req: Request, res: Response): Promise<void> {
     if (config.MEMPOOL.BACKEND === 'none') {
-      handleError(req, res, 405, 'Address lookups cannot be used with bitcoind as backend.');
+      handleError(req, res, 405, 'Address pages are not available on this explorer yet (it runs without an address index).');
       return;
     }
     if (!ADDRESS_REGEX.test(req.params.address)) {
@@ -708,7 +708,7 @@ class BitcoinRoutes {
 
   private async getAddressUtxo(req: Request, res: Response): Promise<void> {
     if (config.MEMPOOL.BACKEND === 'none') {
-      handleError(req, res, 405, 'Address lookups cannot be used with bitcoind as backend.');
+      handleError(req, res, 405, 'Address pages are not available on this explorer yet (it runs without an address index).');
       return;
     }
     if (!ADDRESS_REGEX.test(req.params.address)) {
@@ -734,14 +734,14 @@ class BitcoinRoutes {
 
   private async getAddressTransactionSummary(req: Request, res: Response): Promise<void> {
     if (config.MEMPOOL.BACKEND !== 'esplora') {
-      handleError(req, res, 405, 'Address summary lookups require mempool/electrs backend.');
+      handleError(req, res, 405, 'Address summaries are not available on this explorer yet (it runs without an address index).');
       return;
     }
   }
 
   private async getScriptHash(req: Request, res: Response) {
     if (config.MEMPOOL.BACKEND === 'none') {
-      handleError(req, res, 405, 'Address lookups cannot be used with bitcoind as backend.');
+      handleError(req, res, 405, 'Address pages are not available on this explorer yet (it runs without an address index).');
       return;
     }
     if (!SCRIPT_HASH_REGEX.test(req.params.scripthash)) {
@@ -765,7 +765,7 @@ class BitcoinRoutes {
 
   private async getScriptHashTransactions(req: Request, res: Response): Promise<void> {
     if (config.MEMPOOL.BACKEND === 'none') {
-      handleError(req, res, 405, 'Address lookups cannot be used with bitcoind as backend.');
+      handleError(req, res, 405, 'Address pages are not available on this explorer yet (it runs without an address index).');
       return;
     }
     if (!SCRIPT_HASH_REGEX.test(req.params.scripthash)) {
@@ -793,7 +793,7 @@ class BitcoinRoutes {
 
   private async getScriptHashUtxo(req: Request, res: Response): Promise<void> {
     if (config.MEMPOOL.BACKEND === 'none') {
-      handleError(req, res, 405, 'Address lookups cannot be used with bitcoind as backend.');
+      handleError(req, res, 405, 'Address pages are not available on this explorer yet (it runs without an address index).');
       return;
     }
     if (!SCRIPT_HASH_REGEX.test(req.params.scripthash)) {
@@ -817,7 +817,7 @@ class BitcoinRoutes {
 
   private async getScriptHashTransactionSummary(req: Request, res: Response): Promise<void> {
     if (config.MEMPOOL.BACKEND !== 'esplora') {
-      handleError(req, res, 405, 'Scripthash summary lookups require mempool/electrs backend.');
+      handleError(req, res, 405, 'Scripthash summaries are not available on this explorer yet (it runs without an address index).');
       return;
     }
   }
