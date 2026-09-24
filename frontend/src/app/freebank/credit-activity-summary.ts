@@ -9,7 +9,7 @@ import { formatGoldFixPrice } from '@app/freebank/gold-fix-format';
 // TypeScript (no Angular). Every field may be missing, so each sentence degrades to what the
 // payload did carry, and to '' when it carried nothing useful (the op label then stands alone).
 //
-//   house attest  -> 'House 1 attested reserves of 27.67566 ECX (as of block 451)'
+//   house attest  -> 'House 1 attested reserves of 27.675566 ECX (as of block 451)'
 //   bill discount -> 'Bill 3 discounted at house 1 for 90,000,000 units of its notes (face 1.00 ECX)'
 //   settle        -> 'Settlement: house 1 ↔ house 2, 60,000 and 45,000 units netted at par,
 //                     residual 15,000 sats paid by house 1 to house 2'
@@ -207,8 +207,14 @@ function noteSummary(op: string | null, d: FreebankDecodedPayload): string {
   switch (op) {
     case 'mint':
       return `${capitalize(house(id))} issued ` + (count !== null ? `${units(count)} of notes` : 'notes');
-    case 'transfer':
-      return count !== null ? `${units(count)} of ${houseNotes(id)} changed hands` : `${capitalize(houseNotes(id))} changed hands`;
+    case 'transfer': {
+      // units sums every note output, the sender's change included (a transfer spends whole note
+      // coins and re-issues the same total), so it is what passed through the tx, not what the
+      // new holder received.
+      const outputs = num(d, 'outputs');
+      const spread = outputs !== null && outputs > 1 ? ` across ${formatUnits(outputs)} outputs, change included` : '';
+      return `${capitalize(houseNotes(id))} transferred` + (count !== null ? `: ${units(count)}${spread}` : '');
+    }
     case 'redeem':
       return `${capitalize(houseNotes(id))} redeemed at the house for ${UNIT}`;
     case 'claim':
