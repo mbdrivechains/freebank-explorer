@@ -299,6 +299,11 @@ export class Common {
     let opreturnCount = 0;
     let opreturnBytes = 0;
     for (const vout of tx.vout) {
+      // FreeBank: withdrawal and refund-request outputs are protocol data the node validates
+      // (freebankd relays nonstandard txs), so they don't make the tx non-standard
+      if (this.isFreebankRequestOutput(vout.scriptpubkey)) {
+        continue;
+      }
       // scriptpubkey
       if (['nonstandard', 'provably_unspendable', 'empty'].includes(vout.scriptpubkey_type)) {
         // (non-standard output type)
@@ -392,6 +397,13 @@ export class Common {
   // 16 settlement, 17 oracle (v10, BitAsset create, is retired and rejected by consensus)
   static isCreditTx(tx: { version: number }): boolean {
     return tx.version >= 11 && tx.version <= 17;
+  }
+
+  // FreeBank: OP_RETURN + raw tag outputs of ordinary txs: a withdrawal object (acdcf66f 'W',
+  // sidechain.cpp SidechainObj::GetScript) or a withdrawal refund request (fcd2e546,
+  // validation.cpp GenerateWithdrawalRefundRequest); see frontend getFreebankOutputLabel
+  static isFreebankRequestOutput(scriptpubkey: string): boolean {
+    return !!scriptpubkey && (scriptpubkey.startsWith('6aacdcf66f57') || scriptpubkey.startsWith('6afcd2e546'));
   }
 
   static ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {

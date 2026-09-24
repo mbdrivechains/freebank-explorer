@@ -564,6 +564,11 @@ export function isNonStandard(tx: Transaction, height?: number, network?: string
   let opreturnCount = 0;
   let opreturnBytes = 0;
   for (const vout of tx.vout) {
+    // FreeBank: withdrawal and refund-request outputs are protocol data the node validates
+    // (freebankd relays nonstandard txs), so they don't make the tx non-standard
+    if (getFreebankOutputLabel(vout.scriptpubkey, false)) {
+      continue;
+    }
     // scriptpubkey
     if (['nonstandard', 'provably_unspendable', 'empty'].includes(vout.scriptpubkey_type)) {
       // (non-standard output type)
