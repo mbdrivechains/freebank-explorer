@@ -152,7 +152,7 @@
         <tr>
           <td i18n="block.total-fees|Total fees in a block">Total fees</td>
           <td *ngIf="network !== 'liquid' && network !== 'liquidtestnet'; else liquidTotalFees">
-            <app-amount [satoshis]="block.extras.totalFees" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
+            <app-amount [satoshis]="block.extras.totalFees" digitsInfo="1.2-8" [noFiat]="true"></app-amount>
             <span class="fiat">
               <app-fiat [blockConversion]="blockConversion" [value]="block.extras.totalFees" digitsInfo="1.0-0"></app-fiat>
             </span>
