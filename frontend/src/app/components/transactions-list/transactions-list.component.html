@@ -475,7 +475,7 @@
                           </div>
                         </td>
                       </tr>
-                      <tr *ngIf="vout.scriptpubkey_type == 'op_return'">
+                      <tr *ngIf="vout.scriptpubkey_type == 'op_return' && vout['_showAscii']">
                         <td>OP_RETURN <span>data</span></td>
                         <td style="text-align: left; word-break: break-word; white-space: pre-line;">
                           @if (!showFullOpReturnData[vindex]) {
