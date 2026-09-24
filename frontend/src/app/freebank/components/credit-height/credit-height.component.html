@@ -1,0 +1,6 @@
+<ng-container *ngIf="isZero; else heightTemplate">{{ zeroText }}</ng-container>
+<ng-template #heightTemplate>
+  <a *ngIf="linkable; else plainHeight" [routerLink]="['/block/' | relativeUrl, height]">{{ height }}</a>
+  <ng-template #plainHeight>{{ height }}</ng-template>
+  <span class="credit-height-relative" *ngIf="relativeText"> ({{ relativeText }})</span>
+</ng-template>

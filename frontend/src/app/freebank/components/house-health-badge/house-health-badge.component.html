@@ -1,0 +1,9 @@
+<ng-container *ngIf="health">
+  <span class="badge house-health" [ngClass]="'house-health-' + health.badge" tabindex="0"
+    [ngbTooltip]="reasonsTooltip" [placement]="placement" container="body" tooltipClass="house-health-tooltip"
+    [attr.aria-label]="health.label + '. ' + health.reasons.join(' ')">{{ health.label }}</span>
+  <span class="house-health-summary" *ngIf="showSummary"> {{ health.summary }}</span>
+  <ng-template #reasonsTooltip>
+    <p class="house-health-reason" *ngFor="let reason of health.reasons">{{ reason }}</p>
+  </ng-template>
+</ng-container>

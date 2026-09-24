@@ -1,0 +1,8 @@
+<span class="credit-amount" *ngIf="amountText">
+  <ng-container *ngIf="!gramsFirst || !gramsText; else gramsFirstTemplate">
+    <span class="credit-amount-value">{{ amountText }}</span><span class="symbol"> {{ symbol }}</span><span class="credit-amount-grams" *ngIf="gramsText"> ({{ gramsText }})</span>
+  </ng-container>
+  <ng-template #gramsFirstTemplate>
+    <span class="credit-amount-value">{{ gramsText }}</span><span class="credit-amount-grams"> ({{ amountText }} {{ symbol }})</span>
+  </ng-template>
+</span>

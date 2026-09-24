@@ -1,0 +1,67 @@
+// FreeBank palette: gold on dark for the healthy and warning states, red only for insolvent.
+// Every text / fill pair passes WCAG AA.
+.house-health {
+  display: inline-block;
+  border: 1px solid transparent;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: help;
+  vertical-align: middle;
+}
+
+// Open, attested above the floor, attestation current: the calm dark gold (#e8e6df on #6b5420, 5.8:1)
+.house-health-sound {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--fg);
+}
+
+// Attestation late but still open: an outline in light gold (#e8c877 on the page background)
+.house-health-attestation_due {
+  background-color: transparent;
+  border-color: var(--info);
+  color: var(--info);
+}
+
+// Stressed or deferred: the bright light-gold fill with dark text (#0e0f13 on #e8c877, 11.8:1)
+.house-health-stressed {
+  background-color: var(--info);
+  border-color: var(--info);
+  color: var(--active-bg);
+}
+
+// Insolvent: the only red (#e8e6df on #b02a00, a darker shade of --red, 5.3:1)
+.house-health-insolvent {
+  background-color: #b02a00;
+  border-color: var(--red);
+  color: var(--fg);
+}
+
+// Wound down: closed, no notes outstanding - neutral grey (#9a9788 on #2a2d3a, 4.7:1)
+.house-health-wound_down {
+  background-color: var(--secondary);
+  border-color: var(--secondary);
+  color: var(--grey);
+}
+
+.house-health:focus-visible {
+  outline: 2px solid var(--title-fg);
+  outline-offset: 1px;
+}
+
+.house-health-summary {
+  color: var(--transparent-fg);
+  vertical-align: middle;
+}
+
+.house-health-reason {
+  margin: 0 0 0.4em;
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+::ng-deep .house-health-tooltip .tooltip-inner {
+  max-width: 340px;
+  text-align: left;
+}
