@@ -189,9 +189,19 @@ export class IncomingTransactionsGraphComponent implements OnInit, OnChanges, On
         brushSelect: false,
         realtime: true,
         bottom: 0,
+        // FreeBank palette (echarts defaults are blue: #d2dbee, #8fb0f7)
+        borderColor: '#2a2d3a',
+        fillerColor: 'rgba(216, 180, 90, 0.15)',
+        handleStyle: { color: '#d8b45a', borderColor: '#6b5420' },
+        moveHandleStyle: { color: '#9a9788', opacity: 0.7 },
+        emphasis: { handleStyle: { borderColor: '#e8c877' }, moveHandleStyle: { color: '#e8c877' } },
+        dataBackground: {
+          lineStyle: { color: '#9a9788' },
+          areaStyle: { color: '#9a9788', opacity: 0.2 },
+        },
         selectedDataBackground: {
           lineStyle: {
-            color: '#fff',
+            color: '#e8c877',
             opacity: 0.45,
           },
           areaStyle: {

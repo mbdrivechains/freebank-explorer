@@ -7,8 +7,8 @@ import { TransactionStripped } from '@interfaces/node-api.interface';
 import { TransactionFlags } from '@app/shared/filters.utils';
 
 const hoverTransitionTime = 300;
-const defaultHoverColor = hexToColor('1bd8f4');
-const defaultHighlightColor = hexToColor('800080');
+const defaultHoverColor = hexToColor('e8c877'); // FreeBank light gold (mempool: cyan 1bd8f4)
+const defaultHighlightColor = hexToColor('d8b45a'); // FreeBank gold (mempool: purple 800080)
 
 // convert from this class's update format to TxSprite's update format
 function toSpriteUpdate(params: ViewUpdateParams): SpriteUpdateParams {

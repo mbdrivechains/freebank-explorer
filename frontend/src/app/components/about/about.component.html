@@ -6,9 +6,9 @@
     </div>
     <div class="version">
       @if (sourceUrl) {
-        <a [href]="sourceUrl" target="_blank" rel="noopener">v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</a>
+        based on mempool <a [href]="sourceUrl" target="_blank" rel="noopener">v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</a>
       } @else {
-        <span>v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</span>
+        <span>based on mempool v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</span>
       }
     </div>
   </div>

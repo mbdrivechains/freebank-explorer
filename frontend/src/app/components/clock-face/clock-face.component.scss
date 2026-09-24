@@ -23,8 +23,8 @@
     stroke-linejoin: round;
 
     &.minute {
-      fill:#80C2E1;
-      stroke:#80C2E1;
+      fill: var(--info);
+      stroke: var(--info);
       stroke-width: 2px;
     }
 

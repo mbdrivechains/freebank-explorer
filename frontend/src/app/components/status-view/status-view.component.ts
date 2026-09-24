@@ -4,6 +4,7 @@ import { WebsocketService } from '@app/services/websocket.service';
 @Component({
   selector: 'app-status-view',
   templateUrl: './status-view.component.html',
+  styleUrls: ['./status-view.component.scss'],
   standalone: false,
 })
 export class StatusViewComponent implements OnInit {

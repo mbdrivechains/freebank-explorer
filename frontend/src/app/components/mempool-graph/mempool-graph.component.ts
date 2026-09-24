@@ -1,5 +1,5 @@
 import { Component, OnInit, Input, Inject, LOCALE_ID, ChangeDetectionStrategy, OnChanges } from '@angular/core';
-import { VbytesPipe } from '@app/shared/pipes/bytes-pipe/vbytes.pipe';
+import { VbytesPipe, ByteUnit } from '@app/shared/pipes/bytes-pipe/vbytes.pipe';
 import { WuBytesPipe } from '@app/shared/pipes/bytes-pipe/wubytes.pipe';
 import { AmountShortenerPipe } from '@app/shared/pipes/amount-shortener.pipe';
 import { formatNumber } from '@angular/common';
@@ -55,6 +55,7 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
   weightMode: boolean = false;
   isWidget: boolean = false;
   showCount: boolean = false;
+  vsizeUnit: ByteUnit = 'MvB';
 
   constructor(
     private vbytesPipe: VbytesPipe,
@@ -117,11 +118,18 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
     const finalArray: number[][][] = [];
     let feesArray: number[][] = [];
 
+    // A fee tier is charted only if it reaches the threshold at some point. A fixed filterSize
+    // (100 kvB) left out every tier of a small mempool, so nothing was drawn; cap the threshold at
+    // 1% of the peak mempool size. The y-axis unit (vB, kvB or MvB) follows the peak too.
+    const peakVsize = mempoolStats.reduce((peak, stats) => Math.max(peak, stats.vsizes.reduce((sum, vsize) => sum + (vsize || 0), 0)), 0);
+    const threshold = Math.min(this.filterSize, peakVsize / 100);
+    this.vsizeUnit = peakVsize < 1_000 ? 'vB' : peakVsize < 1_000_000 ? 'kvB' : 'MvB';
+
     let maxTier = 0;
     for (let index = 38; index > -1; index--) {
       feesArray = [];
       mempoolStats.forEach((stats) => {
-        if (stats.vsizes[index] >= this.filterSize) {
+        if (stats.vsizes[index] > 0 && stats.vsizes[index] >= threshold) {
           maxTier = Math.max(maxTier, index);
         }
         feesArray.push([stats.added * 1000, stats.vsizes[index] ? stats.vsizes[index] : 0]);
@@ -239,7 +247,7 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
             formatter: (params: any) => {
               if (params.axisDimension === 'y') {
                 if (params.axisIndex === 0) {
-                  return this.vbytesPipe.transform(params.value, 2, 'vB', 'MvB', true);
+                  return this.vbytesPipe.transform(params.value, 2, 'vB', this.vsizeUnit, true);
                 } else {
                   return this.amountShortenerPipe.transform(params.value, 2, undefined, true);
                 }
@@ -284,7 +292,7 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
                   <span class="symbol">%</span>
                 </span>
                 <span class="total-parcial-vbytes">
-                  ${this.vbytesPipe.transform(sum, 2, 'vB', 'MvB', false)}
+                  ${this.vbytesPipe.transform(sum, 2, 'vB', this.vsizeUnit, false)}
                 </span>
                 <div class="total-percentage-bar">
                   <span class="total-percentage-bar-background">
@@ -308,12 +316,12 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
               </td>
               <td class="total-progress-sum">
                 <span>
-                  ${(item.value[1] / 1_000_000).toFixed(2)} <span class="symbol">MvB</span>
+                  ${this.formatVsize(item.value[1])}
                 </span>
               </td>
               <td class="total-progress-sum">
                 <span>
-                  ${(totalValueArray[index] / 1_000_000).toFixed(2)} <span class="symbol">MvB</span>
+                  ${this.formatVsize(totalValueArray[index])}
                 </span>
               </td>
               <td class="total-progress-sum-bar">
@@ -335,7 +343,7 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
             <div class="title">
               ${axisValueLabel}
               <span class="total-value">
-                ${this.vbytesPipe.transform(totalValue, 2, 'vB', 'MvB', false)}
+                ${this.vbytesPipe.transform(totalValue, 2, 'vB', this.vsizeUnit, false)}
               </span>
             </div>
             ` +
@@ -391,9 +399,19 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
         brushSelect: false,
         realtime: true,
         bottom: 0,
+        // FreeBank palette (echarts defaults are blue: #d2dbee, #8fb0f7)
+        borderColor: '#2a2d3a',
+        fillerColor: 'rgba(216, 180, 90, 0.15)',
+        handleStyle: { color: '#d8b45a', borderColor: '#6b5420' },
+        moveHandleStyle: { color: '#9a9788', opacity: 0.7 },
+        emphasis: { handleStyle: { borderColor: '#e8c877' }, moveHandleStyle: { color: '#e8c877' } },
+        dataBackground: {
+          lineStyle: { color: '#9a9788' },
+          areaStyle: { color: '#9a9788', opacity: 0.2 },
+        },
         selectedDataBackground: {
           lineStyle: {
-            color: '#fff',
+            color: '#e8c877',
             opacity: 0.45,
           },
           areaStyle: {
@@ -429,10 +447,11 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
       ],
       yAxis: [{
         type: 'value',
+        minInterval: 1, // no '0.2 vB' steps when the mempool is empty
         axisLine: { onZero: false },
         axisLabel: {
           fontSize: 11,
-          formatter: (value: number) => (`${this.vbytesPipe.transform(value, 2, 'vB', 'MvB', true)}`),
+          formatter: (value: number) => (`${this.vbytesPipe.transform(value, 2, 'vB', this.vsizeUnit, true)}`),
         },
         splitLine: {
           lineStyle: {
@@ -453,6 +472,12 @@ export class MempoolGraphComponent implements OnInit, OnChanges {
         }
       } : null],
     };
+  }
+
+  // Tooltip table cell in the chart's unit, two decimals as before (whole numbers in vB).
+  formatVsize(vsize: number): string {
+    const divisor = this.vsizeUnit === 'vB' ? 1 : this.vsizeUnit === 'kvB' ? 1_000 : 1_000_000;
+    return `${(vsize / divisor).toFixed(this.vsizeUnit === 'vB' ? 0 : 2)} <span class="symbol">${this.vsizeUnit}</span>`;
   }
 
   getTotalValues = (values: any) => {

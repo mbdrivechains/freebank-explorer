@@ -86,6 +86,9 @@
                   <span *ngIf="!replacement.fullRbf" class="badge badge-success" i18n="tx-features.tag.rbf|RBF">RBF</span>
                 </td>
               </tr>
+              <tr *ngIf="!replacements.length">
+                <td colspan="4" class="text-center text-muted">No replacements yet</td>
+              </tr>
             </tbody>
           </table>
         </div>
