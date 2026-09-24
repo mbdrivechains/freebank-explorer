@@ -1,6 +1,336 @@
-<div class="container-xl credit-page">
-  <h1>Bill {{ billId }}</h1>
-  <ng-container *ngIf="state$ | async as state">
-    <app-credit-raw-json [state]="state" errorText="Could not load this bill"></app-credit-raw-json>
+<div class="container-xl credit-page" *ngIf="view$ | async as view">
+  <div class="title-block">
+    <h1>Bill {{ idText }}</h1>
+    <div class="title-badges" *ngIf="view.bill">
+      <span class="badge bill-status" [ngClass]="'bill-status-' + view.key" [ngbTooltip]="view.statusHelp" placement="bottom" container="body">{{ view.statusLabel }}</span>
+      <span class="title-note" *ngIf="view.bill.owner_house_id">on <a [routerLink]="['/house/' | relativeUrl, view.bill.owner_house_id]">house {{ view.bill.owner_house_id }}</a>'s loan book</span>
+    </div>
+  </div>
+
+  <app-http-error *ngIf="view.error" [error]="view.error">
+    <ng-container *ngIf="view.error.status === 404 || view.error.status === 400; else loadFailed">There is no bill {{ idText }} on this chain.</ng-container>
+    <ng-template #loadFailed>Could not load bill {{ idText }}.</ng-template>
+  </app-http-error>
+
+  <!-- loading: the panels as skeletons -->
+  <div class="row" *ngIf="!view.bill && !view.error">
+    <div class="col-lg-6" *ngFor="let panel of ['Terms', 'Parties']">
+      <div class="credit-section-title"><h2>{{ panel }}</h2></div>
+      <div class="box">
+        <table class="table table-borderless table-striped credit-detail-table">
+          <tbody>
+            <tr *ngFor="let i of skeletonRows">
+              <td><span class="skeleton-loader"></span></td>
+              <td><span class="skeleton-loader"></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <ng-container *ngIf="view.bill as bill">
+    <p class="credit-intro">
+      A bill for <app-credit-amount [ecx]="bill.amount" [grams]="bill.amount_grams"></app-credit-amount>.
+      <ng-container *ngIf="view.maturity.phase !== 'closed'; else closedSummary">{{ view.maturity.sentence }}</ng-container>
+      <ng-template #closedSummary>{{ view.statusHelp }}</ng-template>
+    </p>
+
+    <div class="row">
+      <!-- TERMS -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>Terms</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <tr>
+                <td><span class="help" ngbTooltip="The sum the acceptor must pay to whoever holds the bill when it falls due. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Face value</span></td>
+                <td><app-credit-amount [ecx]="bill.amount" [grams]="bill.amount_grams"></app-credit-amount></td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The bond the acceptor (the drawee) locked when the bill was issued. If the bill is still unpaid after maturity and the grace period, the holder can claim it instead." placement="bottom" container="body">Escrow bond</span></td>
+                <td>
+                  <app-credit-amount [ecx]="bill.escrow" [grams]="bill.escrow_grams"></app-credit-amount>
+                  <span class="sub" *ngIf="view.escrowPercent !== null">{{ view.escrowPercent | number: '1.0-1' }}% of face, posted by the acceptor</span>
+                </td>
+              </tr>
+              <tr>
+                <td>Issued at block</td>
+                <td><app-credit-height [height]="bill.issued_height" [tipHeight]="view.tipHeight"></app-credit-height></td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The maturity: the block at which the acceptor owes the face value to the holder." placement="bottom" container="body">Falls due at block</span></td>
+                <td>
+                  <app-credit-height [height]="bill.maturity_height" [tipHeight]="view.tipHeight"></app-credit-height>
+                  <span class="sub" *ngIf="view.maturity.phaseText" [class.overdue]="view.maturity.phase === 'claimable'">{{ view.maturity.phaseText }}</span>
+                </td>
+              </tr>
+              <tr>
+                <td>Term</td>
+                <td>{{ view.maturity.termBlocks | blockCount }} <span class="sub">from issue to maturity</span></td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="Blocks after maturity in which the acceptor can still pay before the escrow can be claimed." placement="bottom" container="body">Grace period</span></td>
+                <td>
+                  {{ bill.grace_blocks | blockCount }}
+                  <span class="sub">
+                    Ends at block <app-credit-height [height]="view.maturity.graceEndHeight" [tipHeight]="view.tipHeight"></app-credit-height>.
+                    <ng-container *ngIf="view.maturity.phase !== 'closed'">If still unpaid, {{ bill.owner_house_id ? 'the house' : 'the holder' }} can claim the escrow from block {{ view.maturity.claimableFrom }}.</ng-container>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The bill's identity: the SHA-256 hash of its encrypted body. No two bills can share one." placement="bottom" container="body">Bill hash</span></td>
+                <td class="hash-cell">
+                  <app-truncate [text]="bill.bill_id" [lastChars]="8"><app-clipboard [text]="bill.bill_id"></app-clipboard></app-truncate>
+                </td>
+              </tr>
+              <tr *ngIf="view.bodyBytes !== null">
+                <td><span class="help" ngbTooltip="The trade behind the bill, encrypted by its parties. The chain stores it but never reads it." placement="bottom" container="body">Encrypted terms</span></td>
+                <td>{{ view.bodyBytes | number }} bytes <span class="sub">readable only by the parties</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PARTIES -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>Parties</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <tr>
+                <td>Drawer</td>
+                <td>
+                  <div class="key-cell"><app-truncate [text]="bill.drawer_pubkey" [lastChars]="8"><app-clipboard [text]="bill.drawer_pubkey"></app-clipboard></app-truncate></div>
+                  <span class="explain">Wrote the bill, ordering the acceptor to pay.</span>
+                </td>
+              </tr>
+              <tr>
+                <td>Acceptor <span class="role-alias">(drawee)</span></td>
+                <td>
+                  <div class="key-cell"><app-truncate [text]="bill.acceptor_pubkey" [lastChars]="8"><app-clipboard [text]="bill.acceptor_pubkey"></app-clipboard></app-truncate></div>
+                  <span class="explain">Signed to accept the bill and locked the escrow bond. Owes the face value at maturity.<ng-container *ngIf="view.drawerIsAcceptor"> The same key as the drawer.</ng-container></span>
+                </td>
+              </tr>
+              <tr *ngIf="view.payee && view.payee !== bill.holder_pubkey">
+                <td>First holder <span class="role-alias">(payee)</span></td>
+                <td>
+                  <div class="key-cell"><app-truncate [text]="view.payee" [lastChars]="8"><app-clipboard [text]="view.payee"></app-clipboard></app-truncate></div>
+                  <span class="explain">Named on the bill at issue, and the first to endorse it on.</span>
+                </td>
+              </tr>
+              <tr>
+                <td>Holder</td>
+                <td>
+                  <div class="key-cell"><app-truncate [text]="bill.holder_pubkey" [lastChars]="8"><app-clipboard [text]="bill.holder_pubkey"></app-clipboard></app-truncate></div>
+                  <span class="explain" *ngIf="view.holderIsCustodyKey; else plainHolder">The custody key of <a [routerLink]="['/house/' | relativeUrl, bill.owner_house_id]">house {{ bill.owner_house_id }}</a>, which bought the bill.</span>
+                  <ng-template #plainHolder>
+                    <span class="explain" *ngIf="view.key === 'active' || view.key === 'discounted'; else pastHolder">Owns the bill now and is paid when it falls due.</span>
+                    <ng-template #pastHolder><span class="explain">The last holder of the bill.</span></ng-template>
+                  </ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="Each endorsement passed the bill to a new holder. A discount is an endorsement to the buying house." placement="bottom" container="body">Endorsements</span></td>
+                <td>{{ bill.endorsements.length }} <span class="sub" *ngIf="bill.endorsements.length">listed in the history below</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- OWNERSHIP -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>Ownership</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <ng-container *ngIf="bill.owner_house_id; else notHouseHeld">
+                <tr>
+                  <td><span class="help" ngbTooltip="A house bought this bill before maturity (discounted it), paying the seller in its own notes. The bill now sits on the house's loan book, and the house collects the face value." placement="bottom" container="body">Held by</span></td>
+                  <td>
+                    <div class="house-line">
+                      <a [routerLink]="['/house/' | relativeUrl, bill.owner_house_id]">House {{ bill.owner_house_id }}</a>
+                      <app-house-health-badge *ngIf="view.ownerHouse" [house]="view.ownerHouse" [tipHeight]="view.ownerHouseTip"></app-house-health-badge>
+                    </div>
+                    <span class="explain">On the house's loan book: the house bought it and collects the face value.</span>
+                  </td>
+                </tr>
+              </ng-container>
+              <ng-template #notHouseHeld>
+                <tr>
+                  <td>Held by</td>
+                  <td>
+                    <ng-container *ngIf="view.key === 'active'; else closedOwnership">
+                      A private holder
+                      <span class="explain" *ngIf="view.maturity.phase === 'running'; else tooLateToDiscount">No house holds it. A house can still buy it (discount it) in any block before {{ bill.maturity_height }}.</span>
+                      <ng-template #tooLateToDiscount><span class="explain">No house holds it, and past maturity it can no longer be discounted.</span></ng-template>
+                    </ng-container>
+                    <ng-template #closedOwnership>
+                      <ng-container *ngIf="view.key === 'defaulted'; else noOwner">
+                        The last holder
+                        <span class="explain">The escrow bond has been claimed. If the face was more than the bond, a party liable on the bill (the drawer or an endorser) can still pay the holder the difference and take the bill over.</span>
+                      </ng-container>
+                      <ng-template #noOwner>
+                        No one
+                        <span class="explain">The bill is closed: {{ view.statusLabel | lowercase }}.</span>
+                      </ng-template>
+                    </ng-template>
+                  </td>
+                </tr>
+                <tr *ngIf="view.pastHouseId">
+                  <td>Was held by</td>
+                  <td>
+                    <a [routerLink]="['/house/' | relativeUrl, view.pastHouseId]">House {{ view.pastHouseId }}</a>
+                    <span class="explain">The house bought the bill and held it until it was paid or its escrow claimed.</span>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-container *ngIf="view.discount as discount">
+                <tr *ngIf="discount.height !== null">
+                  <td>Bought at block</td>
+                  <td>
+                    <app-credit-height [height]="discount.height" [tipHeight]="view.tipHeight"></app-credit-height>
+                    <span class="sub" *ngIf="view.discountBlocksBeforeMaturity !== null">{{ view.discountBlocksBeforeMaturity | blockCount }} before maturity</span>
+                  </td>
+                </tr>
+                <tr *ngIf="discount.priceUnits !== null">
+                  <td><span class="help" ngbTooltip="What the house paid the seller, in notes it issued for the purpose. One note unit redeems for 1 sat at the house, so at par the price in ECX is the same number of sats." placement="bottom" container="body">Price paid</span></td>
+                  <td>
+                    <app-credit-amount [units]="discount.priceUnits" [unitLabel]="view.ownerHouse ? view.ownerHouse.classid + ' notes' : 'note units'"></app-credit-amount>
+                    <span class="sub">
+                      {{ discount.priceUnits | satsAsEcx }} ECX at par<ng-container *ngIf="view.discountPercent !== null">, {{ view.discountPercent | number: '1.0-2' }}% below face</ng-container>
+                    </span>
+                  </td>
+                </tr>
+              </ng-container>
+              <tr *ngIf="view.loanbook as book">
+                <td><span class="help" ngbTooltip="Every bill the house holds, valued at face. The notes it paid for them are backed by these bills." placement="bottom" container="body">House loan book</span></td>
+                <td>
+                  {{ book.count }} {{ book.count === 1 ? 'bill' : 'bills' }},
+                  <app-credit-amount [sats]="book.face_total" [grams]="book.face_total_grams"></app-credit-amount> at face
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ESCROW -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>Escrow</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <tr>
+                <td>Bond</td>
+                <td>
+                  <app-credit-amount [ecx]="bill.escrow" [grams]="bill.escrow_grams"></app-credit-amount>
+                  <span class="sub">locked by the acceptor at issue</span>
+                </td>
+              </tr>
+              <tr>
+                <td>State</td>
+                <td [ngSwitch]="view.key">
+                  <ng-container *ngSwitchCase="'retired'">Released <span class="explain">The acceptor paid the bill, so the bond was freed.</span></ng-container>
+                  <ng-container *ngSwitchCase="'defaulted'">Claimed <span class="explain">The bill went unpaid; <ng-container *ngIf="view.pastHouseId; else holderClaimed">house {{ view.pastHouseId }}, which held it, took the bond.</ng-container><ng-template #holderClaimed>the holder took the bond.</ng-template></span></ng-container>
+                  <ng-container *ngSwitchCase="'disputed'">Held <span class="explain">The bill is marked disputed.</span></ng-container>
+                  <ng-container *ngSwitchCase="'unknown'">Unknown</ng-container>
+                  <ng-container *ngSwitchDefault>
+                    <ng-container *ngIf="view.maturity.phase === 'claimable'; else stillLocked">
+                      <span class="overdue">Locked, claimable now</span>
+                      <span class="explain">The bill is unpaid past its grace period: {{ bill.owner_house_id ? 'the house' : 'the holder' }} can claim the bond.</span>
+                    </ng-container>
+                    <ng-template #stillLocked>
+                      Locked
+                      <span class="explain">Freed when the acceptor pays; claimable from block {{ view.maturity.claimableFrom }} if the bill is still unpaid then.</span>
+                    </ng-template>
+                  </ng-container>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The coin holding the bond: output of the issue transaction." placement="bottom" container="body">Escrow coin</span></td>
+                <td>
+                  <a *ngIf="view.escrowCoin as coin; else rawEscrow" class="outpoint" [routerLink]="['/tx/' | relativeUrl, coin.txid]" [fragment]="'vout=' + coin.vout">{{ coin.txid | shortenString: 16 }}<span class="vout">:{{ coin.vout }}</span></a>
+                  <ng-template #rawEscrow>{{ bill.escrow_outpoint }}</ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The coin that carries ownership of the bill. Each endorsement spends it and creates a new one for the next holder." placement="bottom" container="body">Title coin</span></td>
+                <td>
+                  <a *ngIf="view.titleCoin as coin; else rawTitle" class="outpoint" [routerLink]="['/tx/' | relativeUrl, coin.txid]" [fragment]="'vout=' + coin.vout">{{ coin.txid | shortenString: 16 }}<span class="vout">:{{ coin.vout }}</span></a>
+                  <ng-template #rawTitle>{{ bill.title_outpoint }}</ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="credit-section-title"><h2>History</h2></div>
+    <div class="box">
+      <table class="table table-borderless table-striped credit-table history-table">
+        <thead>
+          <tr>
+            <th class="col-id">Block</th>
+            <th>Event</th>
+            <th class="d-none d-md-table-cell">Details</th>
+            <th class="text-right">Transaction</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let event of view.events; trackBy: trackByEvent">
+            <td class="col-id">
+              <app-credit-height *ngIf="event.height !== null; else noHeight" [height]="event.height" [tipHeight]="view.tipHeight" [showRelative]="false"></app-credit-height>
+              <ng-template #noHeight><span class="muted" ngbTooltip="The confirming block is not in the explorer's recent credit activity." placement="right" container="body">&ndash;</span></ng-template>
+              <span class="sub" *ngIf="event.time"><app-time kind="since" [time]="event.time" [fastRender]="true"></app-time></span>
+            </td>
+            <td>
+              {{ event.label }}
+              <span class="sub d-md-none"><ng-container *ngTemplateOutlet="eventDetails; context: { $implicit: event }"></ng-container></span>
+            </td>
+            <td class="d-none d-md-table-cell"><ng-container *ngTemplateOutlet="eventDetails; context: { $implicit: event }"></ng-container></td>
+            <td class="text-right">
+              <a *ngIf="event.txid; else noTx" [routerLink]="['/tx/' | relativeUrl, event.txid]" [title]="event.txid">{{ event.txid | shortenString: 12 }}</a>
+              <ng-template #noTx><span class="muted" ngbTooltip="The transaction is not in the explorer's recent credit activity." placement="left" container="body">not found</span></ng-template>
+            </td>
+          </tr>
+          <tr *ngIf="view.historyLoading">
+            <td colspan="4"><span class="skeleton-loader"></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="credit-footnote" *ngIf="view.historyFailed">Could not load the credit activity, so only the issue and the endorsement chain are shown.</p>
+    <p class="credit-footnote" *ngIf="!view.historyLoading && !view.historyFailed && !view.historyComplete">
+      The explorer's credit activity may not reach back to this bill's issue<ng-container *ngIf="view.historyScannedFrom !== null"> (it starts at block {{ view.historyScannedFrom }})</ng-container>, so some transactions may be missing here.
+    </p>
+    <p class="credit-footnote" *ngIf="view.refreshFailed">Could not refresh this bill; showing it as of block {{ view.tipHeight }}.</p>
   </ng-container>
 </div>
+
+<ng-template #eventDetails let-event>
+  <ng-container [ngSwitch]="event.kind">
+    <ng-container *ngSwitchCase="'issue'">Drawn and accepted; escrow locked</ng-container>
+    <ng-container *ngSwitchCase="'endorse'">
+      <span class="nowrap">{{ event.from | shortenString: 12 }}</span> to <span class="nowrap">{{ event.to | shortenString: 12 }}</span><ng-container *ngIf="event.datedAt !== null">, signed at block {{ event.datedAt }}</ng-container>
+    </ng-container>
+    <ng-container *ngSwitchCase="'discount'">
+      <ng-container *ngIf="event.houseId">Bought by <a [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a></ng-container>
+      <ng-container *ngIf="event.priceUnits !== null"> for {{ event.priceUnits | noteUnits }} note units</ng-container>
+      <ng-container *ngIf="event.from"> from <span class="nowrap">{{ event.from | shortenString: 12 }}</span></ng-container>
+    </ng-container>
+    <ng-container *ngSwitchCase="'retire'">The acceptor paid the face value to the holder</ng-container>
+    <ng-container *ngSwitchCase="'hretire'">The acceptor paid the face value to <a *ngIf="event.houseId; else theHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a><ng-template #theHouse>the house</ng-template></ng-container>
+    <ng-container *ngSwitchCase="'claim'">The holder took the escrow bond</ng-container>
+    <ng-container *ngSwitchCase="'hclaim'">The house took the escrow bond</ng-container>
+    <ng-container *ngSwitchCase="'recourse'">A party liable on the bill (the drawer or an endorser) paid the holder and took the bill over</ng-container>
+    <ng-container *ngSwitchDefault></ng-container>
+  </ng-container>
+</ng-template>

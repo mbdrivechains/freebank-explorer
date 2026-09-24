@@ -1,13 +1,86 @@
 <div class="container-xl credit-page">
-  <h1>Pools</h1>
-  <ng-container *ngIf="state$ | async as state">
-    <ul *ngIf="state.data">
-      <li *ngFor="let pool of state.data.pools">
-        <a [routerLink]="['/pool/' | relativeUrl, pool.pool_id]">Pool {{ pool.pool_id }}</a>:
-        <app-credit-amount [units]="pool.note_reserve" [grams]="pool.note_reserve_grams"></app-credit-amount> and
-        <app-credit-amount [sats]="pool.btx_reserve" [grams]="pool.btx_reserve_grams"></app-credit-amount>, fee {{ pool.fee_bps | bps }}
-      </li>
-    </ul>
-    <app-credit-raw-json [state]="state" errorText="Could not load the pools"></app-credit-raw-json>
+  <div class="title-block">
+    <h1>Pools</h1>
+  </div>
+
+  <p class="credit-intro">
+    A pool is a market in one house's notes against ECX. It holds both and prices them by their ratio: every trade moves
+    the price, and a small fee on each trade stays in the pool for the people who supplied it. At par one note unit is worth
+    1 sat, the sum the house redeems it for; the pool price shows what the market pays for that house's notes today.
+  </p>
+
+  <ng-container *ngIf="view$ | async as view">
+    <app-http-error *ngIf="view.error && !view.rows; else poolTable" [error]="view.error">Could not load the pools.</app-http-error>
+
+    <ng-template #poolTable>
+      <div class="box">
+        <table class="table table-borderless table-striped credit-table" [class.reloading]="view.loading && !!view.rows">
+          <thead>
+            <tr>
+              <th class="col-id">Pool</th>
+              <th><span class="help" ngbTooltip="The house whose notes the pool trades, with its health badge. Each house can have one pool." placement="bottom" container="body">House</span></th>
+              <th class="d-none d-sm-table-cell"><span class="help" ngbTooltip="The house's notes held by the pool, in note units. One unit redeems for 1 sat at the house." placement="bottom" container="body">Notes in pool</span></th>
+              <th class="d-none d-md-table-cell"><span class="help" ngbTooltip="The ECX held by the pool against the notes." placement="bottom" container="body">ECX in pool</span></th>
+              <th><span class="help" ngbTooltip="The ECX side divided by the note side: what one note unit is worth in the pool, in sats, before the fee and before a trade moves the price. Par is 1 sat per unit, what the house redeems a unit for." placement="bottom" container="body">Note price</span></th>
+              <th class="d-none d-sm-table-cell text-right"><span class="help" ngbTooltip="Taken from every trade and left in the pool, so it accrues to the liquidity providers." placement="bottom" container="body">Fee</span></th>
+              <th class="d-none d-lg-table-cell text-right"><span class="help" ngbTooltip="Shares in the pool's two reserves. A provider who burns shares takes that fraction of both sides." placement="bottom" container="body">Liquidity shares</span></th>
+              <th class="d-none d-md-table-cell text-right">Opened</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="view.rows; else skeleton">
+            <tr *ngFor="let row of view.rows; trackBy: trackByPool">
+              <td class="col-id"><a [routerLink]="['/pool/' | relativeUrl, row.pool.pool_id]">{{ row.pool.pool_id }}</a></td>
+              <td>
+                <div class="house-line">
+                  <a [routerLink]="['/house/' | relativeUrl, row.pool.house_id]">House {{ row.pool.house_id }}</a>
+                  <app-house-health-badge *ngIf="row.house" [house]="row.house" [tipHeight]="view.tipHeight"></app-house-health-badge>
+                </div>
+                <span class="sub" *ngIf="row.house?.classid">{{ row.house.classid }} notes</span>
+              </td>
+              <td class="d-none d-sm-table-cell">
+                <app-credit-amount [units]="row.pool.note_reserve" [unitLabel]="row.noteLabel" [hideGrams]="true"></app-credit-amount>
+                <span class="sub">{{ row.pool.note_reserve_grams | grams }}</span>
+              </td>
+              <td class="d-none d-md-table-cell">
+                <app-credit-amount [sats]="row.pool.btx_reserve" [hideGrams]="true"></app-credit-amount>
+                <span class="sub">{{ row.pool.btx_reserve_grams | grams }}</span>
+              </td>
+              <td>
+                <ng-container *ngIf="row.price.spot !== null; else noPrice">
+                  <span class="nowrap">{{ row.price.spot | number: '1.4-4' }} <span class="symbol">sats</span></span> <span class="symbol">per unit</span>
+                  <span class="sub" [class.below-par]="row.price.belowPar">{{ row.price.vsParText }}</span>
+                  <span class="sub" *ngIf="row.parCaveat">{{ row.parCaveat }}</span>
+                </ng-container>
+                <ng-template #noPrice><span class="sub">no notes in the pool</span></ng-template>
+              </td>
+              <td class="d-none d-sm-table-cell text-right">{{ row.pool.fee_bps | bps }}</td>
+              <td class="d-none d-lg-table-cell text-right">{{ row.pool.lp_supply | noteUnits }}</td>
+              <td class="d-none d-md-table-cell text-right">
+                <app-credit-height [height]="row.pool.createheight" [tipHeight]="view.tipHeight" [showRelative]="false"></app-credit-height>
+              </td>
+            </tr>
+            <tr *ngIf="!view.rows.length">
+              <td colspan="8" class="empty-row">No house has opened a pool on this chain yet.</td>
+            </tr>
+          </tbody>
+          <ng-template #skeleton>
+            <tbody>
+              <tr *ngFor="let i of skeletonRows">
+                <td class="col-id"><span class="skeleton-loader"></span></td>
+                <td><span class="skeleton-loader"></span></td>
+                <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+                <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+                <td><span class="skeleton-loader"></span></td>
+                <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+                <td class="d-none d-lg-table-cell"><span class="skeleton-loader"></span></td>
+                <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+              </tr>
+            </tbody>
+          </ng-template>
+        </table>
+      </div>
+
+      <p class="credit-footnote" *ngIf="view.error && view.rows">Could not refresh the pools; showing them as of block {{ view.tipHeight }}.</p>
+    </ng-template>
   </ng-container>
 </div>

@@ -1,0 +1,32 @@
+.title-note {
+  color: var(--transparent-fg);
+}
+
+.role-alias {
+  color: var(--transparent-fg);
+  font-size: 0.85em;
+}
+
+// pubkeys and hashes: truncate to the cell, keep the copy button
+.key-cell app-truncate, .hash-cell app-truncate {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.house-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.muted {
+  color: var(--transparent-fg);
+}
+
+.history-table {
+  td:first-child {
+    white-space: nowrap;
+  }
+}

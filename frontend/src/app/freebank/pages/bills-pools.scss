@@ -1,0 +1,191 @@
+// Shared by the bill and pool pages (bill-list, bill-detail, pool-list, pool-detail), listed first
+// in each page's styleUrls. Theme variables only (theme-freebank.scss); breakpoints are Bootstrap's.
+
+.credit-page {
+  padding-bottom: 2rem;
+}
+
+.title-block {
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  row-gap: 0.5rem;
+
+  h1 {
+    margin: 0 15px 0 0;
+    line-height: 1;
+  }
+
+  .title-badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+// the one-paragraph explanation under a page title
+.credit-intro {
+  color: var(--transparent-fg);
+  max-width: 920px;
+  margin: 0.75rem 0 1.25rem;
+}
+
+.credit-footnote {
+  color: var(--transparent-fg);
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+.credit-filters {
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+
+  .filter-count {
+    opacity: 0.75;
+    margin-left: 0.3em;
+  }
+}
+
+// a section heading above a .box, as on the transaction page
+.credit-section-title {
+  margin-top: 1.75rem;
+
+  h2 {
+    line-height: 1;
+    margin: 0;
+    padding-bottom: 10px;
+  }
+}
+
+.box + .credit-footnote {
+  margin-top: 0.5rem;
+}
+
+.credit-table {
+  th {
+    white-space: nowrap;
+  }
+
+  td {
+    vertical-align: top;
+  }
+
+  &.reloading {
+    opacity: 0.75;
+  }
+
+  .col-id {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  .empty-row {
+    text-align: center;
+    color: var(--transparent-fg);
+    padding: 1.5rem 0.75rem;
+  }
+
+  @media (max-width: 575.98px) {
+    th, td {
+      padding: 0.5rem 0.4rem;
+    }
+  }
+}
+
+// two-column detail tables (label | value), as on the block and transaction pages
+.credit-detail-table {
+  td {
+    vertical-align: top;
+  }
+
+  td:first-child {
+    width: 38%;
+    @media (max-width: 575.98px) {
+      width: 42%;
+    }
+  }
+}
+
+// a small muted second line in a cell
+.sub, .explain {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--transparent-fg);
+  margin-top: 0.15rem;
+}
+
+.explain {
+  max-width: 560px;
+}
+
+// a header label or term that has a tooltip
+.help {
+  cursor: help;
+  border-bottom: 1px dotted var(--transparent-fg);
+}
+
+.overdue {
+  color: var(--info) !important;
+}
+
+// bill status pills: rounded, unlike the square house health badge, so the two never read alike
+.bill-status {
+  border-radius: 1em;
+  border: 1px solid transparent;
+  padding: 0.3em 0.7em;
+  cursor: help;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+// outstanding, held privately: gold outline
+.bill-status-active {
+  border-color: var(--title-fg);
+  color: var(--title-fg);
+  background-color: transparent;
+}
+
+// outstanding, on a house's loan book: dark gold fill
+.bill-status-discounted {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--fg);
+}
+
+// paid: neutral grey, closed
+.bill-status-retired {
+  background-color: var(--secondary);
+  border-color: var(--secondary);
+  color: var(--grey);
+}
+
+// unpaid, escrow claimed: the dark red the insolvent house badge uses
+.bill-status-defaulted {
+  background-color: #b02a00;
+  border-color: var(--red);
+  color: var(--fg);
+}
+
+.bill-status-disputed {
+  background-color: var(--info);
+  border-color: var(--info);
+  color: var(--active-bg);
+}
+
+.bill-status-unknown {
+  background-color: var(--secondary);
+  border-color: var(--grey);
+  color: var(--fg);
+}
+
+// an outpoint or txid with its link, wrapped on narrow screens
+.outpoint {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  .vout {
+    color: var(--transparent-fg);
+    white-space: nowrap;
+  }
+}
