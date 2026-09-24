@@ -410,6 +410,21 @@ export class StateService {
     // ($|\/)                                       network string must end or end with a slash
     let networkMatches: object = url.match(/^\/(?:[a-z]{2}(?:-[A-Z]{2})?\/)?(?:preview\/)?(testnet4?|signet|regtest)($|\/)/);
 
+    // FreeBank Explorer: app-routing.module.ts drops the route trees of networks that
+    // are not enabled, so the router sends such a URL to '/'. Do not switch into that
+    // network's mode on the way there; stay on mainnet (when mainnet is the root).
+    if (networkMatches && this.env.BASE_MODULE === 'mempool' && this.env.MAINNET_ENABLED && !this.env.ROOT_NETWORK) {
+      const networkEnabled = {
+        testnet: this.env.TESTNET_ENABLED,
+        testnet4: this.env.TESTNET4_ENABLED,
+        signet: this.env.SIGNET_ENABLED,
+        regtest: this.env.REGTEST_ENABLED,
+      };
+      if (!networkEnabled[networkMatches[1]]) {
+        networkMatches = null;
+      }
+    }
+
     if (!networkMatches && this.env.ROOT_NETWORK) {
       networkMatches = { 1: this.env.ROOT_NETWORK };
     }
