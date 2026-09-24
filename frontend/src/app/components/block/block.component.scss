@@ -321,19 +321,11 @@ h1 {
   }
 }
 
-// FreeBank: the "Produced by" row. mempool's tr { white-space: nowrap } would let a long unlisted tag widen the
-// table on a phone, so the cell wraps and the name is cut with an ellipsis.
+// FreeBank: the "Produced by" row. mempool's tr { white-space: nowrap } would let a long name widen the table past
+// its box on a phone, so the cell wraps, anywhere if it must (a percentage max-width does not bind in an auto table).
 .producer-cell {
   white-space: normal;
-}
-
-.producer {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
+  overflow-wrap: anywhere;
 }
 
 .producer.unlisted {
