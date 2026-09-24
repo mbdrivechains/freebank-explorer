@@ -17,6 +17,13 @@ mempool.space, liquid.network or GitHub:
   to `0.0.0.0`, publish the frontend port on `127.0.0.1` only, never publish 8999, and put a front nginx (rate
   limits, crawler blocks, `robots.txt`, real client IP headers) in front.
 - The script `init.sh` no longer downloads the GeoLite2 databases (only the Lightning pages use them).
+- `docker-compose.yml` builds these images (`fbx/mempool-frontend`, `fbx/mempool-backend`) from this repo and
+  never pulls `mempool/*` from Docker Hub. Run `./docker/init.sh` from the repo root first, then
+  `docker compose build` (Compose v2 with BuildKit). The frontend is built in English only.
+- `SOURCE_URL` (frontend): the public URL of this fork's source, shown as the AGPL "Source" link in the footer and
+  on /about. Empty by default, which shows the word without a link.
+- Do not deploy anything from `production/`. It is mempool.space's own operations tree (their servers, configs,
+  crontabs and install scripts) and has none of the FreeBank changes.
 
 The ${VAR:=default} pattern in `start.sh` and `entrypoint.sh` treats an empty value as unset, so to override a
 default, give a non-empty value.
