@@ -87,6 +87,10 @@ class AccelerationApi {
   }
 
   public async $updateAccelerations(): Promise<Record<string, Acceleration> | null> {
+    if (!config.MEMPOOL_SERVICES.ACCELERATIONS) {
+      // FreeBank: never poll the mempool.space accelerations API when accelerations are off
+      return this._accelerations;
+    }
     if (this.useWebsocket && this.websocketConnected) {
       return this._accelerations;
     }
