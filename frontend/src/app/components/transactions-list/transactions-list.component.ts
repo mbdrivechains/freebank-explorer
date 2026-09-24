@@ -15,7 +15,7 @@ import { OrdApiService } from '@app/services/ord-api.service';
 import { Inscription } from '@app/shared/ord/inscription.utils';
 import { Etching, Runestone } from '@app/shared/ord/rune.utils';
 import { ADDRESS_SIMILARITY_THRESHOLD, AddressMatch, AddressSimilarity, AddressType, AddressTypeInfo, checkedCompareAddressStrings, detectAddressType } from '@app/shared/address-utils';
-import { processInputSignatures, Sighash, SigInfo, SighashLabels, parseTaproot, getFreebankOutputLabels, isMostlyText } from '@app/shared/transaction.utils';
+import { processInputSignatures, Sighash, SigInfo, SighashLabels, parseTaproot, getFreebankOutputLabels, isMostlyText, CREDIT_TX_LABELS } from '@app/shared/transaction.utils';
 import { ActivatedRoute } from '@angular/router';
 import { SighashFlag } from '@app/shared/transaction.utils';
 
@@ -76,6 +76,7 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
   selectedSig: { txIndex: number, vindex: number, sig: SigInfo } | null = null;
   sigHighlights: { vin: boolean[], vout: boolean[] } = { vin: [], vout: [] };
   sighashLabels = SighashLabels;
+  creditTxLabels = CREDIT_TX_LABELS; // FreeBank: credit tx family badge by tx version
 
   signaturesPreference: SignaturesMode = null;
   signaturesOverride: SignaturesMode = null;
