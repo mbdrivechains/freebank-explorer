@@ -1,0 +1,13 @@
+<div class="container-xl credit-page">
+  <h1>Bills</h1>
+  <ng-container *ngIf="state$ | async as state">
+    <ul *ngIf="state.data">
+      <li *ngFor="let bill of state.data.bills">
+        <a [routerLink]="['/bill/' | relativeUrl, bill.id]">Bill {{ bill.id }}</a>:
+        <app-credit-amount [ecx]="bill.amount" [grams]="bill.amount_grams"></app-credit-amount>,
+        {{ bill | billStatus }}, due at block <app-credit-height [height]="bill.maturity_height" [tipHeight]="state.data.tip_height"></app-credit-height>
+      </li>
+    </ul>
+    <app-credit-raw-json [state]="state" errorText="Could not load the bills"></app-credit-raw-json>
+  </ng-container>
+</div>

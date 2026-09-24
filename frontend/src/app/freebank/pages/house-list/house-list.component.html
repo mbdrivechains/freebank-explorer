@@ -1,0 +1,11 @@
+<div class="container-xl credit-page">
+  <h1>Houses</h1>
+  <ng-container *ngIf="state$ | async as state">
+    <ul *ngIf="state.data">
+      <li *ngFor="let house of state.data.houses">
+        <a [routerLink]="['/house/' | relativeUrl, house.id]">House {{ house.id }} ({{ house.classid }})</a>&nbsp;<app-house-health-badge [house]="house" [tipHeight]="state.data.tip_height"></app-house-health-badge>
+      </li>
+    </ul>
+    <app-credit-raw-json [state]="state" errorText="Could not load the houses"></app-credit-raw-json>
+  </ng-container>
+</div>

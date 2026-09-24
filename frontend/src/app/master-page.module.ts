@@ -13,6 +13,7 @@ import { ServerStatusComponent } from '@components/server-health/server-status.c
 import { FaucetComponent } from '@components/faucet/faucet.component';
 import { SimpleProofWidgetComponent } from '@components/simpleproof-widget/simpleproof-widget.component';
 import { SimpleProofCuboWidgetComponent } from '@components/simpleproof-widget/simpleproof-cubo-widget.component';
+import { matchCreditPages } from '@app/freebank/credit-paths';
 
 const routes: Routes = [
   {
@@ -77,6 +78,13 @@ const routes: Routes = [
         component: StartComponent,
         data: { preload: true, networkSpecific: true },
         loadChildren: () => import('@components/block/block.module').then(m => m.BlockModule),
+      },
+      // FreeBank: the credit pages (/credit, /houses, /house/:id, /bills, /bill/:id, /pools,
+      // /pool/:id, /gold). canMatch runs before the lazy module loads, so other pages never fetch it.
+      {
+        path: '',
+        canMatch: [matchCreditPages],
+        loadChildren: () => import('@app/freebank/credit.module').then(m => m.CreditModule),
       },
     ],
   }

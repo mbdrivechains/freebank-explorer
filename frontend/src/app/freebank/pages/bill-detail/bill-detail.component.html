@@ -1,0 +1,6 @@
+<div class="container-xl credit-page">
+  <h1>Bill {{ billId }}</h1>
+  <ng-container *ngIf="state$ | async as state">
+    <app-credit-raw-json [state]="state" errorText="Could not load this bill"></app-credit-raw-json>
+  </ng-container>
+</div>

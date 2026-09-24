@@ -1,0 +1,5 @@
+<ng-container *ngIf="state">
+  <div class="spinner-border text-light" role="status" *ngIf="state.loading && !state.data"></div>
+  <app-http-error *ngIf="state.error" [error]="state.error">{{ errorText }}</app-http-error>
+  <pre class="credit-raw-json" *ngIf="showJson && state.data">{{ state.data | json }}</pre>
+</ng-container>

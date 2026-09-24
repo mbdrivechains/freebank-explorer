@@ -1,0 +1,13 @@
+<div class="container-xl credit-page">
+  <h1>Credit</h1>
+  <p>
+    <a [routerLink]="['/houses' | relativeUrl]">Houses</a> ·
+    <a [routerLink]="['/bills' | relativeUrl]">Bills</a> ·
+    <a [routerLink]="['/pools' | relativeUrl]">Pools</a> ·
+    <a [routerLink]="['/gold' | relativeUrl]">Gold fix</a>
+  </p>
+  <h2>Summary</h2>
+  <app-credit-raw-json [state]="summary$ | async" errorText="Could not load the credit summary"></app-credit-raw-json>
+  <h2>Recent activity</h2>
+  <app-credit-raw-json [state]="activity$ | async" errorText="Could not load recent credit activity"></app-credit-raw-json>
+</div>
