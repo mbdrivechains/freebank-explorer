@@ -12,14 +12,16 @@
       } @else {
         <ng-container i18n="shared.stale-block-title">Stale Block</ng-container>
       }
-      <span class="next-previous-blocks">
-        <a *ngIf="showNextBlocklink" class="nav-arrow next" [routerLink]="['/block/' | relativeUrl, nextBlockHeight]" (click)="navigateToNextBlock()" i18n-ngbTooltip="Next Block" ngbTooltip="Next Block" placement="bottom">
+      <!-- FreeBank: no arrows or /block/undefined link when the block could not be loaded (e.g. a height above the tip) -->
+      <span class="next-previous-blocks" *ngIf="!error">
+        <a *ngIf="showNextBlocklink && block" class="nav-arrow next" [routerLink]="['/block/' | relativeUrl, nextBlockHeight]" (click)="navigateToNextBlock()" i18n-ngbTooltip="Next Block" ngbTooltip="Next Block" placement="bottom">
           <fa-icon [icon]="['fas', 'angle-left']" [fixedWidth]="true"></fa-icon>
         </a>
-        <span *ngIf="!showNextBlocklink" placement="bottom" class="disable nav-arrow next">
+        <span *ngIf="!showNextBlocklink || !block" placement="bottom" class="disable nav-arrow next">
           <fa-icon [icon]="['fas', 'angle-left']" [fixedWidth]="true"></fa-icon>
         </span>
-        <a [routerLink]="['/block/' | relativeUrl, blockHash]" class="block-link">{{ blockHeight }}</a>
+        <a *ngIf="block?.id || blockHash; else blockHeightText" [routerLink]="['/block/' | relativeUrl, block?.id || blockHash]" class="block-link">{{ blockHeight }}</a>
+        <ng-template #blockHeightText><span class="block-link">{{ blockHeight }}</span></ng-template>
         <a *ngIf="showPreviousBlocklink && block" class="nav-arrow prev"  [routerLink]="['/block/' | relativeUrl, block.previousblockhash]" (click)="navigateToPreviousBlock()" i18n-ngbTooltip="Previous Block" ngbTooltip="Previous Block" placement="bottom">
           <fa-icon [icon]="['fas', 'angle-right']" [fixedWidth]="true"></fa-icon>
         </a>
@@ -152,7 +154,7 @@
         <tr>
           <td i18n="block.total-fees|Total fees in a block">Total fees</td>
           <td *ngIf="network !== 'liquid' && network !== 'liquidtestnet'; else liquidTotalFees">
-            <app-amount [satoshis]="block.extras.totalFees" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
+            <app-amount [satoshis]="block.extras.totalFees" digitsInfo="1.2-8" [noFiat]="true"></app-amount>
             <span class="fiat">
               <app-fiat [blockConversion]="blockConversion" [value]="block.extras.totalFees" digitsInfo="1.0-0"></app-fiat>
             </span>
@@ -180,9 +182,10 @@
           <td style="width: 75%;"><span class="skeleton-loader"></span></td>
         </tr>
       </ng-template>
-      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
+      <!-- FreeBank: no mining pools (blocks come from blind merged mining), so no Miner row without the mining dashboard -->
+      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet' && stateService.env.MINING_DASHBOARD">
         <td i18n="block.miner">Miner</td>
-        <td *ngIf="stateService.env.MINING_DASHBOARD">
+        <td>
           <a placement="bottom" [routerLink]="['/mining/pool' | relativeUrl, block.extras.pool.slug]" class="badge" style="color: #FFF;padding:0;">
             <span class="miner-name" *ngIf="block.extras.pool.minerNames?.length > 1 && block.extras.pool.minerNames[1] != ''">
               @if (block.extras.pool.minerNames[1].length > 16) {
@@ -194,12 +197,6 @@
             <img class="pool-logo" [src]="'/resources/mining-pools/' + block.extras.pool.slug + '.svg'" onError="this.src = '/resources/mining-pools/default.svg'" [alt]="'Logo of ' + block.extras.pool.name + ' mining pool'">
             {{ block.extras.pool.name }}
           </a>
-        </td>
-        <td *ngIf="!stateService.env.MINING_DASHBOARD && stateService.env.BASE_MODULE === 'mempool'">
-          <span placement="bottom" class="badge"
-            [class]="block.extras.pool.slug === 'unknown' ? 'badge-secondary' : 'badge-primary'">
-            {{ block.extras.pool.name }}
-        </span>
         </td>
       </tr>
     </ng-container>
@@ -216,7 +213,7 @@
       <tr>
         <td colspan="2"><span class="skeleton-loader"></span></td>
       </tr>
-      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
+      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet' && stateService.env.MINING_DASHBOARD">
         <td colspan="2"><span class="skeleton-loader"></span></td>
       </tr>
     </ng-template>
@@ -249,7 +246,7 @@
         @if (block?.stale && !showAudit) {
           <h3 class="block-subtitle" *ngIf="!isMobile">
             <ng-container i18n="block.stale-block">Stale Block</ng-container>
-            @if (block?.extras?.pool) {
+            @if (block?.extras?.pool && stateService.env.MINING_DASHBOARD) {
               <img class="pool-logo large" [src]="'/resources/mining-pools/' + block?.extras?.pool.slug + '.svg'" onError="this.src = '/resources/mining-pools/default.svg'" [alt]="'Logo of ' + block?.extras?.pool.name + ' mining pool'">
               <span class="pool-name">{{ block?.extras?.pool.name }}</span>
             }
@@ -283,7 +280,7 @@
               <ng-container i18n="block.winning-block">Stale Block</ng-container>
             } @else {
               <ng-container i18n="block.stale-block">Winning Block</ng-container>
-              @if (canonicalBlock?.extras?.pool) {
+              @if (canonicalBlock?.extras?.pool && stateService.env.MINING_DASHBOARD) {
                 <img class="pool-logo large" [src]="'/resources/mining-pools/' + canonicalBlock?.extras?.pool.slug + '.svg'" onError="this.src = '/resources/mining-pools/default.svg'" [alt]="'Logo of ' + canonicalBlock?.extras?.pool.name + ' mining pool'">
                 <span class="pool-name">{{ canonicalBlock?.extras?.pool.name }}</span>
               }

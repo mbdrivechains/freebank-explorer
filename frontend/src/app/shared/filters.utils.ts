@@ -77,6 +77,10 @@ export function toFilters(flags: bigint): Filter[] {
   return filters;
 }
 
+// FreeBank: the node has no Taproot (a Core 0.16-era chassis), so the Taproot, annex and
+// sighash_default filters are not offered; their TransactionFlags bits stay reserved.
+// 'inscription' stays defined because the dashboards' 'Data' goggles preset still names it
+// (the filter bar looks every active key up here), but it is no longer offered in FilterGroups.
 export const TransactionFilters: { [key: string]: Filter } = {
     /* features */
     rbf: { key: 'rbf', label: 'RBF enabled', flag: TransactionFlags.rbf, toggle: 'rbf', important: true, tooltip: true, txPage: false, },
@@ -92,7 +96,6 @@ export const TransactionFilters: { [key: string]: Filter } = {
     p2sh: { key: 'p2sh', label: 'P2SH', flag: TransactionFlags.p2sh, important: true, tooltip: false, },
     p2wpkh: { key: 'p2wpkh', label: 'P2WPKH', flag: TransactionFlags.p2wpkh, important: true, tooltip: false, },
     p2wsh: { key: 'p2wsh', label: 'P2WSH', flag: TransactionFlags.p2wsh, important: true, tooltip: false, },
-    p2tr: { key: 'p2tr', label: 'Taproot', flag: TransactionFlags.p2tr, important: true, tooltip: false, },
     /* behavior */
     cpfp_parent: { key: 'cpfp_parent', label: 'Paid for by child', flag: TransactionFlags.cpfp_parent, important: true, tooltip: true, txPage: false, },
     cpfp_child: { key: 'cpfp_child', label: 'Pays for parent', flag: TransactionFlags.cpfp_child, important: true, tooltip: true, txPage: false, },
@@ -103,7 +106,6 @@ export const TransactionFilters: { [key: string]: Filter } = {
     fake_pubkey: { key: 'fake_pubkey', label: 'Fake pubkey', flag: TransactionFlags.fake_pubkey, tooltip: true, txPage: true, },
     inscription: { key: 'inscription', label: $localize`:@@99264845cdffed75db1a32df6e66febbdf1d99f1:Inscription`, flag: TransactionFlags.inscription, important: true, tooltip: true, txPage: true, },
     fake_scripthash: { key: 'fake_scripthash', label: 'Fake scripthash', flag: TransactionFlags.fake_scripthash, tooltip: true, txPage: true,},
-    annex: { key: 'annex', label: 'Annex', flag: TransactionFlags.annex, important: false, tooltip: true, txPage: true,},
     /* heuristics */
     coinjoin: { key: 'coinjoin', label: $localize`Coinjoin`, flag: TransactionFlags.coinjoin, important: true, tooltip: true, txPage: true, },
     consolidation: { key: 'consolidation', label: $localize`Consolidation`, flag: TransactionFlags.consolidation, tooltip: true, txPage: true, },
@@ -112,15 +114,14 @@ export const TransactionFilters: { [key: string]: Filter } = {
     sighash_all: { key: 'sighash_all', label: 'sighash_all', flag: TransactionFlags.sighash_all },
     sighash_none: { key: 'sighash_none', label: 'sighash_none', flag: TransactionFlags.sighash_none, tooltip: true },
     sighash_single: { key: 'sighash_single', label: 'sighash_single', flag: TransactionFlags.sighash_single, tooltip: true },
-    sighash_default: { key: 'sighash_default', label: 'sighash_default', flag: TransactionFlags.sighash_default },
     sighash_acp: { key: 'sighash_acp', label: 'sighash_anyonecanpay', flag: TransactionFlags.sighash_acp, tooltip: true },
 };
 
 export const FilterGroups: { label: string, filters: Filter[]}[] = [
   { label: $localize`:@@885666551418fd59011ceb09d5c481095940193b:Features`, filters: ['rbf', 'no_rbf', 'v1', 'v2', 'v3', 'nonstandard'] },
-  { label: $localize`Address Types`, filters: ['p2pk', 'p2ms', 'p2pkh', 'p2sh', 'p2wpkh', 'p2wsh', 'p2tr'] },
+  { label: $localize`Address Types`, filters: ['p2pk', 'p2ms', 'p2pkh', 'p2sh', 'p2wpkh', 'p2wsh'] },
   { label: $localize`Behavior`, filters: ['cpfp_parent', 'cpfp_child', 'replacement', 'acceleration'] },
-  { label: $localize`Data`, filters: ['op_return', 'fake_pubkey', 'fake_scripthash', 'inscription', 'annex'] },
+  { label: $localize`Data`, filters: ['op_return', 'fake_pubkey', 'fake_scripthash'] },
   { label: $localize`Heuristics`, filters: ['coinjoin', 'consolidation', 'batch_payout'] },
-  { label: $localize`Sighash Flags`, filters: ['sighash_all', 'sighash_none', 'sighash_single', 'sighash_default', 'sighash_acp'] },
+  { label: $localize`Sighash Flags`, filters: ['sighash_all', 'sighash_none', 'sighash_single', 'sighash_acp'] },
 ].map(group => ({ label: group.label, filters: group.filters.map(filter => TransactionFilters[filter] || null).filter(f => f != null) }));

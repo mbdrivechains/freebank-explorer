@@ -6,6 +6,12 @@ import { AddressPreviewComponent } from '@components/address/address-preview.com
 import { PoolPreviewComponent } from '@components/pool/pool-preview.component';
 import { MasterPagePreviewComponent } from '@components/master-page-preview/master-page-preview.component';
 
+const browserWindow = window || {};
+// @ts-ignore
+const browserWindowEnv = browserWindow.__env || {};
+// FreeBank Explorer: no mining pools, so no pool preview unless MINING_DASHBOARD is on.
+const miningDashboard = !!browserWindowEnv.MINING_DASHBOARD;
+
 const routes: Routes = [
   {
     path: '',
@@ -25,10 +31,12 @@ const routes: Routes = [
         children: [],
         component: TransactionPreviewComponent
       },
-      {
-        path: 'mining/pool/:slug',
-        component: PoolPreviewComponent
-      },
+      ...(miningDashboard ? [
+        {
+          path: 'mining/pool/:slug',
+          component: PoolPreviewComponent
+        },
+      ] : []),
     ],
   }
 ];

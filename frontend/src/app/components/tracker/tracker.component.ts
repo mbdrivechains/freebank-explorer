@@ -407,6 +407,11 @@ export class TrackerComponent implements OnInit, OnDestroy {
             accelerationPositions: this.accelerationPositions,
           });
           this.txInBlockIndex = this.mempoolPosition.block;
+          // FreeBank: without a difficulty adjustment the ETA$ pipeline (which sets the stage)
+          // is never shown, so set the stage from the projected mempool block here
+          if (!this.hasEta && !this.replaced) {
+            this.trackerStage = this.stageFromBlocks(this.mempoolPosition.block);
+          }
 
           if (txPosition.cpfp !== undefined) {
             this.setCpfpInfo(txPosition.cpfp);
@@ -655,12 +660,10 @@ export class TrackerComponent implements OnInit, OnDestroy {
       tap(eta => {
         if (this.replaced) {
           this.trackerStage = 'replaced';
-        } else if (eta?.blocks === 0) {
-          this.trackerStage = 'next';
-        } else if (eta?.blocks < 3){
-          this.trackerStage = 'soon';
         } else {
-          this.trackerStage = 'pending';
+          // FreeBank: with no difficulty adjustment calculateETA returns null, so take the
+          // stage from the tx's projected mempool block instead
+          this.trackerStage = this.stageFromBlocks(eta ? eta.blocks : this.mempoolPosition?.block);
         }
       })
     );
@@ -796,6 +799,16 @@ export class TrackerComponent implements OnInit, OnDestroy {
     } else {
       this.eligibleForAcceleration = false;
     }
+  }
+
+  // 0 blocks away = next block, fewer than 3 = soon, otherwise (or unknown) pending
+  stageFromBlocks(blocks: number | null | undefined): TrackerStage {
+    if (blocks === 0) {
+      return 'next';
+    } else if (blocks != null && blocks < 3) {
+      return 'soon';
+    }
+    return 'pending';
   }
 
   // FreeBank: no difficulty adjustment means no average block time, so no ETA field

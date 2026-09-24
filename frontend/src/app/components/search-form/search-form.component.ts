@@ -332,6 +332,10 @@ export class SearchFormComponent implements OnInit {
   }
 
   getMiningPools(): Observable<any> {
+    // FreeBank: no mining pools to search (and no pool pages) without the mining dashboard
+    if (!this.stateService.env.MINING_DASHBOARD) {
+      return of([]);
+    }
     return this.pools.length ? of(this.pools) : combineLatest([
       this.apiService.listPools$(undefined),
       this.apiService.listPools$('1y')
