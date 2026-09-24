@@ -49,6 +49,9 @@ import mempoolBlocks from './api/mempool-blocks';
 import walletApi from './api/services/wallets';
 import stratumApi from './api/services/stratum';
 import { handleError } from './utils/api';
+import freebankRoutes from './api/freebank/freebank.routes';
+import freebankApi from './api/freebank/freebank-api';
+import creditActivity from './api/freebank/credit-activity';
 
 class Server {
   private wss: WebSocket.Server | undefined;
@@ -207,6 +210,8 @@ class Server {
     await chainTips.updateOrphanedBlocks();
 
     this.setUpHttpApiRoutes();
+    // FreeBank: backfill the credit-activity index in the background (/api/v1/freebank/activity)
+    creditActivity.kick();
 
     if (config.MEMPOOL.ENABLED) {
       void this.runMainUpdateLoop();
@@ -333,6 +338,11 @@ class Server {
         }
       });
     }
+    // FreeBank: a new block ends the credit API's per-tip cache and extends the activity index
+    blocks.setNewBlockCallback(() => {
+      freebankApi.onNewBlock();
+      creditActivity.kick();
+    });
     websocketHandler.setupConnectionHandling();
     if (config.MEMPOOL.ENABLED) {
       statistics.setNewStatisticsEntryCallback(websocketHandler.handleNewStatistic.bind(websocketHandler));
@@ -384,6 +394,7 @@ class Server {
     if (config.WALLETS.ENABLED) {
       servicesRoutes.initRoutes(this.app);
     }
+    freebankRoutes.initRoutes(this.app); // FreeBank: credit pages API, /api/v1/freebank/*
     // FreeBank: no aboutRoutes - they proxy donations/contributors/translators/sponsors from mempool.space
   }
 
