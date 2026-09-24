@@ -18,7 +18,11 @@
     </button>
   </ng-template>
   <ng-template [ngIf]="results.txId && !results.liquidAsset.length">
-    <div class="card-title" i18n="search.bitcoin-transaction">{{ networkName }} Transaction</div>
+    @if (results.blockOrTx) {
+      <div class="card-title" i18n="search.block-or-transaction">{{ networkName }} Block or Transaction</div>
+    } @else {
+      <div class="card-title" i18n="search.bitcoin-transaction">{{ networkName }} Transaction</div>
+    }
     <button (click)="clickItem(0)" [class.active]="0 === activeIdx" type="button" role="option" class="dropdown-item">
       <ng-container *ngTemplateOutlet="goTo; context: { $implicit: results.searchText | shortenString : 13 }"></ng-container>
     </button>

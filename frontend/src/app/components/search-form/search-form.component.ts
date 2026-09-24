@@ -195,6 +195,7 @@ export class SearchFormComponent implements OnInit {
           const matchesUnixTimestamp = this.regexUnixTimestamp.test(searchText) && parseInt(searchText) <= Math.floor(Date.now() / 1000) && isNetworkBitcoin;
           const matchesTxId = this.regexTransaction.test(searchText) && !this.regexBlockhash.test(searchText);
           const matchesBlockHash = this.regexBlockhash.test(searchText);
+          const matchesBlockOrTx = matchesTxId && !searchText.includes(':'); // no leading zeros to tell a FreeBank block hash from a txid
           const matchesAddress = !matchesTxId && this.regexAddress.test(searchText);
           const publicKey = matchesAddress && searchText.startsWith('0');
           const otherNetworks = findOtherNetworks(searchText, this.network as any || 'mainnet', this.env);
@@ -216,6 +217,7 @@ export class SearchFormComponent implements OnInit {
             dateTime: matchesDateTime,
             unixTimestamp: matchesUnixTimestamp,
             txId: matchesTxId,
+            blockOrTx: matchesBlockOrTx,
             blockHash: matchesBlockHash,
             address: matchesAddress,
             publicKey: publicKey,
@@ -281,15 +283,13 @@ export class SearchFormComponent implements OnInit {
           this.electrsApiService.getAsset$(matches[0])
             .subscribe(
               () => { this.navigate('/assets/asset/', matches[0]); },
-              () => {
-                this.electrsApiService.getBlock$(matches[0])
-                  .subscribe(
-                    (block) => { this.navigate('/block/', matches[0], { state: { data: { block } } }); },
-                    () => { this.navigate('/tx/', matches[0]); });
-              }
+              () => { this.navigateBlockOrTx(matches[0]); }
             );
-        } else {
+        } else if (matches[0].includes(':')) { // txid:vout
           this.navigate('/tx/', matches[0]);
+        } else {
+          // FreeBank block hashes have no proof-of-work leading zeros, so any 64-hex string may be a block
+          this.navigateBlockOrTx(matches[0]);
         }
       } else if (this.regexDate.test(searchText) || this.regexUnixTimestamp.test(searchText)) {
         let timestamp: number;
@@ -309,6 +309,14 @@ export class SearchFormComponent implements OnInit {
     }
   }
 
+
+  // Ask the API for a block with this hash first, and fall back to the transaction
+  navigateBlockOrTx(hash: string): void {
+    this.electrsApiService.getBlock$(hash)
+      .subscribe(
+        (block) => { this.navigate('/block/', hash, { state: { data: { block } } }); },
+        () => { this.navigate('/tx/', hash); });
+  }
 
   navigate(url: string, searchText: string, extras?: any, swapNetwork?: string) {
     if (needBaseModuleChange(this.env.BASE_MODULE as 'liquid' | 'mempool', swapNetwork as Network)) {

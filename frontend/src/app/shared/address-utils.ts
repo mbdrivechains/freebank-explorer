@@ -22,12 +22,12 @@ export type AddressType = 'fee'
   | 'unknown'
 
 const ADDRESS_PREFIXES = {
-  mainnet: {
+  mainnet: { // FreeBank mainnet
     base58: {
-      pubkey: ['1'],
-      script: ['3'],
+      pubkey: ['X'],
+      script: ['s'],
     },
-    bech32: 'bc1',
+    bech32: 'fbk1',
   },
   testnet: {
     base58: {
@@ -50,12 +50,12 @@ const ADDRESS_PREFIXES = {
     },
     bech32: 'tb1',
   },
-  regtest: {
+  regtest: { // FreeBank regtest
     base58: {
-      pubkey: ['m', 'n'],
-      script: '2',
+      pubkey: ['X'],
+      script: ['s'],
     },
-    bech32: 'bcrt1',
+    bech32: 'fbkrt1',
   },
   liquid: {
     base58: {
