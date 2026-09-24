@@ -1,6 +1,8 @@
 import axios, { AxiosResponse } from 'axios';
 import cluster from 'cluster';
 import * as fs from 'fs';
+import * as http from 'http';
+import * as https from 'https';
 import * as path from 'path';
 import config from '../../config';
 import logger from '../../logger';
@@ -9,6 +11,14 @@ import freebankApi from './freebank-api';
 import { parseBmmBlock } from './bmm-parser';
 import { FreebankParseError } from './freebank-tx-parser';
 import { BmmBlock, BmmList, BmmPool, BmmPoolShare, BmmStatus, BmmSummary } from './freebank.interfaces';
+
+// FreeBank: our own agents for the eCash explorer. With axios's default ones Node tried only the first
+// address DNS gave, the explorer's IPv6 one, and timed out on hosts without IPv6 routing (the dev box
+// and freebanktest); autoSelectFamily tries IPv6 and IPv4 in turn. keepAlive saves a TLS handshake
+// per request.
+const AGENT_OPTIONS = { keepAlive: true, maxSockets: 1, autoSelectFamily: true, autoSelectFamilyAttemptTimeout: 500 };
+const HTTP_AGENT = new http.Agent(AGENT_OPTIONS);
+const HTTPS_AGENT = new https.Agent(AGENT_OPTIONS);
 
 // FreeBank: the data behind the BMM view (/api/v1/freebank/bmm*): for each FreeBank block,
 // the eCash block that carried it, that block's pool, and the bid paid for it.
@@ -807,6 +817,8 @@ class BmmIndex {
     try {
       res = await axios.get(this.settings.api + pathname, {
         headers: { 'User-Agent': config.MEMPOOL.USER_AGENT },
+        httpAgent: HTTP_AGENT,
+        httpsAgent: HTTPS_AGENT,
         timeout: REQUEST_TIMEOUT_MS, // only a socket that goes quiet
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), // the whole request
         responseType: kind === 'raw' ? 'arraybuffer' : kind,
@@ -818,7 +830,8 @@ class BmmIndex {
       if (/maxContentLength/.test(errMsg(e))) {
         throw new Unreadable(`${pathname}: ${errMsg(e)}`);
       }
-      const why = (e as any)?.code === 'ERR_CANCELED' ? `no full answer in ${REQUEST_TIMEOUT_MS / 1000} s` : errMsg(e);
+      const code = (e as any)?.code;
+      const why = code === 'ERR_CANCELED' ? `no full answer in ${REQUEST_TIMEOUT_MS / 1000} s` : (errMsg(e) || code || 'no answer');
       throw this.pause(`${pathname}: ${why}`); // no answer: timeout, refused, reset...
     }
     this.lastRequestEnd = Date.now();
