@@ -129,10 +129,19 @@
     </svg>
   </ng-container>
   <ng-container *ngSwitchCase="'mempoolSpace'">
-    <!-- FreeBank Explorer text wordmark (no logo file exists). Case name kept so every usage switches at once. -->
-    <svg [class]="class" [style]="style" [attr.width]="width" [attr.height]="height" [attr.viewBox]="viewBox || '0 0 500 126'" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FreeBank Explorer">
-      <text x="0" y="68" textLength="392" lengthAdjust="spacingAndGlyphs" fill="#d8b45a" font-family="Georgia, 'Times New Roman', 'Liberation Serif', 'DejaVu Serif', serif" font-size="84" font-weight="700">FreeBank</text>
-      <text x="3" y="119" textLength="386" lengthAdjust="spacing" fill="#e8c877" font-family="-apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif" font-size="40" font-weight="600" letter-spacing="8">EXPLORER</text>
+    <!-- FreeBank logo: the ☉ sun mark (mining-pools-pr/mining-pool-logos/freebank.svg, the mark the eCash explorer
+         shows for FreeBank, in its gold) and the name "FreeBank" (operator, 2026-09-25). Case name kept so every usage
+         switches at once. -->
+    <svg [class]="class" [style]="style" [attr.width]="width" [attr.height]="height" [attr.viewBox]="viewBox || '0 0 500 126'" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FreeBank">
+      <defs>
+        <linearGradient [id]="'fbSunGold' + randomId" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffd76a"/>
+          <stop offset="1" stop-color="#d99a1f"/>
+        </linearGradient>
+      </defs>
+      <circle cx="56" cy="63" r="44" [attr.stroke]="'url(#fbSunGold' + randomId + ')'" stroke-width="11.5"/>
+      <circle cx="56" cy="63" r="14.5" [attr.fill]="'url(#fbSunGold' + randomId + ')'"/>
+      <text x="126" y="97" textLength="370" lengthAdjust="spacingAndGlyphs" fill="#d8b45a" font-family="Georgia, 'Times New Roman', 'Liberation Serif', 'DejaVu Serif', serif" font-size="96" font-weight="700">FreeBank</text>
     </svg>
   </ng-container>
   <ng-container *ngSwitchCase="'mempoolSquare'">
