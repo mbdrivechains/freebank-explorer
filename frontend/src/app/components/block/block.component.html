@@ -180,9 +180,10 @@
           <td style="width: 75%;"><span class="skeleton-loader"></span></td>
         </tr>
       </ng-template>
-      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
+      <!-- FreeBank: no mining pools (blocks come from blind merged mining), so no Miner row without the mining dashboard -->
+      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet' && stateService.env.MINING_DASHBOARD">
         <td i18n="block.miner">Miner</td>
-        <td *ngIf="stateService.env.MINING_DASHBOARD">
+        <td>
           <a placement="bottom" [routerLink]="['/mining/pool' | relativeUrl, block.extras.pool.slug]" class="badge" style="color: #FFF;padding:0;">
             <span class="miner-name" *ngIf="block.extras.pool.minerNames?.length > 1 && block.extras.pool.minerNames[1] != ''">
               @if (block.extras.pool.minerNames[1].length > 16) {
@@ -194,12 +195,6 @@
             <img class="pool-logo" [src]="'/resources/mining-pools/' + block.extras.pool.slug + '.svg'" onError="this.src = '/resources/mining-pools/default.svg'" [alt]="'Logo of ' + block.extras.pool.name + ' mining pool'">
             {{ block.extras.pool.name }}
           </a>
-        </td>
-        <td *ngIf="!stateService.env.MINING_DASHBOARD && stateService.env.BASE_MODULE === 'mempool'">
-          <span placement="bottom" class="badge"
-            [class]="block.extras.pool.slug === 'unknown' ? 'badge-secondary' : 'badge-primary'">
-            {{ block.extras.pool.name }}
-        </span>
         </td>
       </tr>
     </ng-container>
@@ -216,7 +211,7 @@
       <tr>
         <td colspan="2"><span class="skeleton-loader"></span></td>
       </tr>
-      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
+      <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet' && stateService.env.MINING_DASHBOARD">
         <td colspan="2"><span class="skeleton-loader"></span></td>
       </tr>
     </ng-template>
@@ -249,7 +244,7 @@
         @if (block?.stale && !showAudit) {
           <h3 class="block-subtitle" *ngIf="!isMobile">
             <ng-container i18n="block.stale-block">Stale Block</ng-container>
-            @if (block?.extras?.pool) {
+            @if (block?.extras?.pool && stateService.env.MINING_DASHBOARD) {
               <img class="pool-logo large" [src]="'/resources/mining-pools/' + block?.extras?.pool.slug + '.svg'" onError="this.src = '/resources/mining-pools/default.svg'" [alt]="'Logo of ' + block?.extras?.pool.name + ' mining pool'">
               <span class="pool-name">{{ block?.extras?.pool.name }}</span>
             }
@@ -283,7 +278,7 @@
               <ng-container i18n="block.winning-block">Stale Block</ng-container>
             } @else {
               <ng-container i18n="block.stale-block">Winning Block</ng-container>
-              @if (canonicalBlock?.extras?.pool) {
+              @if (canonicalBlock?.extras?.pool && stateService.env.MINING_DASHBOARD) {
                 <img class="pool-logo large" [src]="'/resources/mining-pools/' + canonicalBlock?.extras?.pool.slug + '.svg'" onError="this.src = '/resources/mining-pools/default.svg'" [alt]="'Logo of ' + canonicalBlock?.extras?.pool.name + ' mining pool'">
                 <span class="pool-name">{{ canonicalBlock?.extras?.pool.name }}</span>
               }

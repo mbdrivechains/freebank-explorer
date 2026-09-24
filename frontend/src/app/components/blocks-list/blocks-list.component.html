@@ -13,7 +13,7 @@
     <table class="table table-borderless">
       <thead>
         <th class="height text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}" i18n="latest-blocks.height">Height</th>
-        <th *ngIf="isMempoolModule" class="pool text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}" i18n="mining.pool-name"
+        <th *ngIf="isMempoolModule && stateService.env.MINING_DASHBOARD" class="pool text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}" i18n="mining.pool-name"
           i18n-ngbTooltip="mining.pool-name" ngbTooltip="Pool" placement="bottom" #miningpool [disableTooltip]="!isEllipsisActive(miningpool)">Pool</th>
         <th class="timestamp" i18n="latest-blocks.timestamp" *ngIf="!widget" [class]="isMempoolModule ? '' : 'legacy'">Timestamp</th>
         <th *ngIf="auditAvailable" class="health text-right" i18n="latest-blocks.health" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"
@@ -32,7 +32,7 @@
           <td class="height text-left" [class]="widget ? 'widget' : ''">
             <a [routerLink]="['/block' | relativeUrl, block.id]" [state]="{ data: { block: block } }">{{ block.height }}</a>
           </td>
-          <td  *ngIf="isMempoolModule" class="pool text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
+          <td  *ngIf="isMempoolModule && stateService.env.MINING_DASHBOARD" class="pool text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
             <div *ngIf="indexingAvailable" class="tooltip-custom">
               <a class="clear-link" [routerLink]="['/mining/pool' | relativeUrl, block.extras.pool.slug]">
                 <img width="22" height="22" src="{{ block.extras.pool['logo'] }}"
@@ -91,7 +91,7 @@
             <td class="height text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
               <span class="skeleton-loader" style="max-width: 75px"></span>
             </td>
-            <td *ngIf="isMempoolModule" class="pool text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
+            <td *ngIf="isMempoolModule && stateService.env.MINING_DASHBOARD" class="pool text-left" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
               <span class="skeleton-loader" style="max-width: 150px"></span>
             </td>
             <td class="timestamp" *ngIf="!widget" [class]="isMempoolModule ? '' : 'legacy'">
