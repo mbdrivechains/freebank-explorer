@@ -205,6 +205,12 @@ export class Common {
    * For now, just pull out individual rules into versioned functions where necessary.
    */
   static isNonStandard(tx: TransactionExtended, height?: number): boolean {
+    // FreeBank: credit txs (v11-v17) carry custody outputs that the credit consensus rules
+    // validate; Bitcoin's standardness rules don't describe them, so never flag them
+    if (this.isCreditTx(tx)) {
+      return false;
+    }
+
     // version
     if (this.isNonStandardVersion(tx, height)) {
       return true;
@@ -293,6 +299,11 @@ export class Common {
     let opreturnCount = 0;
     let opreturnBytes = 0;
     for (const vout of tx.vout) {
+      // FreeBank: withdrawal and refund-request outputs are protocol data the node validates
+      // (freebankd relays nonstandard txs), so they don't make the tx non-standard
+      if (this.isFreebankRequestOutput(vout.scriptpubkey)) {
+        continue;
+      }
       // scriptpubkey
       if (['nonstandard', 'provably_unspendable', 'empty'].includes(vout.scriptpubkey_type)) {
         // (non-standard output type)
@@ -372,28 +383,27 @@ export class Common {
 
   // Individual versioned standardness rules
 
-  static V3_STANDARDNESS_ACTIVATION_HEIGHT = {
-    'testnet4': 42_000,
-    'testnet': 2_900_000,
-    'signet': 211_000,
-    'regtest': 0,
-    '': 863_500,
-  };
+  // FreeBank: version 3 is the default tx version and standard from genesis (no Bitcoin
+  // activation height); freebankd's policy accepts versions 1 to 17 (MAX_STANDARD_VERSION)
   static isNonStandardVersion(tx: TransactionExtended, height?: number): boolean {
-    let TX_MAX_STANDARD_VERSION = 3;
-    if (
-      height != null
-      && this.V3_STANDARDNESS_ACTIVATION_HEIGHT[config.MEMPOOL.NETWORK]
-      && height <= this.V3_STANDARDNESS_ACTIVATION_HEIGHT[config.MEMPOOL.NETWORK]
-    ) {
-      // V3 transactions were non-standard to spend before v28.x (scheduled for 2024/09/30 https://github.com/bitcoin/bitcoin/issues/29891)
-      TX_MAX_STANDARD_VERSION = 2;
-    }
-
-    if (tx.version > TX_MAX_STANDARD_VERSION) {
+    const TX_MAX_STANDARD_VERSION = 17;
+    if (tx.version > TX_MAX_STANDARD_VERSION || tx.version < 1) {
       return true;
     }
     return false;
+  }
+
+  // FreeBank credit tx versions: 11 bill, 12 house, 13 note, 14 term deposit, 15 pool,
+  // 16 settlement, 17 oracle (v10, BitAsset create, is retired and rejected by consensus)
+  static isCreditTx(tx: { version: number }): boolean {
+    return tx.version >= 11 && tx.version <= 17;
+  }
+
+  // FreeBank: OP_RETURN + raw tag outputs of ordinary txs: a withdrawal object (acdcf66f 'W',
+  // sidechain.cpp SidechainObj::GetScript) or a withdrawal refund request (fcd2e546,
+  // validation.cpp GenerateWithdrawalRefundRequest); see frontend getFreebankOutputLabel
+  static isFreebankRequestOutput(scriptpubkey: string): boolean {
+    return !!scriptpubkey && (scriptpubkey.startsWith('6aacdcf66f57') || scriptpubkey.startsWith('6afcd2e546'));
   }
 
   static ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {
@@ -1043,15 +1053,17 @@ export class Common {
     const sortedTxs = nonCoinbaseTransactions.map(tx => { return { txid: tx.txid, weight: tx.weight, rate: tx.effectiveFeePerVsize || ((tx.fee || 0) / (tx.weight / 4)) }; }).sort((a, b) => a.rate - b.rate);
     const totalWeight = nonCoinbaseTransactions.reduce((acc, tx) => acc + tx.weight, 0);
 
-    // include any unused space
-    let weightCount = config.MEMPOOL.BLOCK_WEIGHT_UNITS - totalWeight;
+    // FreeBank: measure the median over the block's actual transactions (weight-weighted, like
+    // getblockstats' feerate_percentiles), not over a notional full block with the unused space
+    // counted as zero fee, which read ~0 sat/vB on nearly empty BMM blocks
+    let weightCount = 0;
     let medianFee = 0;
     let medianWeight = 0;
 
-    // calculate the "medianFee" as the average fee rate of the middle 0.25% weight units of the conceptual block
-    const halfWidth = config.MEMPOOL.BLOCK_WEIGHT_UNITS / 800;
-    const leftBound = Math.floor((config.MEMPOOL.BLOCK_WEIGHT_UNITS / 2) - halfWidth);
-    const rightBound = Math.ceil((config.MEMPOOL.BLOCK_WEIGHT_UNITS / 2) + halfWidth);
+    // calculate the "medianFee" as the average fee rate of the middle 0.25% weight units of the block's transactions
+    const halfWidth = totalWeight / 800;
+    const leftBound = Math.floor((totalWeight / 2) - halfWidth);
+    const rightBound = Math.ceil((totalWeight / 2) + halfWidth);
     for (let i = 0; i < sortedTxs.length && weightCount < rightBound; i++) {
       const left = weightCount;
       const right = weightCount + sortedTxs[i].weight;

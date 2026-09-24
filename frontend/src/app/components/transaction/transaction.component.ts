@@ -34,7 +34,6 @@ import { BlockExtended, CpfpInfo, RbfTree, MempoolPosition, DifficultyAdjustment
 import { LiquidUnblinding } from '@components/transaction/liquid-ublinding';
 import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pipe';
 import { PriceService } from '@app/services/price.service';
-import { isFeatureActive } from '@app/bitcoin.utils';
 import { ServicesApiServices } from '@app/services/services-api.service';
 import { EnterpriseService } from '@app/services/enterprise.service';
 import { ZONE_SERVICE } from '@app/injection-tokens';
@@ -992,9 +991,10 @@ export class TransactionComponent implements OnInit, AfterViewInit, OnDestroy {
 
   setFeatures(): void {
     if (this.tx) {
-      this.segwitEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'segwit');
-      this.taprootEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'taproot');
-      this.rbfEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'rbf');
+      // FreeBank: SegWit and opt-in RBF from genesis (no Bitcoin activation heights), no Taproot
+      this.segwitEnabled = true;
+      this.taprootEnabled = false;
+      this.rbfEnabled = true;
       const txHeight = this.tx.status?.block_height || (this.stateService.latestBlockHeight >= 0 ? this.stateService.latestBlockHeight + 1 : null);
       this.tx.flags = getTransactionFlags(this.tx, null, null, txHeight, this.stateService.network);
       this.filters = this.tx.flags ? toFilters(this.tx.flags).filter(f => f.txPage) : [];

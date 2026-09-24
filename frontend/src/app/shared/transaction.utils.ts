@@ -471,6 +471,12 @@ function isDustOutput(value: number, scriptpubkey: string): boolean {
  * For now, just pull out individual rules into versioned functions where necessary.
  */
 export function isNonStandard(tx: Transaction, height?: number, network?: string): boolean {
+  // FreeBank: credit txs (v11-v17) carry custody outputs that the credit consensus rules
+  // validate; Bitcoin's standardness rules don't describe them, so never flag them
+  if (getCreditTxLabel(tx)) {
+    return false;
+  }
+
   // version
   if (isNonStandardVersion(tx, height, network)) {
     return true;
@@ -558,6 +564,11 @@ export function isNonStandard(tx: Transaction, height?: number, network?: string
   let opreturnCount = 0;
   let opreturnBytes = 0;
   for (const vout of tx.vout) {
+    // FreeBank: withdrawal and refund-request outputs are protocol data the node validates
+    // (freebankd relays nonstandard txs), so they don't make the tx non-standard
+    if (getFreebankOutputLabel(vout.scriptpubkey, false)) {
+      continue;
+    }
     // scriptpubkey
     if (['nonstandard', 'provably_unspendable', 'empty'].includes(vout.scriptpubkey_type)) {
       // (non-standard output type)
@@ -603,28 +614,65 @@ export function isNonStandard(tx: Transaction, height?: number, network?: string
 
 // Individual versioned standardness rules
 
-const V3_STANDARDNESS_ACTIVATION_HEIGHT = {
-  'testnet4': 42_000,
-  'testnet': 2_900_000,
-  'signet': 211_000,
-  '': 863_500,
-};
+// FreeBank: version 3 is the default tx version and standard from genesis (no Bitcoin
+// activation height); freebankd's policy accepts versions 1 to 17 (MAX_STANDARD_VERSION)
 function isNonStandardVersion(tx: Transaction, height?: number, network?: string): boolean {
-  let TX_MAX_STANDARD_VERSION = 3;
-  if (
-    height != null
-    && network != null
-    && V3_STANDARDNESS_ACTIVATION_HEIGHT[network]
-    && height <= V3_STANDARDNESS_ACTIVATION_HEIGHT[network]
-  ) {
-    // V3 transactions were non-standard to spend before v28.x (scheduled for 2024/09/30 https://github.com/bitcoin/bitcoin/issues/29891)
-    TX_MAX_STANDARD_VERSION = 2;
-  }
-
-  if (tx.version > TX_MAX_STANDARD_VERSION) {
+  const TX_MAX_STANDARD_VERSION = 17;
+  if (tx.version > TX_MAX_STANDARD_VERSION || tx.version < 1) {
     return true;
   }
   return false;
+}
+
+// FreeBank credit tx families by tx version (freebank primitives/transaction.h).
+// v10 (BitAsset create) is retired and rejected by consensus, so it never appears.
+export const CREDIT_TX_LABELS: { [version: number]: string } = {
+  11: 'Bill',
+  12: 'House',
+  13: 'Note',
+  14: 'Term deposit',
+  15: 'Pool',
+  16: 'Settlement',
+  17: 'Oracle',
+};
+
+export function getCreditTxLabel(tx: { version: number }): string | undefined {
+  return CREDIT_TX_LABELS[tx?.version];
+}
+
+// FreeBank protocol outputs: OP_RETURN followed by a raw 4-byte tag (not a push, so the node
+// reports the type as 'nonstandard'). See freebank validation.cpp Generate*Commit and
+// GenerateWithdrawalRefundRequest, miner.cpp, and sidechain.cpp SidechainObj::GetScript.
+// Block producers write the coinbase ones, so they are only named in a coinbase: a look-alike
+// output in an ordinary tx (the node accepts nonstandard txs) gets no label.
+const FREEBANK_COINBASE_TAGS: { [tag: string]: string } = {
+  'fd7ad1ef': 'Previous block commitment',
+  'a7e67e1f': 'Block version commitment',
+  'ef5d1dfe': 'Withdrawal bundle commitment',
+  'fa86c689': 'Withdrawal bundle failed',
+  'fb5345de': 'Withdrawal bundle paid out',
+};
+const FREEBANK_TX_TAGS: { [tag: string]: string } = {
+  'fcd2e546': 'Withdrawal refund request',
+};
+// sidechain objects (tag acdcf66f): the byte after the tag is the object type
+const FREEBANK_COINBASE_OBJECTS: { [op: string]: string } = {
+  '44': 'Mainchain deposit', // 'D'
+  '50': 'Withdrawal bundle', // 'P'
+};
+const FREEBANK_TX_OBJECTS: { [op: string]: string } = {
+  '57': 'Withdrawal', // 'W'
+};
+
+export function getFreebankOutputLabel(scriptpubkey: string, isCoinbase: boolean): string | undefined {
+  if (!scriptpubkey?.startsWith('6a') || scriptpubkey.length < 10) {
+    return undefined;
+  }
+  const tag = scriptpubkey.slice(2, 10);
+  if (tag === 'acdcf66f') {
+    return (isCoinbase ? FREEBANK_COINBASE_OBJECTS : FREEBANK_TX_OBJECTS)[scriptpubkey.slice(10, 12)];
+  }
+  return (isCoinbase ? FREEBANK_COINBASE_TAGS : FREEBANK_TX_TAGS)[tag];
 }
 
 const ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {

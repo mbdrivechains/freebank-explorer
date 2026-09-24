@@ -87,7 +87,7 @@
                 }
                 <td class="address-cell">
                   <div [ngSwitch]="true">
-                    <ng-container *ngSwitchCase="vin.is_coinbase"><span i18n="transactions-list.coinbase">Coinbase</span><ng-template [ngIf]="network !== 'liquid' && network !== 'liquidtestnet'">&nbsp;<span i18n="transactions-list.newly-generated-coins">(Newly Generated Coins)</span></ng-template><br /><a placement="bottom" [ngbTooltip]="vin.scriptsig | hex2ascii"><span class="badge badge-secondary scriptmessage longer">{{ vin.scriptsig | hex2ascii }}</span></a></ng-container>
+                    <ng-container *ngSwitchCase="vin.is_coinbase"><span i18n="transactions-list.coinbase">Coinbase</span><br /><a placement="bottom" [ngbTooltip]="vin.scriptsig | hex2ascii"><span class="badge badge-secondary scriptmessage longer">{{ vin.scriptsig | hex2ascii }}</span></a></ng-container>
                     <ng-container *ngSwitchCase="vin.is_pegin">
                       <span i18n="transactions-list.peg-in">Peg-in</span>
                     </ng-container>
@@ -378,7 +378,7 @@
                           </a>
                         }
                       </ng-template>
-                      <ng-template #otherPubkeyType>{{ vout.scriptpubkey_type | scriptpubkeyType }}</ng-template>
+                      <ng-template #otherPubkeyType>{{ vout.freebankLabel || (vout.scriptpubkey_type | scriptpubkeyType) }}</ng-template>
                     </ng-template>
                   </ng-template>
                 </td>
@@ -396,7 +396,7 @@
                   </ng-template>
                 </td>
                 <td class="arrow-td">
-                  <span *ngIf="!tx._outspends || vout.scriptpubkey_type === 'op_return' || vout.scriptpubkey_type === 'fee' ; else outspend" class="grey">
+                  <span *ngIf="!tx._outspends || vout.scriptpubkey_type === 'op_return' || vout.scriptpubkey_type === 'fee' || vout.freebankLabel ; else outspend" class="grey">
                     <fa-icon [icon]="['fas', 'arrow-alt-circle-right']" [fixedWidth]="true"></fa-icon>
                   </span>
                   <ng-template #outspend>
