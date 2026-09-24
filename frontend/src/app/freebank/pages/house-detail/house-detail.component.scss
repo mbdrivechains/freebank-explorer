@@ -92,12 +92,19 @@
   }
 }
 
-// Label / value tables
+// Label / value tables. Mempool sets `tr { white-space: nowrap }` on every table; here labels,
+// values and their second lines wrap so the table stays inside its panel on a phone.
 .house-facts {
   margin-bottom: 0;
 
   td {
     vertical-align: top;
+    white-space: normal;
+  }
+
+  // app-truncate fits a key or hash to the cell with an ellipsis: it has to stay on one line
+  app-truncate {
+    white-space: nowrap;
   }
 
   td:first-child {
@@ -109,6 +116,7 @@
 
   // values sit on the right on narrow screens, as on the block page
   td:last-child {
+    overflow-wrap: anywhere;
     text-align: right;
     @media (min-width: 768px) {
       text-align: left;
@@ -229,7 +237,11 @@
   vertical-align: 1px;
 }
 
+// the activity's "What happened" column wraps, so the table fits a phone without scrolling
+.col-what {
+  white-space: normal;
+}
+
 .col-what .sub {
   margin-top: 2px;
-  white-space: normal;
 }
