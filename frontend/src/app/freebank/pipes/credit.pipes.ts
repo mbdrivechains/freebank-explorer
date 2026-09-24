@@ -67,7 +67,7 @@ export class BlocksFromTipPipe implements PipeTransform {
 /** {{ item.family | creditOp: item.op : item.op_name }} -> 'Reserve attestation' */
 @Pipe({ name: 'creditOp', standalone: false })
 export class CreditOpPipe implements PipeTransform {
-  transform(family: FreebankTxFamily | string, op: number, opName?: string): string {
+  transform(family: FreebankTxFamily | string, op: number | null, opName?: string | null): string {
     return creditOpLabel(family, op, opName);
   }
 }

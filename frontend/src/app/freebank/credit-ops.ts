@@ -87,16 +87,19 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
   },
 };
 
-/** Plain-English label for a credit op; falls back to the backend's op_name, then 'Op <n>'. */
-export function creditOpLabel(family: FreebankTxFamily | string, op: number, opName?: string): string {
-  const known = CREDIT_OPS[family as FreebankTxFamily]?.[op];
+/**
+ * Plain-English label for a credit op; falls back to the backend's op_name ('op_9' -> 'Op 9'),
+ * then 'Op <n>'. op and op_name are null in /activity when the tx did not parse.
+ */
+export function creditOpLabel(family: FreebankTxFamily | string, op: number | null, opName?: string | null): string {
+  const known = op !== null && op !== undefined ? CREDIT_OPS[family as FreebankTxFamily]?.[op] : undefined;
   if (known) {
     return known.label;
   }
   if (opName) {
     return opName.charAt(0).toUpperCase() + opName.slice(1).replace(/_/g, ' ');
   }
-  return `Op ${op}`;
+  return op !== null && op !== undefined ? `Op ${op}` : 'Unreadable';
 }
 
 export const BILL_STATUS_LABELS: { [status in FreebankBillStatus]: string } = {

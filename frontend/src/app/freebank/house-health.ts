@@ -3,7 +3,10 @@ import { formatBlocksFromTip, formatBps, formatEcx, formatUnits } from '@app/fre
 
 // House health badge (design decision 39, gateway/docs/freebank/FREEBANK_DISTRIBUTION.md s3):
 // a per-house "bank note reporter" read from the attestation state gethouse already serves.
-// Pure TypeScript (no Angular) so the backend's /summary houses_by_badge can use the same rules.
+// Pure TypeScript (no Angular). The backend computes /summary houses_by_badge with its own copy of
+// these rules (backend/src/api/freebank/house-badge.ts on mb/freebank-m4-backend): keep the two in
+// step. They agree on every record read at its own tip; this one also re-derives the height-based
+// transitions from tip_height (rules 1 and 3), so a record older than the tip never looks healthier.
 //
 // What the node tells us (freebank src/house.cpp, src/rpc/misc.cpp HouseToJSON):
 //  - status is STORED: 'open', 'wounddown', or 'insolvent' once the first insolvency claim
@@ -38,9 +41,11 @@ import { formatBlocksFromTip, formatBps, formatEcx, formatUnits } from '@app/fre
 //  2. WOUND DOWN       effective_status or status is 'wounddown' (not one of the four design-39
 //                      badges: a closed house, which could only wind down with no notes or
 //                      term deposits outstanding).
-//  3. STRESSED         effective_status is 'stressed' or 'deferred'; or, if the record is older
-//                      than the tip, tip > attest_deadline or protest_open > 0 (the same
-//                      origins the node derives, so a cached record cannot show SOUND late).
+//  3. STRESSED         effective_status is 'stressed', 'deferred', or anything other than 'open'
+//                      (an unrecognised or missing status is never shown as healthy); or, if the
+//                      record is older than the tip, tip > attest_deadline or protest_open > 0
+//                      (the same origins the node derives, so a cached record cannot show SOUND late).
+//                      effective_status falls back to status when a node does not send it.
 //  4. ATTESTATION DUE  effective 'open' but pareligible is false, or tip is past
 //                      lastattestheight + cadence: the regular attestation is late. The house
 //                      still redeems at par but cannot settle at par, and becomes stressed
@@ -115,7 +120,7 @@ export function formatAttestedRatio(house: Pick<FreebankHouse, 'attestedratiobps
 
 export function houseHealth(house: FreebankHouse, tipHeight?: number | null): HouseHealth {
   const tip = isNumber(tipHeight) && tipHeight >= 0 ? tipHeight : null;
-  const effective = house.effective_status;
+  const effective: string = house.effective_status || house.status || 'unknown';
   const cadence = houseAttestationCadence(house);
   const nextDue = cadence !== null ? house.lastattestheight + cadence : null;
   const neverAttested = houseNeverAttested(house);
@@ -175,10 +180,13 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
     health.parEligible = false;
     health.summary = 'Wound down: no notes outstanding.';
     reasons.push('The partners have wound the house down. A house can only wind down with no notes or term deposits outstanding.');
-  } else if (effective === 'stressed' || effective === 'deferred' || deferred || missedAttestations || protestsOpen > 0) {
+  } else if (effective !== 'open' || deferred || missedAttestations || protestsOpen > 0) {
     health.badge = 'stressed';
     health.parEligible = false;
     health.notesAtPar = !deferred && !house.brassagebps;
+    if (!['open', 'stressed', 'deferred'].includes(effective)) {
+      reasons.push(`The node reports an unrecognised house status, '${effective}'.`);
+    }
     if (deferred) {
       health.summary = 'Option clause invoked: redemptions deferred.';
       const invoked = house.defer_invoked_height ? ` at block ${house.defer_invoked_height}` : '';

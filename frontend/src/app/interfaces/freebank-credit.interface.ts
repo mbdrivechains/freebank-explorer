@@ -241,19 +241,79 @@ export interface FreebankGoldResponse {
   submitters: FreebankOracleSubmitter[];
 }
 
+export type FreebankDecodedValue = number | string | boolean | null;
+
 /**
- * Best-effort decoded fields of a v16 settlement (SETTLE_OP_EXCHANGE, freebank settle.h).
- * The names below mirror the payload struct; the backend sets the actual keys, so read every
- * field as possibly missing.
+ * GET /activity `decoded`: the payload fields the backend could read from the tx's credit
+ * payload (backend/src/api/freebank/freebank-tx-parser.ts on mb/freebank-m4-backend, which names
+ * them). Best effort: {} when the op carries nothing useful or the payload did not parse, so treat
+ * every field as possibly missing. Grouped by family and op; units as in the file header.
  */
-export interface FreebankSettleDecoded {
-  house_a?: number;               // lower house id
-  house_b?: number;               // higher house id
+export interface FreebankDecodedPayload {
+  // bill: issue (face_sats, maturity_height, grace_blocks), endorse (bill_id, from_pubkey,
+  // to_pubkey), retire / claim / recourse (bill_id), discount (bill_id, house_id, price_units,
+  // face_sats, maturity_height), hretire / hclaim (bill_id, house_id, face_sats, maturity_height)
+  bill_id?: number;               // dense bill id (GET /bill/:id), not the bill hash
+  face_sats?: number;             // sats
+  maturity_height?: number;       // height
+  grace_blocks?: number;          // blocks
+  from_pubkey?: string;           // hex
+  to_pubkey?: string;             // hex
+  price_units?: number;           // units: the discount price, paid in the house's own notes
+  // house: register (tier, threshold, classid, denominationmggold, partners, pledge_sats),
+  // topup / exit / reclaim (house_id, partner_index), attest (house_id, as_of_height,
+  // reserves_sats), admit / winddown / defer / renew / release (house_id)
+  house_id?: number;              // also on note, deposit, pool and bill discount ops
+  tier?: number;
+  threshold?: number;
+  classid?: string;
+  denominationmggold?: number;
+  partners?: number;              // count
+  pledge_sats?: number;           // sats, all founding pledges
+  partner_index?: number;
+  as_of_height?: number;          // height the attested reserves are proven at
+  reserves_sats?: number;         // sats: the attested reserves
+  // note: mint / transfer / demand / protest (house_id, units, outputs), redeem / claim (house_id)
+  units?: number;                 // units, summed over the note outputs
+  outputs?: number;               // count of note outputs
+  // deposit: originate (house_id, principal_units, receipts), transfer (house_id,
+  // principal_units, rate_bps, maturity_height), withdraw / claim (house_id)
+  principal_units?: number;       // units
+  receipts?: number;              // count
+  rate_bps?: number;              // bps a year
+  // pool (every op has pool_id and house_id, equal in v1): create (fee_bps, note_units,
+  // ecx_sats), add_liq (note_units, ecx_sats, lp_minted), remove_liq (lp_burned, note_units_out,
+  // ecx_sats_out), swap (direction, amount_in, amount_out)
+  pool_id?: number;
+  fee_bps?: number;               // bps
+  note_units?: number;            // units
+  ecx_sats?: number;              // sats
+  lp_minted?: number;             // liquidity shares
+  lp_burned?: number;             // liquidity shares
+  note_units_out?: number;        // units
+  ecx_sats_out?: number;          // sats
+  direction?: string;             // 'notes_for_ecx' (amount_in units, amount_out sats) or
+                                  // 'ecx_for_notes' (amount_in sats, amount_out units)
+  amount_in?: number;
+  amount_out?: number;
+  // settle exchange: two houses swap each other's notes at par; the house whose notes came home
+  // more pays the difference in ECX (residual_sats) to the other
+  house_a_id?: number;            // lower house id
+  house_b_id?: number;            // higher house id
   mode?: number;                  // 0 = even swap, 1 = with a residual payment
-  units_a_notes?: number;         // units of house A's notes presented
-  units_b_notes?: number;         // units of house B's notes presented
-  residual?: number;              // sats paid by the net debtor house (mode 1)
+  house_a_notes_units?: number;   // units of house A's notes presented
+  house_b_notes_units?: number;   // units of house B's notes presented
+  residual_sats?: number;         // sats
+  debtor_house_id?: number | null;   // pays the residual; null for an even swap
+  creditor_house_id?: number | null; // receives it; null for an even swap
   expiry_height?: number;         // height; 0 = none
+  // oracle: bond (submitter_id (0 = new), target_height, pubkey), submit (submitter_id,
+  // target_height, price_mg)
+  submitter_id?: number;
+  target_height?: number;         // height
+  pubkey?: string;                // hex
+  price_mg?: number;              // mg gold per 1000 ECX (the gold fix unit)
+  [field: string]: FreebankDecodedValue | undefined;
 }
 
 /** One credit tx in GET /activity. */
@@ -263,10 +323,10 @@ export interface FreebankActivityItem {
   time: number;                   // block time, unix seconds
   version: number;                // tx version, 11..17
   family: FreebankTxFamily;
-  op: number;                     // the op byte after nLockTime
-  op_name: string;                // lower-case constant name, e.g. HOUSE_OP_ATTEST -> 'attest'
-  fee: number;                    // sats
-  decoded: FreebankSettleDecoded & { [key: string]: unknown }; // {} when not decoded
+  op: number | null;              // the op byte after nLockTime; null if the tx did not parse
+  op_name: string | null;         // lower-case constant name, e.g. HOUSE_OP_ATTEST -> 'attest'; 'op_<n>' if unknown
+  fee: number | null;             // sats; null if the backend could not look up the inputs
+  decoded: FreebankDecodedPayload; // {} when not decoded
 }
 
 /** GET /activity?family=&limit= (newest first) */
@@ -282,7 +342,7 @@ export interface FreebankHouseBadgeCounts {
   stressed: number;
   attestation_due: number;
   insolvent: number;
-  wound_down?: number;            // not in the API contract; count here if the backend adds it
+  wound_down?: number;            // closed houses; sent by the backend, not in the written contract
 }
 
 /** GET /summary */
@@ -294,6 +354,7 @@ export interface FreebankSummaryResponse {
   minted_grams_total: number;     // grams
   bills_active: number;           // count of bills with status 'a'
   loanbook_face_total: number;    // sats: summed loanbookface of all houses
+  loanbook_face_total_grams?: number; // grams (sent by the backend, not in the written contract)
   pools: number;                  // count
   gold_fix: FreebankGoldFix | null;
 }
