@@ -2,12 +2,51 @@
 <div class="container-xl dashboard-container" *ngIf="(network$ | async) !== 'liquid'; else liquidDashboard">
   <div class="row row-cols-1 row-cols-md-2" *ngIf="{ value: (mempoolInfoData$ | async) } as mempoolInfoData">
     <ng-container>
-      <!-- FreeBank: full width until the BMM card takes the difficulty card's old slot (then drop col-md-12) -->
-      <div class="col col-md-12 card-wrapper">
+      <div class="col card-wrapper">
         <div class="main-title" i18n="fees-box.transaction-fees">Transaction Fees</div>
         <div class="card">
           <div class="card-body less-padding">
             <app-fees-box class="d-block"></app-fees-box>
+          </div>
+        </div>
+      </div>
+      <!-- FreeBank: the Credit card takes the difficulty card's old slot beside the fees card -->
+      <div class="col card-wrapper">
+        <div class="main-title">Credit</div>
+        <div class="card">
+          <div class="card-body less-padding">
+            <a class="credit-card-link" [routerLink]="['/credit' | relativeUrl]" *ngIf="creditCard$ | async as credit">
+              <div class="credit-card-stats" *ngIf="!credit.error; else creditUnavailable">
+                <div class="item credit-card-houses">
+                  <h5 class="card-title">Houses</h5>
+                  <div class="card-text" *ngIf="!credit.loading; else loading">
+                    <ng-container *ngIf="credit.badges.length; else noHouses">
+                      <span *ngFor="let entry of credit.badges" class="badge house-health" [ngClass]="'house-health-' + entry.badge"
+                        [ngbTooltip]="entry.explainer" placement="bottom">{{ entry.count }} {{ entry.label }}</span>
+                    </ng-container>
+                    <ng-template #noHouses><span class="credit-card-unit">none yet</span></ng-template>
+                  </div>
+                </div>
+                <div class="item">
+                  <h5 class="card-title">Notes outstanding</h5>
+                  <div class="card-text" *ngIf="!credit.loading; else loading">
+                    <span [ngbTooltip]="credit.notesTooltip" placement="bottom">{{ credit.notesUnits }} <span class="credit-card-unit">units</span></span>
+                  </div>
+                </div>
+                <div class="item">
+                  <h5 class="card-title">Gold fix</h5>
+                  <div class="card-text" *ngIf="!credit.loading; else loading">
+                    <span [ngbTooltip]="credit.goldFixTooltip" placement="bottom">
+                      <ng-container *ngIf="credit.goldFixGrams; else noGoldFix">{{ credit.goldFixGrams }} <span class="credit-card-unit">per ECX</span></ng-container>
+                      <ng-template #noGoldFix><span class="credit-card-unit">none yet</span></ng-template>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <ng-template #creditUnavailable>
+                <div class="credit-card-unavailable">Credit figures are not available right now.</div>
+              </ng-template>
+            </a>
           </div>
         </div>
       </div>
