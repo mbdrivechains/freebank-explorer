@@ -129,7 +129,7 @@
               <th class="col-bond"><span ngbTooltip="The coin the submitter locked as its bond" placement="bottom">Bond</span></th>
               <th class="col-bonded">Bonded at</th>
               <th class="col-last"><span ngbTooltip="The last block that carried a price from this submitter" placement="bottom">Last report</span></th>
-              <th class="col-unbond"><span ngbTooltip="The block at which the submitter asked for its bond back. It can take the bond after a waiting period." placement="bottom">Unbond asked</span></th>
+              <th class="col-unbond"><span ngbTooltip="The block at which the submitter asked for its bond back, or 'no'. This phase of the chain has no way yet to ask for a bond back or withdraw it, so every submitter reads 'no'." placement="bottom" container="body">Unbond asked</span></th>
             </tr>
           </thead>
           <tbody>
@@ -218,7 +218,7 @@
         <p class="credit-footnote" *ngIf="activity.load.data as recent">
           Newest first. Prices are in grams of gold per ECX.
           <ng-container *ngIf="recent.scanned_from_height > 0">Blocks before {{ recent.scanned_from_height }} have not been scanned.</ng-container>
-          <a [routerLink]="['/credit' | relativeUrl]" [queryParams]="{ family: 'oracle' }">All credit activity</a>
+          <a [routerLink]="['/credit' | relativeUrl]" [queryParams]="{ family: 'oracle' }">See them in the credit activity feed</a>
         </p>
       </ng-container>
 
