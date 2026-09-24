@@ -228,7 +228,7 @@
         @if (isAcceleration && (accelerationInfo?.bidBoost ?? tx.feeDelta > 0)) {
           <span class="oobFees" i18n-ngbTooltip="Acceleration Fees" ngbTooltip="Acceleration fees paid out-of-band"> +{{ accelerationInfo?.bidBoost ?? tx.feeDelta | number }} </span><span class="symbol" i18n="shared.sats">sats</span>
         }
-        <span class="fiat"><app-fiat *ngIf="tx.fee >= 0" [blockConversion]="tx.price" [value]="tx.fee + (isAcceleration ? ((accelerationInfo?.bidBoost ?? tx.feeDelta) || 0) : 0)"></app-fiat></span>
+        <!-- FreeBank: no fiat value in the Fee row -->
       </td>
     </tr>
   } @else {
