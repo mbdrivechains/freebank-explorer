@@ -4,12 +4,18 @@ import { defaultMempoolFeeColors, contrastMempoolFeeColors } from '@app/app.cons
 import { StorageService } from '@app/services/storage.service';
 import { StateService } from '@app/services/state.service';
 
+// FreeBank: 'freebank' is the default and only theme. Its palette (theme-freebank.scss) is
+// compiled into the main stylesheet, so applying it loads nothing. Any other stored or
+// requested name (e.g. upstream's 'default', 'contrast', 'softsimon') falls back to it.
+export const DEFAULT_THEME = 'freebank';
+const PUBLIC_THEMES = [DEFAULT_THEME];
+
 @Injectable({
   providedIn: 'root'
 })
 export class ThemeService {
   style: HTMLLinkElement | null = null;
-  theme: string = 'default';
+  theme: string = DEFAULT_THEME;
   themeState$: BehaviorSubject<{ theme: string; loading: boolean; }>;
   mempoolFeeColors: string[] = defaultMempoolFeeColors;
   initialLoad: boolean = true;
@@ -18,23 +24,26 @@ export class ThemeService {
     private storageService: StorageService,
     private stateService: StateService,
   ) {
-    let theme = this.stateService.env.customize?.theme || this.storageService.getValue('theme-preference') || 'default';
+    let theme = this.stateService.env.customize?.theme || this.storageService.getValue('theme-preference') || DEFAULT_THEME;
     // theme preference must be a valid known public theme
-    if (!this.stateService.env.customize?.theme && !['default', 'contrast', 'softsimon'].includes(theme)) {
-      theme = 'default';
-      this.storageService.setValue('theme-preference', 'default');
+    if (!this.stateService.env.customize?.theme && !PUBLIC_THEMES.includes(theme)) {
+      theme = DEFAULT_THEME;
+      this.storageService.setValue('theme-preference', DEFAULT_THEME);
     }
     this.themeState$ = new BehaviorSubject({ theme, loading: false });
     this.apply(theme);
   }
 
   apply(theme: string): void {
+    if (!theme || theme === 'default' || (!this.stateService.env.customize?.theme && !PUBLIC_THEMES.includes(theme))) {
+      theme = DEFAULT_THEME;
+    }
     if (this.theme === theme) {
       return;
     }
 
     this.theme = theme;
-    if (theme === 'default') {
+    if (theme === DEFAULT_THEME) {
       if (this.style) {
         this.style.remove();
         this.style = null;
@@ -67,7 +76,7 @@ export class ThemeService {
         this.mempoolFeeColors = theme === 'contrast' || theme === 'bukele' ? contrastMempoolFeeColors : defaultMempoolFeeColors;
         this.themeState$.next({ theme, loading: false });
       };
-      this.style.onerror = () => this.apply('default');
+      this.style.onerror = () => this.apply(DEFAULT_THEME);
       this.style.href = this.getThemeFile(theme);
 
       if (!this.stateService.env.customize?.theme) {
@@ -75,7 +84,7 @@ export class ThemeService {
       }
     } catch (err) {
       console.log('failed to apply theme stylesheet: ', err);
-      this.apply('default');
+      this.apply(DEFAULT_THEME);
     }
   }
 
