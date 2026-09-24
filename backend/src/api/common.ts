@@ -205,6 +205,12 @@ export class Common {
    * For now, just pull out individual rules into versioned functions where necessary.
    */
   static isNonStandard(tx: TransactionExtended, height?: number): boolean {
+    // FreeBank: credit txs (v11-v17) carry custody outputs that the credit consensus rules
+    // validate; Bitcoin's standardness rules don't describe them, so never flag them
+    if (this.isCreditTx(tx)) {
+      return false;
+    }
+
     // version
     if (this.isNonStandardVersion(tx, height)) {
       return true;
@@ -372,28 +378,20 @@ export class Common {
 
   // Individual versioned standardness rules
 
-  static V3_STANDARDNESS_ACTIVATION_HEIGHT = {
-    'testnet4': 42_000,
-    'testnet': 2_900_000,
-    'signet': 211_000,
-    'regtest': 0,
-    '': 863_500,
-  };
+  // FreeBank: version 3 is the default tx version and standard from genesis (no Bitcoin
+  // activation height); freebankd's policy accepts versions 1 to 17 (MAX_STANDARD_VERSION)
   static isNonStandardVersion(tx: TransactionExtended, height?: number): boolean {
-    let TX_MAX_STANDARD_VERSION = 3;
-    if (
-      height != null
-      && this.V3_STANDARDNESS_ACTIVATION_HEIGHT[config.MEMPOOL.NETWORK]
-      && height <= this.V3_STANDARDNESS_ACTIVATION_HEIGHT[config.MEMPOOL.NETWORK]
-    ) {
-      // V3 transactions were non-standard to spend before v28.x (scheduled for 2024/09/30 https://github.com/bitcoin/bitcoin/issues/29891)
-      TX_MAX_STANDARD_VERSION = 2;
-    }
-
-    if (tx.version > TX_MAX_STANDARD_VERSION) {
+    const TX_MAX_STANDARD_VERSION = 17;
+    if (tx.version > TX_MAX_STANDARD_VERSION || tx.version < 1) {
       return true;
     }
     return false;
+  }
+
+  // FreeBank credit tx versions: 11 bill, 12 house, 13 note, 14 term deposit, 15 pool,
+  // 16 settlement, 17 oracle (v10, BitAsset create, is retired and rejected by consensus)
+  static isCreditTx(tx: { version: number }): boolean {
+    return tx.version >= 11 && tx.version <= 17;
   }
 
   static ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {

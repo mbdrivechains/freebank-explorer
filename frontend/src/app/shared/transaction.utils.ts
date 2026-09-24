@@ -471,6 +471,12 @@ function isDustOutput(value: number, scriptpubkey: string): boolean {
  * For now, just pull out individual rules into versioned functions where necessary.
  */
 export function isNonStandard(tx: Transaction, height?: number, network?: string): boolean {
+  // FreeBank: credit txs (v11-v17) carry custody outputs that the credit consensus rules
+  // validate; Bitcoin's standardness rules don't describe them, so never flag them
+  if (getCreditTxLabel(tx)) {
+    return false;
+  }
+
   // version
   if (isNonStandardVersion(tx, height, network)) {
     return true;
@@ -603,28 +609,30 @@ export function isNonStandard(tx: Transaction, height?: number, network?: string
 
 // Individual versioned standardness rules
 
-const V3_STANDARDNESS_ACTIVATION_HEIGHT = {
-  'testnet4': 42_000,
-  'testnet': 2_900_000,
-  'signet': 211_000,
-  '': 863_500,
-};
+// FreeBank: version 3 is the default tx version and standard from genesis (no Bitcoin
+// activation height); freebankd's policy accepts versions 1 to 17 (MAX_STANDARD_VERSION)
 function isNonStandardVersion(tx: Transaction, height?: number, network?: string): boolean {
-  let TX_MAX_STANDARD_VERSION = 3;
-  if (
-    height != null
-    && network != null
-    && V3_STANDARDNESS_ACTIVATION_HEIGHT[network]
-    && height <= V3_STANDARDNESS_ACTIVATION_HEIGHT[network]
-  ) {
-    // V3 transactions were non-standard to spend before v28.x (scheduled for 2024/09/30 https://github.com/bitcoin/bitcoin/issues/29891)
-    TX_MAX_STANDARD_VERSION = 2;
-  }
-
-  if (tx.version > TX_MAX_STANDARD_VERSION) {
+  const TX_MAX_STANDARD_VERSION = 17;
+  if (tx.version > TX_MAX_STANDARD_VERSION || tx.version < 1) {
     return true;
   }
   return false;
+}
+
+// FreeBank credit tx families by tx version (freebank primitives/transaction.h).
+// v10 (BitAsset create) is retired and rejected by consensus, so it never appears.
+export const CREDIT_TX_LABELS: { [version: number]: string } = {
+  11: 'Bill',
+  12: 'House',
+  13: 'Note',
+  14: 'Term deposit',
+  15: 'Pool',
+  16: 'Settlement',
+  17: 'Oracle',
+};
+
+export function getCreditTxLabel(tx: { version: number }): string | undefined {
+  return CREDIT_TX_LABELS[tx?.version];
 }
 
 const ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {
