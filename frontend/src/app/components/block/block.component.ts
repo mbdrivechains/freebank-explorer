@@ -2,8 +2,8 @@ import { Component, OnInit, OnDestroy, ViewChildren, QueryList, ChangeDetectorRe
 import { Location } from '@angular/common';
 import { ActivatedRoute, ParamMap, Params, Router } from '@angular/router';
 import { ElectrsApiService } from '@app/services/electrs-api.service';
-import { switchMap, tap, throttleTime, catchError, map, shareReplay, startWith, filter, take } from 'rxjs/operators';
-import { Observable, of, Subscription, asyncScheduler, EMPTY, combineLatest, forkJoin } from 'rxjs';
+import { switchMap, tap, throttleTime, catchError, map, shareReplay, startWith, filter, take, expand } from 'rxjs/operators';
+import { Observable, of, Subscription, asyncScheduler, EMPTY, combineLatest, forkJoin, timer } from 'rxjs';
 import { StateService } from '@app/services/state.service';
 import { SeoService } from '@app/services/seo.service';
 import { WebsocketService } from '@app/services/websocket.service';
@@ -18,6 +18,12 @@ import { CacheService } from '@app/services/cache.service';
 import { ServicesApiServices } from '@app/services/services-api.service';
 import { PreloadService } from '@app/services/preload.service';
 import { identifyPrioritizedTransactions } from '@app/shared/transaction.utils';
+import { BmmRow, bmmRow, bmmWaiting } from '@app/freebank/bmm-view';
+
+// FreeBank: how often, and how far apart, the block page asks again for a block the BMM view has
+// not looked up yet (asking moves it to the front of the backend's queue)
+const BMM_RETRIES = 3;
+const BMM_RETRY_MS = 5000;
 
 interface ComparisonStats {
   totalFees: number;
@@ -97,6 +103,8 @@ export class BlockComponent implements OnInit, OnDestroy {
   isAuditEnabledSubscription: Subscription;
   oobSubscription: Subscription;
   priceSubscription: Subscription;
+  bmmSubscription: Subscription;
+  bmmCarried: BmmRow | null = null;     // FreeBank: the "Carried by eCash block" row; null hides it
   blockConversion: Price;
   canonicalBlock: BlockExtended;
   canonicalTransactions: TransactionStripped[];
@@ -428,6 +436,27 @@ export class BlockComponent implements OnInit, OnDestroy {
       this.isLoadingOverview = false;
     });
 
+    // FreeBank: the eCash block that carried this block, its pool and the bid, from the BMM view.
+    // Shown only once the backend has found all three. GET /bmm/summary (answered from the
+    // backend's cache) says whether the view is on and gives the explorer_url for the links.
+    this.bmmSubscription = this.block$.pipe(
+      switchMap((block: BlockExtended) => {
+        this.bmmCarried = null;
+        const ask = () => this.apiService.getFreebankBmmBlock$(block.id).pipe(catchError(() => of(null)));
+        let retries = 0;
+        return this.apiService.getFreebankBmmSummary$().pipe(
+          catchError(() => of(null)),
+          filter((summary) => !!summary?.enabled),
+          switchMap((summary) => ask().pipe(
+            expand((bmm) => bmm && bmmWaiting(bmm.status) && retries++ < BMM_RETRIES ? timer(BMM_RETRY_MS).pipe(switchMap(ask)) : EMPTY),
+            filter((bmm) => bmm?.status === 'ok'),
+            take(1),
+            map((bmm) => bmmRow(bmm, summary.explorer_url)),
+          )),
+        );
+      }),
+    ).subscribe((carried) => this.bmmCarried = carried);
+
     this.networkChangedSubscription = this.stateService.networkChanged$
       .subscribe((network) => this.network = network);
 
@@ -503,6 +532,7 @@ export class BlockComponent implements OnInit, OnDestroy {
     this.isAuditEnabledSubscription?.unsubscribe();
     this.oobSubscription?.unsubscribe();
     this.priceSubscription?.unsubscribe();
+    this.bmmSubscription?.unsubscribe();
     this.blockGraphProjected.forEach(graph => {
       graph.destroy();
     });

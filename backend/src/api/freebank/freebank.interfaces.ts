@@ -90,3 +90,59 @@ export interface FreebankSummary {
   pools: number;
   gold_fix: FreebankGoldFix | null;
 }
+
+// The BMM view (/api/v1/freebank/bmm*, bmm.ts): for each FreeBank block, the eCash block that
+// carried it, that block's pool, and the bid (the M8's fee). Hashes are in display order.
+
+export type BmmStatus = 'ok' | 'no-mainchain-block' | 'no-commitment' | 'no-bid' | 'error' | 'pending';
+
+export interface BmmPool {
+  name: string;
+  slug: string;
+}
+
+export interface BmmBlock {
+  freebank_height: number;
+  freebank_hash: string;
+  merkleroot: string; // h*, the value committed on eCash
+  time: number; // FreeBank block time, unix seconds
+  ecash_hash: string; // the node's hashmainblock
+  ecash_height: number | null;
+  ecash_time: number | null;
+  pool: BmmPool | null;
+  bid_sats: number | null; // the M8's fee
+  bid_txid: string | null;
+  bid_vsize: number | null; // weight / 4, as mempool counts it (may have a fraction)
+  bid_rate: number | null; // sat/vB, 2 decimals
+  other_sidechains: number[]; // the other M7 slots in that coinbase
+  // ok, or why not: no-mainchain-block (the eCash explorer does not have the block),
+  // no-commitment (no M7 for our slot and h*), no-bid (no matching M8), error (retried),
+  // pending (not looked up yet)
+  status: BmmStatus;
+}
+
+export interface BmmList {
+  enabled: boolean;
+  explorer_url: string;
+  tip_height: number;
+  items: BmmBlock[]; // newest first
+}
+
+export interface BmmPoolShare extends BmmPool {
+  blocks: number;
+  share: number; // 0-1, of the carried blocks
+}
+
+export interface BmmSummary {
+  enabled: boolean;
+  explorer_url: string;
+  indexed: number; // blocks of the window with a final status
+  pending: number; // blocks of the window still to look up (or being retried)
+  carried: number; // blocks whose commitment was found (status ok or no-bid)
+  total_bid_sats: number;
+  avg_bid_sats: number | null; // over the blocks with a bid (status ok)
+  median_bid_sats: number | null;
+  last: BmmBlock | null; // the newest ok block
+  pools: BmmPoolShare[]; // most blocks first
+  latest_ecash_height: number | null;
+}

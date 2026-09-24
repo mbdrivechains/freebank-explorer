@@ -170,6 +170,16 @@ __FIAT_PRICE_ENABLED__=${FIAT_PRICE_ENABLED:=false}
 __FIAT_PRICE_PAID__=${FIAT_PRICE_PAID:=false}
 __FIAT_PRICE_API_KEY__=${FIAT_PRICE_API_KEY:=""}
 
+# FREEBANK
+# FreeBank: FREEBANK_BMM_ENABLED=true turns on the BMM view's requests to FREEBANK_BMM_API
+__FREEBANK_ACTIVITY_BACKFILL_BLOCKS__=${FREEBANK_ACTIVITY_BACKFILL_BLOCKS:=2016}
+__FREEBANK_BMM_ENABLED__=${FREEBANK_BMM_ENABLED:=false}
+__FREEBANK_BMM_API__=${FREEBANK_BMM_API:="https://explorer.beta.ecash.ninja/api"}
+__FREEBANK_BMM_EXPLORER_URL__=${FREEBANK_BMM_EXPLORER_URL:="https://explorer.beta.ecash.ninja"}
+__FREEBANK_BMM_SLOT__=${FREEBANK_BMM_SLOT:=130}
+__FREEBANK_BMM_BACKFILL_BLOCKS__=${FREEBANK_BMM_BACKFILL_BLOCKS:=2000}
+__FREEBANK_BMM_MIN_INTERVAL_MS__=${FREEBANK_BMM_MIN_INTERVAL_MS:=1000}
+
 mkdir -p "${__MEMPOOL_CACHE_DIR__}"
 
 sed -i "s!__MEMPOOL_NETWORK__!${__MEMPOOL_NETWORK__}!g" mempool-config.json
@@ -325,5 +335,14 @@ sed -i "s!__REDIS_BATCH_QUERY_BASE_SIZE__!${__REDIS_BATCH_QUERY_BASE_SIZE__}!g" 
 sed -i "s!__FIAT_PRICE_ENABLED__!${__FIAT_PRICE_ENABLED__}!g" mempool-config.json
 sed -i "s!__FIAT_PRICE_PAID__!${__FIAT_PRICE_PAID__}!g" mempool-config.json
 sed -i "s!__FIAT_PRICE_API_KEY__!${__FIAT_PRICE_API_KEY__}!g" mempool-config.json
+
+# FREEBANK
+sed -i "s!__FREEBANK_ACTIVITY_BACKFILL_BLOCKS__!${__FREEBANK_ACTIVITY_BACKFILL_BLOCKS__}!g" mempool-config.json
+sed -i "s!__FREEBANK_BMM_ENABLED__!${__FREEBANK_BMM_ENABLED__}!g" mempool-config.json
+sed -i "s!__FREEBANK_BMM_API__!${__FREEBANK_BMM_API__}!g" mempool-config.json
+sed -i "s!__FREEBANK_BMM_EXPLORER_URL__!${__FREEBANK_BMM_EXPLORER_URL__}!g" mempool-config.json
+sed -i "s!__FREEBANK_BMM_SLOT__!${__FREEBANK_BMM_SLOT__}!g" mempool-config.json
+sed -i "s!__FREEBANK_BMM_BACKFILL_BLOCKS__!${__FREEBANK_BMM_BACKFILL_BLOCKS__}!g" mempool-config.json
+sed -i "s!__FREEBANK_BMM_MIN_INTERVAL_MS__!${__FREEBANK_BMM_MIN_INTERVAL_MS__}!g" mempool-config.json
 
 node /backend/package/index.js
