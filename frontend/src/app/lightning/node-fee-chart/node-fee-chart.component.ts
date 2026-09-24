@@ -152,11 +152,11 @@ export class NodeFeeChartComponent implements OnInit {
             <b style="color: white; margin-left: 2px">${ticks[0].data.label}</b><br>
             <br>
             <b style="color: white; margin-left: 2px">${ticks[0].marker} Outgoing</b><br>
-            <span>Capacity: ${this.amountShortenerPipe.transform(ticks[0].data.capacity, 2, undefined, true)} sats</span><br>
+            <span>Capacity: ${this.amountShortenerPipe.transform(ticks[0].data.capacity, 2, undefined, true)} szats</span><br>
             <span>Channels: ${ticks[0].data.count}</span><br>
             <br>
             <b style="color: white; margin-left: 2px">${ticks[1].marker} Incoming</b><br>
-            <span>Capacity: ${this.amountShortenerPipe.transform(ticks[1].data.capacity, 2, undefined, true)} sats</span><br>
+            <span>Capacity: ${this.amountShortenerPipe.transform(ticks[1].data.capacity, 2, undefined, true)} szats</span><br>
             <span>Channels: ${ticks[1].data.count}</span><br>
           `;
         }
@@ -200,7 +200,7 @@ export class NodeFeeChartComponent implements OnInit {
           axisLabel: {
             color: 'rgb(110, 112, 121)',
             formatter: (val) => {
-              return `${this.amountShortenerPipe.transform(Math.abs(val), 2, undefined, true)} sats`;
+              return `${this.amountShortenerPipe.transform(Math.abs(val), 2, undefined, true)} szats`;
             }
           },
           splitLine: {

@@ -1,7 +1,7 @@
 // FreeBank Explorer: the coin unit shown next to amounts. The small unit
-// (1e-8 of UNIT) keeps the name 'sats', as do fee rates (sat/vB).
+// (1e-8 of UNIT) is the szat (plural szats), the eCash subunit's name, as in fee rates (szat/vB).
 export const UNIT = 'ECX';
-export const SUBUNIT = 'sats';
+export const SUBUNIT = 'szats';
 
 export const defaultMempoolFeeColors = [
   '007d3d',
