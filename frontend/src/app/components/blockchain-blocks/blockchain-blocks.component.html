@@ -90,9 +90,11 @@
         } @else if (!minimal && showPools && bmmCubes[block.id]?.poolName) {
           <div class="animated">
             @if (bmmCubes[block.id].poolUrl) {
-              <a [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge" [href]="bmmCubes[block.id].poolUrl" target="_blank" rel="noopener">{{ bmmCubes[block.id].poolName }}</a>
+              <a [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge" [href]="bmmCubes[block.id].poolUrl" target="_blank" rel="noopener"
+                ngbTooltip="The eCash pool that mined the eCash block carrying this block" placement="bottom" container="body">{{ bmmCubes[block.id].poolName }}</a>
             } @else {
-              <span [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge">{{ bmmCubes[block.id].poolName }}</span>
+              <span [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge"
+                ngbTooltip="The eCash pool that mined the eCash block carrying this block" placement="bottom" container="body">{{ bmmCubes[block.id].poolName }}</span>
             }
           </div>
         }

@@ -63,9 +63,6 @@ src/resources/assets-testnet.json
 src/resources/assets-testnet.minimal.json
 src/resources/pools.json
 src/resources/mining-pools/*
-# FreeBank: the block producers' logos come from explorer/deploy/make-producers.py (mining-pools-pr), not sync-assets
-!src/resources/mining-pools/*.svg
-!src/resources/mining-pools/*.png
 src/resources/**/*.mp4
 src/resources/**/*.vtt
 src/resources/customize.js

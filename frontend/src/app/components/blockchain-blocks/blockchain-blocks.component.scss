@@ -287,10 +287,11 @@
   margin-right: 2px;
 }
 
-// FreeBank: an unlisted producer tag is shown as its own text, set apart from the listed producers
+// FreeBank: an unlisted producer tag is shown as its own text, in quotes, set apart from the listed producers
 .badge.producer.unlisted {
   font-style: italic;
-  opacity: 0.85;
+  background: transparent;
+  border: 1px dashed var(--transparent-fg, rgba(255, 255, 255, 0.5));
 }
 
 .pool-logo.faded {

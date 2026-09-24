@@ -321,9 +321,25 @@ h1 {
   }
 }
 
-// FreeBank: the "Carried by eCash block" row wraps its label, and breaks between its parts
-// (height, pool, bid), on a narrow screen instead of widening the table (mempool sets
-// tr { white-space: nowrap })
+// FreeBank: the "Produced by" row. mempool's tr { white-space: nowrap } would let a long unlisted tag widen the
+// table on a phone, so the cell wraps and the name is cut with an ellipsis.
+.producer-cell {
+  white-space: normal;
+}
+
+.producer {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.producer.unlisted {
+  font-style: italic;
+}
+
 .producer-logo {
   width: 18px;
   height: 18px;
@@ -331,10 +347,9 @@ h1 {
   vertical-align: middle;
 }
 
-.producer.unlisted {
-  font-style: italic;
-}
-
+// FreeBank: the "Carried by eCash block" row wraps its label, and breaks between its parts
+// (height, pool, bid), on a narrow screen instead of widening the table (mempool sets
+// tr { white-space: nowrap })
 .bmm-carried-label {
   white-space: normal;
 }

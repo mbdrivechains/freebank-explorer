@@ -186,7 +186,7 @@
            no row for a block without a tag -->
       <tr *ngIf="producerOf(block) as producer">
         <td>Produced by</td>
-        <td>
+        <td class="producer-cell">
           <span class="producer" [class.unlisted]="!producer.listed" [ngbTooltip]="producer.help" placement="bottom">
             <img *ngIf="producer.logo" class="producer-logo" [src]="producer.logo" alt="" onError="this.style.display = 'none'">{{ producer.name }}
           </span>

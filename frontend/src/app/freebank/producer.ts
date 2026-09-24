@@ -5,11 +5,12 @@ import { PRODUCER_LOGOS } from '@app/freebank/producer-logos';
 // A producer names itself with a coinbase tag (freebankd v0.2.14, `coinbasetag=`), written after the height and the
 // extra nonce. The backend matches the coinbase text against the producer list (explorer deploy/make-producers.py,
 // built from the eCash pool list, mining-pools-pr), so a listed producer arrives as extras.pool. A tag the list does
-// not know is shown as its own text. A block without a tag (every block before v0.2.14) has no producer.
+// not know is shown as its own text, in quotes. A block without a tag (every block before v0.2.14, and the genesis
+// block, whose coinbase holds the chain's placeholder text) has no producer. Tags are self-declared, and the words say so.
 
 export interface BlockProducer {
-  name: string;           // 'FreeBank'; for an unlisted tag, the tag's text
-  logo: string | null;    // '/resources/mining-pools/freebank.svg'; null without one
+  name: string;           // 'FreeBank'; for an unlisted tag, the tag's text in quotes: '“MyPool”'
+  logo: string | null;    // '/resources/freebank-producers/freebank.svg'; null without one
   listed: boolean;        // false: a tag the producer list does not know
   help: string;           // the tooltip: what the name means
 }
@@ -103,7 +104,10 @@ export function coinbaseTag(scriptSigHex: string): string {
 export function blockProducer(block: BlockExtended): BlockProducer | null {
   const pool = block?.extras?.pool;
   const raw = block?.extras?.coinbaseRaw || '';
-  const key = `${block?.id}:${pool?.id}:${raw}`;
+  if (!block || block.height === 0) {
+    return null;
+  }
+  const key = `${block.id}:${pool?.id}:${pool?.slug}:${pool?.name}:${raw}`;
   if (cache.has(key)) {
     return cache.get(key);
   }
@@ -112,17 +116,19 @@ export function blockProducer(block: BlockExtended): BlockProducer | null {
     const logo = PRODUCER_LOGOS[pool.slug];
     producer = {
       name: pool.name,
-      logo: logo ? '/resources/mining-pools/' + logo : null,
+      logo: logo ? '/resources/freebank-producers/' + logo : null,
       listed: true,
-      help: `Produced by ${pool.name}: it won the BMM for this block and earns its fees.`,
+      help: `Produced by ${pool.name}, by the tag in its coinbase: the producer won the BMM for this block and earns `
+        + 'its fees. Producers name themselves; this tag is in the producer list.',
     };
   } else {
     const tag = coinbaseTag(raw);
     producer = tag ? {
-      name: tag,
+      name: `“${tag}”`,
       logo: null,
       listed: false,
-      help: `Produced by whoever tags its blocks "${tag}": it won the BMM for this block and earns its fees. The tag is not in the producer list.`,
+      help: `The coinbase is tagged “${tag}”, a name its producer gave itself that is not in the producer list. `
+        + 'The producer won the BMM for this block and earns its fees.',
     } : null;
   }
   if (cache.size >= CACHE_SIZE) {
