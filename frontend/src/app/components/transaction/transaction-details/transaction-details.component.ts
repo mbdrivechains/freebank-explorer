@@ -25,6 +25,7 @@ export class TransactionDetailsComponent implements OnInit {
   @Input() isLoadingFirstSeen: boolean;
   @Input() featuresEnabled: boolean;
   @Input() auditStatus: TxAuditStatus;
+  @Input() auditEnabled: boolean;
   @Input() filters: Filter[];
   @Input() miningStats: MiningStats;
   @Input() pool: Pool | null;

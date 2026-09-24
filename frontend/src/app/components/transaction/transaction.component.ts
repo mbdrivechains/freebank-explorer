@@ -518,7 +518,8 @@ export class TransactionComponent implements OnInit, AfterViewInit, OnDestroy {
             );
           }
         } else {
-          const audit = isCoinbase ? { coinbase: true } : null;
+          // FreeBank: the 'Coinbase' audit badge only where block audit is on
+          const audit = (isCoinbase && auditAvailable) ? { coinbase: true } : null;
           return addFirstSeen(audit, hash, height, txid, this.apiService.getBlockSummaryLoaded(hash));
         }
       }),

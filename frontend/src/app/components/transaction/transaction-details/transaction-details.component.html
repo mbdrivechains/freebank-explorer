@@ -129,7 +129,7 @@
 </ng-template>
 
 <ng-template #auditRow>
-  @if (network === '') {
+  @if (network === '' && auditEnabled) {
     @if (!isLoadingTx) {
       @if (auditStatus) {
         <tr>
