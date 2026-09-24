@@ -29,6 +29,12 @@ const BLOCK_HASH_REGEX = /^[a-f0-9]{64}$/i;
 const ADDRESS_REGEX = /^[a-z0-9]{2,120}$/i;
 const SCRIPT_HASH_REGEX = /^([a-f0-9]{2})+$/i;
 
+// An unknown block hash is a 404, not a server failure: esplora answers 404, the node's RPC
+// answers error -5 'Block not found' (the frontend search asks for a block before a tx).
+function blockErrorStatus(e: any): number {
+  return e?.response?.status === 404 || e?.code === -5 ? 404 : 500;
+}
+
 class BitcoinRoutes {
   public initRoutes(app: Application) {
     app
@@ -373,7 +379,7 @@ class BitcoinRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 3600 * 24 * 30).toUTCString());
       res.json(transactions);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get block summary');
+      handleError(req, res, blockErrorStatus(e), 'Failed to get block summary');
     }
   }
 
@@ -421,7 +427,7 @@ class BitcoinRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * cacheDuration).toUTCString());
       res.json(block);
     } catch (e: any) {
-      handleError(req, res, e?.response?.status === 404 ? 404 : 500, 'Failed to get block');
+      handleError(req, res, blockErrorStatus(e), 'Failed to get block');
     }
   }
 
@@ -435,7 +441,7 @@ class BitcoinRoutes {
       res.setHeader('content-type', 'text/plain');
       res.send(blockHeader);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get block header');
+      handleError(req, res, blockErrorStatus(e), 'Failed to get block header');
     }
   }
 
@@ -637,7 +643,7 @@ class BitcoinRoutes {
       res.json(transactions);
     } catch (e) {
       loadingIndicators.setProgress('blocktxs-' + req.params.hash, 100);
-      handleError(req, res, 500, 'Failed to get block transactions');
+      handleError(req, res, blockErrorStatus(e), 'Failed to get block transactions');
     }
   }
 
@@ -938,7 +944,7 @@ class BitcoinRoutes {
       res.setHeader('content-type', 'application/octet-stream');
       res.send(result);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get raw block');
+      handleError(req, res, blockErrorStatus(e), 'Failed to get raw block');
     }
   }
 
@@ -951,7 +957,7 @@ class BitcoinRoutes {
       const result = await bitcoinApi.$getTxIdsForBlock(req.params.hash);
       res.json(result);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get txids for block');
+      handleError(req, res, blockErrorStatus(e), 'Failed to get txids for block');
     }
   }
 
