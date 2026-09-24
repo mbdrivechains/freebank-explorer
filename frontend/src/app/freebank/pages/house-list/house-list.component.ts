@@ -37,7 +37,7 @@ function capitalCapTip(house: FreebankHouse, capacity: HouseCapacity): string {
   const sum = capacity.deposits
     ? `Notes ${formatUnits(capacity.notes)} + term deposits ${formatUnits(capacity.deposits)} = ${formatUnits(capacity.capital.used)} units`
     : `Notes ${formatUnits(capacity.notes)} units`;
-  const cap = `capital cap ${formatUnits(capacity.capital.cap)} units ` +
+  const cap = `capital cap of ${formatUnits(capacity.capital.cap)} units ` +
     `(issuance multiplier ${capacity.lambda.toFixed(1)} × ${formatEcx(house.activeescrow)} ECX of partner capital locked)`;
   const room = capacity.capital.over
     ? 'It is over the cap, so it cannot issue more notes.'

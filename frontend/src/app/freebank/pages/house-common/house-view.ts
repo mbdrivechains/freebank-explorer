@@ -53,8 +53,11 @@ export interface CapUsage {
 }
 
 const percentFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
-const percentFormatWhole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
+/**
+ * A percent to two decimals: 96.04 -> '96.04%', 90 -> '90%'. Never rounds a figure below 100
+ * up to '100%' (99.996 -> '99.99%'), nor a positive one down to '0%'.
+ */
 export function formatPercent(percent: number): string {
   if (!isNumber(percent)) {
     return '';
@@ -62,7 +65,10 @@ export function formatPercent(percent: number): string {
   if (percent > 0 && percent < 0.01) {
     return 'less than 0.01%';
   }
-  return (percent >= 10 ? percentFormatWhole : percentFormat).format(percent) + '%';
+  if (percent < 100 && percent > 99.99) {
+    return '99.99%';
+  }
+  return percentFormat.format(percent) + '%';
 }
 
 export function capUsage(used: number, cap: number): CapUsage {
@@ -105,16 +111,20 @@ export interface HouseCapacity {
  * and its *_grams twin (the API does not serve the scale itself). null if no pair is usable.
  */
 export function houseGramsPerUnit(house: FreebankHouse): number | null {
-  if (num(house.activeescrow) > 0 && isNumber(house.activeescrow_grams)) {
-    return house.activeescrow_grams / (house.activeescrow * SATS_PER_ECX);
+  // *_grams has 6 decimals, so the largest pair gives the most precise scale
+  const pairs: [number, unknown][] = [
+    [num(house.activeescrow) * SATS_PER_ECX, house.activeescrow_grams],
+    [num(house.lastattestreserves) * SATS_PER_ECX, house.lastattestreserves_grams],
+    [num(house.mintcapunits), house.mintcapunits_grams],
+    [num(house.mintedunits), house.mintedunits_grams],
+  ];
+  let best: [number, number] | null = null;
+  for (const [base, grams] of pairs) {
+    if (base > 0 && isNumber(grams) && grams > 0 && (!best || base > best[0])) {
+      best = [base, grams];
+    }
   }
-  if (num(house.mintcapunits) >= 1000000 && isNumber(house.mintcapunits_grams)) {
-    return house.mintcapunits_grams / house.mintcapunits;
-  }
-  if (num(house.mintedunits) >= 1000000 && isNumber(house.mintedunits_grams)) {
-    return house.mintedunits_grams / house.mintedunits;
-  }
-  return null;
+  return best ? best[1] / best[0] : null;
 }
 
 /** Grams for an amount of note units (or sats), or undefined when the scale is unknown. */
@@ -210,6 +220,7 @@ export function activityNamesHouse(item: FreebankActivityItem, house: Pick<Freeb
 
 export interface ActivityDetail {
   billId: number | null;          // a bill the tx acts on (link it before the text)
+  counterpartyId: number | null;  // the other house in a settlement (link it before the text)
   text: string;
 }
 
@@ -231,6 +242,7 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
   const op = item.op_name || '';
   const has = (key: string): boolean => d[key] !== undefined && d[key] !== null;
   const billId = isNumber(d.bill_id) ? d.bill_id : null;
+  let counterpartyId: number | null = null;
   let text = '';
 
   switch (item.family) {
@@ -279,20 +291,26 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
       } else if (op === 'remove_liq' && has('note_units_out')) {
         text = `Withdrew ${units(d.note_units_out)} and ${ecx(d.ecx_sats_out)}`;
       } else if (op === 'swap' && has('amount_in') && has('amount_out')) {
+        // a trader's swap in the house's pool, not the house's own trade
         text = d.direction === 'ecx_for_notes'
-          ? `Paid ${ecx(d.amount_in)} for ${units(d.amount_out)}`
-          : `Sold ${units(d.amount_in)} for ${ecx(d.amount_out)}`;
+          ? `Someone bought ${units(d.amount_out)} for ${ecx(d.amount_in)}`
+          : `Someone sold ${units(d.amount_in)} for ${ecx(d.amount_out)}`;
       }
       break;
     case 'settle':
       if (has('house_a_id') && has('house_b_id')) {
         const a = houseName(d.house_a_id, houseId);
         const b = houseName(d.house_b_id, houseId);
-        const came = `${units(d.house_a_notes_units)} of ${a}'s notes and ${formatUnits(num(d.house_b_notes_units))} of ${b}'s came home`;
+        const came = `${units(d.house_a_notes_units)} of ${a}'s notes and ${units(d.house_b_notes_units)} of ${b}'s came home at par`;
         const residual = num(d.residual_sats) > 0 && has('debtor_house_id')
           ? `; ${houseName(d.debtor_house_id, houseId)} paid ${ecx(d.residual_sats)} for the difference`
           : '; an even swap';
-        text = `Exchanged at par: ${came}${residual}`;
+        text = `${came}${residual}`;
+        if (d.house_a_id === houseId && isNumber(d.house_b_id)) {
+          counterpartyId = d.house_b_id;
+        } else if (d.house_b_id === houseId && isNumber(d.house_a_id)) {
+          counterpartyId = d.house_a_id;
+        }
       }
       break;
     case 'bill':
@@ -307,5 +325,5 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
       }
       break;
   }
-  return { billId, text };
+  return { billId, counterpartyId, text };
 }
