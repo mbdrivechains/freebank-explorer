@@ -3,6 +3,11 @@
 export const UNIT = 'ECX';
 export const SUBUNIT = 'sats';
 
+// FreeBank: blocks are made by blind merged mining, so there is no difficulty retarget and the
+// backend sends no difficulty adjustment ('da'). Without it there is no average block time,
+// so confirmation ETAs are not shown (mirrors HAS_DIFFICULTY_RETARGET in the backend).
+export const HAS_DIFFICULTY_RETARGET = false;
+
 export const defaultMempoolFeeColors = [
   '007d3d',
   '557d00',

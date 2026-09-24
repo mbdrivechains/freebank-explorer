@@ -7,6 +7,7 @@ import { ETA } from '@app/services/eta.service';
 import { MiningStats } from '@app/services/mining.service';
 import { Filter } from '@app/shared/filters.utils';
 import { getCreditTxLabel } from '@app/shared/transaction.utils';
+import { HAS_DIFFICULTY_RETARGET } from '@app/app.constants';
 
 @Component({
   selector: 'app-transaction-details',
@@ -48,6 +49,12 @@ export class TransactionDetailsComponent implements OnInit {
   constructor() {}
 
   ngOnInit(): void {}
+
+  // FreeBank: no difficulty adjustment means no average block time, so no ETA row
+  // (it would sit on a loading skeleton forever)
+  get hasEta(): boolean {
+    return HAS_DIFFICULTY_RETARGET || this.network === 'liquid' || this.network === 'liquidtestnet';
+  }
 
   // FreeBank: credit tx family (Bill, House, Note, ...) from the tx version, shown as a badge
   get creditLabel(): string | undefined {

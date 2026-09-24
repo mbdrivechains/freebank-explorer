@@ -33,6 +33,7 @@ import { MiningService, MiningStats } from '@app/services/mining.service';
 import { ETA, EtaService } from '@app/services/eta.service';
 import { getTransactionFlags, getUnacceleratedFeeRate } from '@app/shared/transaction.utils';
 import { StorageService } from '@app/services/storage.service';
+import { HAS_DIFFICULTY_RETARGET } from '@app/app.constants';
 
 
 interface Pool {
@@ -795,6 +796,11 @@ export class TrackerComponent implements OnInit, OnDestroy {
     } else {
       this.eligibleForAcceleration = false;
     }
+  }
+
+  // FreeBank: no difficulty adjustment means no average block time, so no ETA field
+  get hasEta(): boolean {
+    return HAS_DIFFICULTY_RETARGET || this.network === 'liquid' || this.network === 'liquidtestnet';
   }
 
   get showAccelerationSummary(): boolean {
