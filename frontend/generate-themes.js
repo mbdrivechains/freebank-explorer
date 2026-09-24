@@ -3,7 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const THEMES = ['contrast', 'softsimon', 'bukele'];
+// FreeBank: the only theme (src/theme-freebank.scss) is compiled into the main stylesheet
+// by styles.scss, so no runtime theme stylesheets are built. The staging dir and an empty
+// manifest are still written because angular.json and generate-config.js expect them.
+const THEMES = [];
 const STAGING_DIR = path.join(__dirname, '.theme-build');
 const DIST_DIR = path.join(__dirname, 'dist/mempool/browser');
 const MANIFEST_FILE = path.join(__dirname, 'theme-manifest.json');

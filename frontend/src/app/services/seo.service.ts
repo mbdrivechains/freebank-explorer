@@ -9,11 +9,12 @@ import { StateService } from '@app/services/state.service';
 })
 export class SeoService {
   network = '';
-  baseTitle = 'mempool';
-  baseDescription = 'Explore the full Bitcoin ecosystem&reg; with The Mempool Open Source Project&reg;.';
-  baseDomain = 'mempool.space';
+  baseTitle = 'FreeBank Explorer';
+  baseDescription = 'Explore the FreeBank sidechain: see its blocks, transactions and mempool in real time.';
+  // FreeBank: canonical URLs use the host the explorer is served from, never a hardcoded domain
+  baseDomain = window.location.host;
 
-  canonicalLink: HTMLLinkElement = document.getElementById('canonical') as HTMLLinkElement;
+  canonicalLink: HTMLLinkElement | null = document.getElementById('canonical') as HTMLLinkElement;
 
   constructor(
     private titleService: Title,
@@ -23,14 +24,8 @@ export class SeoService {
     private activatedRoute: ActivatedRoute,
   ) {
     // save original meta tags
-    this.baseDescription = metaService.getTag('name=\'description\'')?.content || this.baseDescription;
+    this.baseDescription = this.rebrand(metaService.getTag('name=\'description\'')?.content || this.baseDescription);
     this.baseTitle = titleService.getTitle()?.split(' - ')?.[0] || this.baseTitle;
-    try {
-      const canonicalUrl = new URL(this.canonicalLink?.href || '');
-      this.baseDomain = canonicalUrl?.host;
-    } catch (e) {
-      // leave as default
-    }
 
     this.stateService.networkChanged$.subscribe((network) => this.network = network);
     this.router.events.pipe(
@@ -71,6 +66,7 @@ export class SeoService {
   }
 
   setDescription(newDescription: string): void {
+    newDescription = this.rebrand(newDescription);
     this.metaService.updateTag({ name: 'description', content: newDescription});
     this.metaService.updateTag({ name: 'twitter:description', content: newDescription});
     this.metaService.updateTag({ property: 'og:description', content: newDescription});
@@ -83,29 +79,35 @@ export class SeoService {
   }
 
   updateCanonical(path) {
-    this.canonicalLink.setAttribute('href', 'https://' + this.baseDomain + path);
+    if (!this.canonicalLink) {
+      // index.html ships no static canonical (it would point every page at one URL), so create it here
+      this.canonicalLink = document.createElement('link');
+      this.canonicalLink.id = 'canonical';
+      this.canonicalLink.rel = 'canonical';
+      document.head.appendChild(this.canonicalLink);
+    }
+    this.canonicalLink.setAttribute('href', window.location.protocol + '//' + this.baseDomain + path);
   }
 
   getTitle(): string {
-    if (this.network === 'testnet')
-      {return this.baseTitle + ' - Bitcoin Testnet3';}
-    if (this.network === 'testnet4')
-      {return this.baseTitle + ' - Bitcoin Testnet4';}
-    if (this.network === 'signet')
-      {return this.baseTitle + ' - Bitcoin Signet';}
-    if (this.network === 'liquid')
-      {return this.baseTitle + ' - Liquid Network';}
-    if (this.network === 'liquidtestnet')
-      {return this.baseTitle + ' - Liquid Testnet';}
-    return this.baseTitle + ' - ' + (this.network ? this.ucfirst(this.network) : 'Bitcoin') + ' Explorer';
+    // FreeBank: one site, one network; no ' - Bitcoin Explorer' / network suffix
+    return this.baseTitle;
   }
 
   getDescription(): string {
     return this.baseDescription;
   }
 
-  ucfirst(str: string) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
+  // FreeBank: page descriptions are upstream strings written for Bitcoin/mempool.space;
+  // rewrite the names in one place instead of editing every $localize string
+  rebrand(text: string): string {
+    return (text || '')
+      .replace(/The Mempool Open Source Project(®|&reg;)?/g, 'FreeBank Explorer')
+      .replace(/mempool\.space/g, 'FreeBank Explorer')
+      .replace(/\bMempool's\b/g, 'FreeBank Explorer\'s')
+      .replace(/\bBitcoin\b(?! Core)/g, 'FreeBank')
+      .replace(/\bBTC\b/g, 'ECX')
+      .replace(/ (?:and|in) USD\b/g, ''); // no fiat
   }
 
   clearSoft404() {
