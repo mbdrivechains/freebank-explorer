@@ -1,5 +1,26 @@
 # Docker Installation
 
+## FreeBank Explorer defaults
+
+These images are the FreeBank Explorer fork of mempool. Run with no environment variables, they make no calls to
+mempool.space, liquid.network or GitHub:
+
+- The mining pools list is bundled in the backend image (`MEMPOOL_POOLS_JSON_URL` empty; an http(s) URL or a
+  file path still works). `MEMPOOL_AUTOMATIC_POOLS_UPDATE`, `FIAT_PRICE_ENABLED`, `MAXMIND_ENABLED`,
+  `MINING_DASHBOARD`, `ACCELERATOR_BUTTON` and `HISTORICAL_PRICE` default to `false`; `EXTERNAL_DATA_SERVER_*`,
+  `MEMPOOL_SERVICES_API`, `SERVICES_API`, `MEMPOOL_WEBSITE_URL` and `LIQUID_WEBSITE_URL` default to empty;
+  `MEMPOOL_USER_AGENT` is `freebank-explorer`.
+- `/api/v1/services` and `/render/` answer 404 in the frontend's nginx. `PROXIED_SERVICES` and
+  `PROXIED_SERVICES_HOST` are gone.
+- Listen addresses: the backend uses `MEMPOOL_HTTP_HOST` and the frontend's nginx `FRONTEND_HTTP_HOST`. Both default
+  to `127.0.0.1`, which is right with `--network host`. With bridge networking (as in `docker-compose.yml`) set both
+  to `0.0.0.0`, publish the frontend port on `127.0.0.1` only, never publish 8999, and put a front nginx (rate
+  limits, crawler blocks, `robots.txt`, real client IP headers) in front.
+- The script `init.sh` no longer downloads the GeoLite2 databases (only the Lightning pages use them).
+
+The ${VAR:=default} pattern in `start.sh` and `entrypoint.sh` treats an empty value as unset, so to override a
+default, give a non-empty value.
+
 This directory contains the Dockerfiles used to build and release the official images, as well as a `docker-compose.yml` to configure environment variables and other settings.
 
 If you are looking to use these Docker images to deploy your own instance of Mempool, note that they only containerize Mempool's frontend and backend. You will still need to deploy and configure Bitcoin Core and an Electrum Server separately, along with any other utilities specific to your use case (e.g., a reverse proxy, etc). Such configuration is mostly beyond the scope of the Mempool project, so please only proceed if you know what you're doing.
@@ -91,6 +112,7 @@ Below we list all settings from `mempool-config.json` and the corresponding over
     "NETWORK": "mainnet",
     "BACKEND": "electrum",
     "ENABLED": true,
+    "HTTP_HOST": "127.0.0.1",
     "HTTP_PORT": 8999,
     "SPAWN_CLUSTER_PROCS": 0,
     "API_URL_PREFIX": "/api/v1/",
@@ -123,6 +145,7 @@ Corresponding `docker-compose.yml` overrides:
     environment:
       MEMPOOL_NETWORK: ""
       MEMPOOL_BACKEND: ""
+      MEMPOOL_HTTP_HOST: ""
       BACKEND_HTTP_PORT: ""
       MEMPOOL_SPAWN_CLUSTER_PROCS: ""
       MEMPOOL_API_URL_PREFIX: ""
