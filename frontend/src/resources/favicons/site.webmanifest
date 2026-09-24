@@ -1,6 +1,6 @@
 {
-    "name": "mempool",
-    "short_name": "mempool",
+    "name": "FreeBank Explorer",
+    "short_name": "FreeBank",
     "icons": [
         {
             "src": "/resources/favicons/android-chrome-192x192.png",
@@ -13,7 +13,7 @@
             "type": "image/png"
         }
     ],
-    "theme_color": "#000000",
-    "background_color": "#000000",
+    "theme_color": "#0e0f13",
+    "background_color": "#0e0f13",
     "display": "standalone"
 }
