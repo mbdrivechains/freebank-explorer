@@ -9,6 +9,8 @@ import { Conversion } from '@app/services/price.service';
 import { StorageService } from '@app/services/storage.service';
 import { WebsocketResponse } from '@interfaces/websocket.interface';
 import { TxAuditStatus } from '@components/transaction/transaction.component';
+import { FreebankActivityResponse, FreebankBillResponse, FreebankBillsResponse, FreebankGoldResponse, FreebankHouseResponse,
+  FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
 
 @Injectable({
   providedIn: 'root'
@@ -585,6 +587,53 @@ export class ApiService {
 
   getCpfpLocalTx$(tx: any[]): Observable<CpfpInfo[]> {
     return this.httpClient.post<CpfpInfo[]>(this.apiBaseUrl + this.apiBasePath + '/api/v1/cpfp', tx);
+  }
+
+  // FreeBank credit layer (read-only; the backend caches each answer until the next block).
+  // Response shapes and units: interfaces/freebank-credit.interface.ts
+
+  getFreebankSummary$(): Observable<FreebankSummaryResponse> {
+    return this.httpClient.get<FreebankSummaryResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/summary');
+  }
+
+  getFreebankHouses$(): Observable<FreebankHousesResponse> {
+    return this.httpClient.get<FreebankHousesResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/houses');
+  }
+
+  getFreebankHouse$(id: number): Observable<FreebankHouseResponse> {
+    return this.httpClient.get<FreebankHouseResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/house/' + encodeURIComponent(String(id)));
+  }
+
+  getFreebankBills$(): Observable<FreebankBillsResponse> {
+    return this.httpClient.get<FreebankBillsResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/bills');
+  }
+
+  getFreebankBill$(id: number): Observable<FreebankBillResponse> {
+    return this.httpClient.get<FreebankBillResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/bill/' + encodeURIComponent(String(id)));
+  }
+
+  getFreebankPools$(): Observable<FreebankPoolsResponse> {
+    return this.httpClient.get<FreebankPoolsResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/pools');
+  }
+
+  getFreebankPool$(id: number): Observable<FreebankPoolResponse> {
+    return this.httpClient.get<FreebankPoolResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/pool/' + encodeURIComponent(String(id)));
+  }
+
+  getFreebankGold$(): Observable<FreebankGoldResponse> {
+    return this.httpClient.get<FreebankGoldResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/gold');
+  }
+
+  /** Recent credit txs, newest first. family: one tx family, or all when omitted; limit 1..200 (backend default 50). */
+  getFreebankActivity$(family?: FreebankTxFamily, limit?: number): Observable<FreebankActivityResponse> {
+    let params = new HttpParams();
+    if (family) {
+      params = params.set('family', family);
+    }
+    if (limit) {
+      params = params.set('limit', String(limit));
+    }
+    return this.httpClient.get<FreebankActivityResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/activity', { params });
   }
 
   // Cache methods
