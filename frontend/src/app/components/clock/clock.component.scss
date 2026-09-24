@@ -128,7 +128,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    background: radial-gradient(transparent 0%, transparent 44%, #11131f 58%, #11131f 100%);
+    background: radial-gradient(transparent 0%, transparent 44%, var(--active-bg) 58%, var(--active-bg) 100%);
   }
 
   .block-cube {
@@ -150,7 +150,7 @@
       height: var(--side-width);
       line-height: 100px;
       text-align: center;
-      background: #232838;
+      background: #20222e;
       display: block;
       position: absolute;
     }
