@@ -19,6 +19,7 @@ describe('Mempool Backend Config', () => {
         BACKEND: 'none',
         BLOCKS_SUMMARIES_INDEXING: false,
         GOGGLES_INDEXING: false,
+        HTTP_HOST: '127.0.0.1',
         HTTP_PORT: 8999,
         UNIX_SOCKET_PATH: '',
         SPAWN_CLUSTER_PROCS: 0,
@@ -37,10 +38,10 @@ describe('Mempool Backend Config', () => {
         EXTERNAL_ASSETS: [],
         EXTERNAL_MAX_RETRY: 1,
         EXTERNAL_RETRY_INTERVAL: 0,
-        USER_AGENT: 'mempool',
+        USER_AGENT: 'freebank-explorer',
         STDOUT_LOG_MIN_PRIORITY: 'debug',
-        POOLS_JSON_TREE_URL: 'https://api.github.com/repos/mempool/mining-pools/git/trees/master',
-        POOLS_JSON_URL: 'https://raw.githubusercontent.com/mempool/mining-pools/master/pools-v2.json',
+        POOLS_JSON_TREE_URL: '',
+        POOLS_JSON_URL: '',
         POOLS_UPDATE_DELAY: 604800,
         AUDIT: false,
         RUST_GBT: true,
@@ -121,10 +122,10 @@ describe('Mempool Backend Config', () => {
       });
 
       expect(config.EXTERNAL_DATA_SERVER).toStrictEqual({
-        MEMPOOL_API: 'https://mempool.space/api/v1',
-        MEMPOOL_ONION: 'http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion/api/v1',
-        LIQUID_API: 'https://liquid.network/api/v1',
-        LIQUID_ONION: 'http://liquidmom47f6s3m53ebfxn47p76a6tlnxib3wp6deux7wuzotdr6cyd.onion/api/v1'
+        MEMPOOL_API: '',
+        MEMPOOL_ONION: '',
+        LIQUID_API: '',
+        LIQUID_ONION: ''
       });
 
       expect(config.MAXMIND).toStrictEqual({
@@ -155,7 +156,7 @@ describe('Mempool Backend Config', () => {
       });
 
       expect(config.FIAT_PRICE).toStrictEqual({
-        ENABLED: true,
+        ENABLED: false,
         PAID: false,
         API_KEY: '',
       });
