@@ -383,7 +383,7 @@ export class StateService {
     this.blockDisplayMode$ = new BehaviorSubject<string>(blockDisplayModePreference || 'fees');
 
     const viewAmountModePreference = this.storageService.getValue('view-amount-mode') as 'btc' | 'sats' | 'fiat';
-    this.viewAmountMode$ = new BehaviorSubject<'btc' | 'sats' | 'fiat'>(viewAmountModePreference || 'btc');
+    this.viewAmountMode$ = new BehaviorSubject<'btc' | 'sats' | 'fiat'>((viewAmountModePreference !== 'fiat' && viewAmountModePreference) || 'btc');
 
     const timezonePreference = this.storageService.getValue('timezone-preference');
     this.timezone$ = new BehaviorSubject<string>(timezonePreference || 'local');
@@ -391,6 +391,11 @@ export class StateService {
     this.backend$.subscribe(backend => {
       this.backend = backend;
     });
+
+    // FreeBank: no fiat prices (the websocket no longer forwards 'conversions').
+    // Emit null once so combineLatest users of conversions$ (address graph) still
+    // run, while <app-fiat> and <app-amount> treat null as "no conversion".
+    this.conversions$.next(null);
   }
 
   setNetworkBasedonUrl(url: string) {
