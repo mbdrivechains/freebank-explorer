@@ -50,10 +50,10 @@
         <!-- AGPL-3.0 section 13: offer the running source. SOURCE_URL comes from the frontend config. -->
         <p>
           @if (sourceUrl) {
-            <a [href]="sourceUrl" target="_blank" rel="noopener">v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</a>
+            based on mempool <a [href]="sourceUrl" target="_blank" rel="noopener">v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</a>
             &middot; <a [href]="sourceUrl" target="_blank" rel="noopener">Source</a>
           } @else {
-            <span>v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</span>
+            <span>based on mempool v{{ packetJsonVersion }} [{{ frontendGitCommitHash | slice:0:8 }}]</span>
             &middot; <span>Source</span>
           }
         </p>
