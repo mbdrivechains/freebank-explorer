@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 170" width="100%" height="100%">
+  <defs>
+    <!-- Gradient for the Logo Mark -->
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FE" />
+      <stop offset="100%" stop-color="#4FACFE" />
+    </linearGradient>
+    <linearGradient id="darkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A2980" />
+      <stop offset="100%" stop-color="#26D0CE" />
+    </linearGradient>
+  </defs>
+
+  <!-- Logo Mark (Stylized 'A' + Mining Nodes + Pool Wave) -->
+  <g transform="translate(0, 5)">
+    <!-- Main A Left Leg -->
+    <path d="M 70 20 L 20 120 L 45 120 L 70 70 Z" fill="url(#primaryGradient)" />
+    <!-- Main A Right Leg -->
+    <path d="M 70 20 L 120 120 L 95 120 L 70 70 Z" fill="url(#darkGradient)" />
+    <!-- Crossbar of the A shaped as a digital node connection -->
+    <circle cx="45" cy="85" r="8" fill="#1A2980" />
+    <circle cx="95" cy="85" r="8" fill="#1A2980" />
+    <line x1="45" y1="85" x2="95" y2="85" stroke="#1A2980" stroke-width="4" />
+    <!-- Top Node -->
+    <circle cx="70" cy="20" r="10" fill="#00F2FE" />
+    
+    <!-- Subtle Pool/Wave underneath the A -->
+    <path d="M 20 135 Q 70 155 120 135" fill="none" stroke="url(#primaryGradient)" stroke-width="6" stroke-linecap="round" />
+  </g>
+</svg>

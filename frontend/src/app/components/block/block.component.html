@@ -182,6 +182,17 @@
           <td style="width: 75%;"><span class="skeleton-loader"></span></td>
         </tr>
       </ng-template>
+      <!-- FreeBank: who produced this block (won the BMM, earns the fees), named by its coinbase tag (freebankd v0.2.14);
+           no row for a block without a tag -->
+      <tr *ngIf="producerOf(block) as producer">
+        <td>Produced by</td>
+        <td>
+          <span class="producer" [class.unlisted]="!producer.listed" [ngbTooltip]="producer.help" placement="bottom">
+            <img *ngIf="producer.logo" class="producer-logo" [src]="producer.logo" alt="" onError="this.style.display = 'none'">{{ producer.name }}
+          </span>
+          <span *ngIf="!producer.listed" class="symbol">&ngsp;(unlisted tag)</span>
+        </td>
+      </tr>
       <!-- FreeBank: the eCash block that carried this block, its pool and the bid (the BMM view, /bmm) -->
       <tr *ngIf="bmmCarried && bmmCarried.item.freebank_hash === block.id">
         <td class="bmm-carried-label">Carried by eCash block</td>
