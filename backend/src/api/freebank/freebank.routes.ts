@@ -1,0 +1,176 @@
+import { Application, Request, Response } from 'express';
+import config from '../../config';
+import logger from '../../logger';
+import { handleError } from '../../utils/api';
+import freebankApi, { FreebankResult, parseCreditId } from './freebank-api';
+import creditActivity from './credit-activity';
+import { CREDIT_FAMILIES, CreditFamily } from './freebank-tx-parser';
+
+// /api/v1/freebank/* - the FreeBank credit pages' API: read-only JSON, cached until the next
+// block (see freebank-api.ts). Rate limiting is nginx's, as for every /api/v1 route
+// (nginx-mempool.conf `location /api/v1`); the backend adds none of its own.
+//
+//   GET houses        { tip_height, houses: listhouses }
+//   GET house/:id     { tip_height, house: gethouse, loanbook: listloanbook <id>,
+//                       bills: listbills with owner_house_id == id,
+//                       pools: listpools with house_id == id }                    404 unknown
+//   GET bills         { tip_height, bills: listbills }
+//   GET bill/:id      { tip_height, bill: getbill }                               404 unknown
+//   GET pools         { tip_height, pools: listpools }
+//   GET pool/:id      { tip_height, pool: getpool, house: gethouse of pool.house_id } 404 unknown
+//   GET gold          { tip_height, fix: getgoldfix or null, submitters: listoraclesubmitters }
+//   GET activity?family=&limit=
+//                     { tip_height, scanned_from_height, items: [ { txid, height, time,
+//                       version, family, op, op_name, fee, decoded } ] }, newest first
+//   GET summary       { tip_height, houses, houses_by_badge, minted_units_total,
+//                       minted_grams_total, bills_active, loanbook_face_total,
+//                       loanbook_face_total_grams, pools, gold_fix }
+//
+// A malformed id is a 400; an id the node does not know is a 404; a node failure is a 500
+// with a short message. Nothing here throws past the handler.
+
+const ACTIVITY_DEFAULT_LIMIT = 50;
+const ACTIVITY_MAX_LIMIT = 200;
+const ACTIVITY_WAIT_MS = 1500;
+
+function nodeError(req: Request, res: Response, what: string, e: unknown): void {
+  const message = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+  logger.debug(`FreeBank API ${what}: ${message}`);
+  handleError(req, res, 500, `FreeBank node error: ${message}`);
+}
+
+function send(res: Response, result: FreebankResult): void {
+  res.status(result.status).json(result.body);
+}
+
+class FreebankRoutes {
+  public initRoutes(app: Application): void {
+    const prefix = config.MEMPOOL.API_URL_PREFIX + 'freebank/';
+    app
+      .get(prefix + 'houses', this.$getHouses)
+      .get(prefix + 'house/:id', this.$getHouse)
+      .get(prefix + 'bills', this.$getBills)
+      .get(prefix + 'bill/:id', this.$getBill)
+      .get(prefix + 'pools', this.$getPools)
+      .get(prefix + 'pool/:id', this.$getPool)
+      .get(prefix + 'gold', this.$getGold)
+      .get(prefix + 'activity', this.$getActivity)
+      .get(prefix + 'summary', this.$getSummary)
+      ;
+  }
+
+  private $getHouses = async (req: Request, res: Response): Promise<void> => {
+    try {
+      send(res, await freebankApi.$getHouses());
+    } catch (e) {
+      nodeError(req, res, 'houses', e);
+    }
+  };
+
+  private $getHouse = async (req: Request, res: Response): Promise<void> => {
+    const id = parseCreditId(req.params.id);
+    if (id === null) {
+      handleError(req, res, 400, 'Invalid house id');
+      return;
+    }
+    try {
+      send(res, await freebankApi.$getHouse(id));
+    } catch (e) {
+      nodeError(req, res, 'house', e);
+    }
+  };
+
+  private $getBills = async (req: Request, res: Response): Promise<void> => {
+    try {
+      send(res, await freebankApi.$getBills());
+    } catch (e) {
+      nodeError(req, res, 'bills', e);
+    }
+  };
+
+  private $getBill = async (req: Request, res: Response): Promise<void> => {
+    const id = parseCreditId(req.params.id);
+    if (id === null) {
+      handleError(req, res, 400, 'Invalid bill id');
+      return;
+    }
+    try {
+      send(res, await freebankApi.$getBill(id));
+    } catch (e) {
+      nodeError(req, res, 'bill', e);
+    }
+  };
+
+  private $getPools = async (req: Request, res: Response): Promise<void> => {
+    try {
+      send(res, await freebankApi.$getPools());
+    } catch (e) {
+      nodeError(req, res, 'pools', e);
+    }
+  };
+
+  private $getPool = async (req: Request, res: Response): Promise<void> => {
+    const id = parseCreditId(req.params.id);
+    if (id === null) {
+      handleError(req, res, 400, 'Invalid pool id');
+      return;
+    }
+    try {
+      send(res, await freebankApi.$getPool(id));
+    } catch (e) {
+      nodeError(req, res, 'pool', e);
+    }
+  };
+
+  private $getGold = async (req: Request, res: Response): Promise<void> => {
+    try {
+      send(res, await freebankApi.$getGold());
+    } catch (e) {
+      nodeError(req, res, 'gold', e);
+    }
+  };
+
+  private $getSummary = async (req: Request, res: Response): Promise<void> => {
+    try {
+      send(res, await freebankApi.$getSummary());
+    } catch (e) {
+      nodeError(req, res, 'summary', e);
+    }
+  };
+
+  private $getActivity = async (req: Request, res: Response): Promise<void> => {
+    const familyParam = typeof req.query.family === 'string' ? req.query.family : '';
+    let family: CreditFamily | null = null;
+    if (familyParam !== '') {
+      if (!(CREDIT_FAMILIES as readonly string[]).includes(familyParam)) {
+        handleError(req, res, 400, `Unknown family: expected one of ${CREDIT_FAMILIES.join(', ')}`);
+        return;
+      }
+      family = familyParam as CreditFamily;
+    }
+    const limitParam = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : NaN;
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(ACTIVITY_MAX_LIMIT, Math.max(1, limitParam))
+      : ACTIVITY_DEFAULT_LIMIT;
+
+    try {
+      // let a block that just arrived (or replaced the tip at the same height) make it into
+      // the answer
+      const tip = await freebankApi.$getTip();
+      await creditActivity.$waitForTip(tip, ACTIVITY_WAIT_MS);
+      const range = creditActivity.getRange();
+      // The answer covers blocks scanned_from_height..tip_height (the index's own top, which
+      // trails the node's only while it catches up); empty when scanned_from_height > tip_height.
+      const indexed = range.top >= 0;
+      res.json({
+        tip_height: indexed ? range.top : tip.height,
+        scanned_from_height: indexed ? range.scannedFrom : tip.height + 1,
+        items: creditActivity.getItems(family, limit),
+      });
+    } catch (e) {
+      nodeError(req, res, 'activity', e);
+    }
+  };
+}
+
+export default new FreebankRoutes();

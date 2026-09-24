@@ -171,6 +171,9 @@ interface IConfig {
   STRATUM: {
     ENABLED: boolean;
     API: string;
+  },
+  FREEBANK: {
+    ACTIVITY_BACKFILL_BLOCKS: number;
   }
 }
 
@@ -343,6 +346,11 @@ const defaults: IConfig = {
   'STRATUM': {
     'ENABLED': false,
     'API': 'http://localhost:1234',
+  },
+  'FREEBANK': {
+    // FreeBank: blocks scanned for credit txs at startup, for /api/v1/freebank/activity
+    // (the environment variable FREEBANK_ACTIVITY_BACKFILL_BLOCKS overrides it)
+    'ACTIVITY_BACKFILL_BLOCKS': 2016,
   }
 };
 
@@ -367,6 +375,7 @@ class Config implements IConfig {
   FIAT_PRICE: IConfig['FIAT_PRICE'];
   WALLETS: IConfig['WALLETS'];
   STRATUM: IConfig['STRATUM'];
+  FREEBANK: IConfig['FREEBANK'];
 
   constructor() {
     const configs = this.merge(configFromFile, defaults);
@@ -390,6 +399,7 @@ class Config implements IConfig {
     this.FIAT_PRICE = configs.FIAT_PRICE;
     this.WALLETS = configs.WALLETS;
     this.STRATUM = configs.STRATUM;
+    this.FREEBANK = configs.FREEBANK;
   }
 
   merge = (...objects: object[]): IConfig => {

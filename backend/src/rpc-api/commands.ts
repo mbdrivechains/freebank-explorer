@@ -94,4 +94,14 @@ module.exports = {
   getTxoutSetinfo: 'gettxoutsetinfo',
   getIndexInfo: 'getindexinfo',
   testMempoolAccept: 'testmempoolaccept',
+  // FreeBank credit layer, read-only (freebank/src/rpc/misc.cpp), for /api/v1/freebank/*
+  listHouses: 'listhouses',
+  getHouse: 'gethouse',
+  listBills: 'listbills',
+  getBill: 'getbill',
+  listLoanBook: 'listloanbook',
+  listPools: 'listpools',
+  getPool: 'getpool',
+  getGoldFix: 'getgoldfix',
+  listOracleSubmitters: 'listoraclesubmitters',
 };
