@@ -3,6 +3,8 @@ FROM node:24.13-bookworm-slim AS builder
 ARG commitHash
 ENV DOCKER_COMMIT_HASH=${commitHash}
 ENV CYPRESS_INSTALL_BINARY=0
+# FreeBank: no asset sync from GitHub - it fetches mempool's pool logos and promo video
+ENV SKIP_SYNC=1
 
 WORKDIR /build
 COPY . .
@@ -11,7 +13,8 @@ RUN apt-get install -y build-essential rsync
 RUN cp mempool-frontend-config.sample.json mempool-frontend-config.json
 RUN npm install --omit=dev --omit=optional
 
-RUN npm run build
+# FreeBank: English only - the build makes just en-US/, which is all nginx serves
+RUN npm run build:freebank
 
 FROM nginx:1.27.0-alpine
 

@@ -38,6 +38,13 @@ function blockErrorStatus(e: any): number {
   return e?.response?.status === 404 || nodeBlockNotFound ? 404 : 500;
 }
 
+// The same for a block height: getblockhash answers -8 'Block height out of range' above the
+// tip (and below 0), esplora answers 404.
+function blockHeightErrorStatus(e: any): number {
+  const nodeHeightOutOfRange = e?.code === -8 && /out of range/i.test(e?.message ?? '');
+  return nodeHeightOutOfRange ? 404 : blockErrorStatus(e);
+}
+
 class BitcoinRoutes {
   public initRoutes(app: Application) {
     app
@@ -570,13 +577,8 @@ class BitcoinRoutes {
     try {
       if (['mainnet', 'testnet', 'signet', 'testnet4', 'regtest'].includes(config.MEMPOOL.NETWORK)) { // Bitcoin
         res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
-        const tips = await chainTips.getStaleTips();
-        if (tips.length > 0) {
-          res.json(tips);
-        } else {
-          handleError(req, res, 503, `Temporarily unavailable`);
-          return;
-        }
+        // FreeBank: no stale tips is an empty list, not an error
+        res.json(await chainTips.getStaleTips());
       } else { // Liquid
         handleError(req, res, 404, `This API is only available for Bitcoin networks`);
         return;
@@ -655,7 +657,8 @@ class BitcoinRoutes {
       const blockHash = await bitcoinApi.$getBlockHash(parseInt(req.params.height, 10));
       res.send(blockHash);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get block at height');
+      const status = blockHeightErrorStatus(e);
+      handleError(req, res, status, status === 404 ? 'Block not found' : 'Failed to get block at height');
     }
   }
 
