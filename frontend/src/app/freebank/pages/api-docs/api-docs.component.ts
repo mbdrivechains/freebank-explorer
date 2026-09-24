@@ -12,6 +12,7 @@ import { API_DOC_GROUPS, API_DOCS_TIP, API_NOT_AVAILABLE, ApiDocEndpoint } from 
   templateUrl: './api-docs.component.html',
   styleUrls: ['../bills-pools.scss', './api-docs.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class FreebankApiDocsComponent implements OnInit {
   readonly groups = API_DOC_GROUPS;
