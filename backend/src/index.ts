@@ -65,6 +65,7 @@ class Server {
 
   constructor() {
     this.app = express();
+    this.app.disable('x-powered-by');
 
     if (!config.MEMPOOL.SPAWN_CLUSTER_PROCS) {
       void this.startServer();
@@ -139,7 +140,7 @@ class Server {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With');
-        res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count,X-Mempool-Auth');
+        res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
         next();
       })
       .use(express.urlencoded({ extended: true, limit: '10mb' }))
@@ -216,11 +217,12 @@ class Server {
       void this.$runLightningBackend();
     }
 
-    this.server.listen(config.MEMPOOL.HTTP_PORT, () => {
+    // FreeBank: listen on MEMPOOL.HTTP_HOST (default 127.0.0.1) instead of every interface; empty = all
+    this.server.listen(config.MEMPOOL.HTTP_PORT, config.MEMPOOL.HTTP_HOST || undefined, () => {
       if (worker) {
         logger.info(`Mempool Server worker #${process.pid} started`);
       } else {
-        logger.notice(`Mempool Server is running on port ${config.MEMPOOL.HTTP_PORT}`);
+        logger.notice(`Mempool Server is running on ${config.MEMPOOL.HTTP_HOST || '*'}:${config.MEMPOOL.HTTP_PORT}`);
       }
     });
 
