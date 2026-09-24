@@ -23,27 +23,32 @@ const browserWindow = window || {};
 // @ts-ignore
 const browserWindowEnv = browserWindow.__env || {};
 const isCustomized = browserWindowEnv?.customize?.dashboard;
+// FreeBank Explorer: no proof of work and no mining pools, so the mining dashboard,
+// pool pages and mining graphs only exist when MINING_DASHBOARD is on.
+const miningDashboard = !!browserWindowEnv.MINING_DASHBOARD;
 
 const routes: Routes = [
   {
     path: '',
     children: [
-      {
-        path: 'mining/pool/:slug',
-        data: { networks: ['bitcoin'] },
-        component: PoolComponent,
-      },
-      {
-        path: 'mining',
-        data: { networks: ['bitcoin'] },
-        component: StartComponent,
-        children: [
-          {
-            path: '',
-            component: MiningDashboardComponent,
-          },
-        ]
-      },
+      ...(miningDashboard ? [
+        {
+          path: 'mining/pool/:slug',
+          data: { networks: ['bitcoin'] },
+          component: PoolComponent,
+        },
+        {
+          path: 'mining',
+          data: { networks: ['bitcoin'] },
+          component: StartComponent,
+          children: [
+            {
+              path: '',
+              component: MiningDashboardComponent,
+            },
+          ]
+        },
+      ] : []),
       {
         path: 'mempool-block/:id',
         data: { networks: ['bitcoin', 'liquid'] },
@@ -74,56 +79,60 @@ const routes: Routes = [
             data: { networks: ['bitcoin', 'liquid'] },
             component: StatisticsComponent,
           },
-          {
-            path: 'mining/hashrate-difficulty',
-            data: { networks: ['bitcoin'] },
-            component: HashrateChartComponent,
-          },
-          {
-            path: 'mining/pools-dominance',
-            data: { networks: ['bitcoin'] },
-            component: HashrateChartPoolsComponent,
-          },
-          {
-            path: 'mining/pools',
-            data: { networks: ['bitcoin'] },
-            component: PoolRankingComponent,
-          },
-          {
-            path: 'mining/block-fees',
-            data: { networks: ['bitcoin'] },
-            component: BlockFeesGraphComponent,
-          },
-          {
-            path: 'mining/block-fees-subsidy',
-            data: { networks: ['bitcoin'] },
-            component: BlockFeesSubsidyGraphComponent,
-          },
-          {
-            path: 'mining/block-rewards',
-            data: { networks: ['bitcoin'] },
-            component: BlockRewardsGraphComponent,
-          },
-          {
-            path: 'mining/block-fee-rates',
-            data: { networks: ['bitcoin'] },
-            component: BlockFeeRatesGraphComponent,
-          },
-          {
-            path: 'mining/block-sizes-weights',
-            data: { networks: ['bitcoin'] },
-            component: BlockSizesWeightsGraphComponent,
-          },
+          ...(miningDashboard ? [
+            {
+              path: 'mining/hashrate-difficulty',
+              data: { networks: ['bitcoin'] },
+              component: HashrateChartComponent,
+            },
+            {
+              path: 'mining/pools-dominance',
+              data: { networks: ['bitcoin'] },
+              component: HashrateChartPoolsComponent,
+            },
+            {
+              path: 'mining/pools',
+              data: { networks: ['bitcoin'] },
+              component: PoolRankingComponent,
+            },
+            {
+              path: 'mining/block-fees',
+              data: { networks: ['bitcoin'] },
+              component: BlockFeesGraphComponent,
+            },
+            {
+              path: 'mining/block-fees-subsidy',
+              data: { networks: ['bitcoin'] },
+              component: BlockFeesSubsidyGraphComponent,
+            },
+            {
+              path: 'mining/block-rewards',
+              data: { networks: ['bitcoin'] },
+              component: BlockRewardsGraphComponent,
+            },
+            {
+              path: 'mining/block-fee-rates',
+              data: { networks: ['bitcoin'] },
+              component: BlockFeeRatesGraphComponent,
+            },
+            {
+              path: 'mining/block-sizes-weights',
+              data: { networks: ['bitcoin'] },
+              component: BlockSizesWeightsGraphComponent,
+            },
+          ] : []),
           {
             path: '',
             pathMatch: 'full',
             redirectTo: 'mempool',
           },
-          {
-            path: 'mining/block-health',
-            data: { networks: ['bitcoin'] },
-            component: BlockHealthGraphComponent,
-          },
+          ...(miningDashboard ? [
+            {
+              path: 'mining/block-health',
+              data: { networks: ['bitcoin'] },
+              component: BlockHealthGraphComponent,
+            },
+          ] : []),
         ]
       },
       {
