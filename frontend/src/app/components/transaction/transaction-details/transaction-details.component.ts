@@ -6,6 +6,7 @@ import { Observable } from 'rxjs';
 import { ETA } from '@app/services/eta.service';
 import { MiningStats } from '@app/services/mining.service';
 import { Filter } from '@app/shared/filters.utils';
+import { getCreditTxLabel } from '@app/shared/transaction.utils';
 
 @Component({
   selector: 'app-transaction-details',
@@ -47,6 +48,11 @@ export class TransactionDetailsComponent implements OnInit {
   constructor() {}
 
   ngOnInit(): void {}
+
+  // FreeBank: credit tx family (Bill, House, Note, ...) from the tx version, shown as a badge
+  get creditLabel(): string | undefined {
+    return this.tx ? getCreditTxLabel(this.tx) : undefined;
+  }
 
   onAccelerateClicked(): void {
     this.accelerateClicked.emit(true);

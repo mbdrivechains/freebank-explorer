@@ -191,12 +191,15 @@
 
 <ng-template #gogglesRow>
   @if (!isLoadingTx) {
-    @if (isAcceleration || filters.length) {
+    @if (isAcceleration || filters.length || creditLabel) {
       <tr>
         <td class="td-width">
           <span class="goggles-icon"><app-svg-images name="goggles" width="100%" height="100%"></app-svg-images></span>
         </td>
         <td class="wrap-cell">
+          @if (creditLabel) {
+            <span class="badge badge-info mr-1" ngbTooltip="FreeBank credit transaction (version {{ tx.version }})" placement="bottom">{{ creditLabel }}</span>
+          }
           @if (isAcceleration) {
             <span class="badge badge-accelerated mr-1" i18n="transaction.audit.accelerated">Accelerated</span>
           }
