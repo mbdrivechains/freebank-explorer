@@ -154,9 +154,10 @@ class FreebankRoutes {
       : ACTIVITY_DEFAULT_LIMIT;
 
     try {
-      // let a block that just arrived make it into the answer
+      // let a block that just arrived (or replaced the tip at the same height) make it into
+      // the answer
       const tip = await freebankApi.$getTip();
-      await creditActivity.$waitForHeight(tip.height, ACTIVITY_WAIT_MS);
+      await creditActivity.$waitForTip(tip, ACTIVITY_WAIT_MS);
       const range = creditActivity.getRange();
       // The answer covers blocks scanned_from_height..tip_height (the index's own top, which
       // trails the node's only while it catches up); empty when scanned_from_height > tip_height.

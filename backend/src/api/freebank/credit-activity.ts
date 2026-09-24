@@ -94,19 +94,27 @@ class CreditActivityIndex {
     return out;
   }
 
+  /** Whether the index holds the node's best block `tip` (same height AND same hash). */
+  private holdsTip(tip: { height: number, hash: string }): boolean {
+    return this.blocks.get(tip.height)?.hash === tip.hash;
+  }
+
   /**
-   * Kick the indexer and wait (up to timeoutMs) until it has indexed the block at `height`.
+   * Kick the indexer and wait (up to timeoutMs) until it holds the node's best block `tip`.
+   * The hash is compared, not just the height: a block replaced at the same height (a BMM
+   * reorg the backend's new-block callback does not report) is then picked up by the next
+   * request instead of serving the orphaned block's credit txs until the next block.
    * @asyncSafe
    */
-  public async $waitForHeight(height: number, timeoutMs: number): Promise<void> {
-    if (this.high >= height && this.blocks.has(this.high)) {
+  public async $waitForTip(tip: { height: number, hash: string }, timeoutMs: number): Promise<void> {
+    if (this.holdsTip(tip)) {
       return;
     }
     this.kick();
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       await sleep$(100);
-      if (this.high >= height && this.blocks.has(this.high)) {
+      if (this.holdsTip(tip)) {
         return;
       }
     }
