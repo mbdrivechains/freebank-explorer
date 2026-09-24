@@ -33,7 +33,7 @@ interface GoldView {
   fixAge: number | null;          // blocks since the fix formed
   raw: GoldPriceView | null;
   braked: GoldPriceView | null;
-  brakedBelowRaw: boolean;        // the braked view is still catching up after a fall
+  brakedAboveRaw: boolean;        // the braked view is still coming down after the raw fix fell
   satsPerGram: string;            // '125,000 sats' at the raw fix
   ecxPerGram: string;             // '0.00125 ECX'
 }
@@ -141,7 +141,7 @@ export class GoldFixComponent implements OnInit {
       fixAge: null,
       raw: null,
       braked: null,
-      brakedBelowRaw: false,
+      brakedAboveRaw: false,
       satsPerGram: '',
       ecxPerGram: '',
     };
@@ -149,7 +149,7 @@ export class GoldFixComponent implements OnInit {
       view.fixAge = typeof fix.ageblocks === 'number' ? fix.ageblocks : Math.max(0, data.tip_height - fix.fixheight);
       view.raw = { price: formatGoldFixPrice(fix.raw), stored: formatGoldFixStored(fix.raw) };
       view.braked = { price: formatGoldFixPrice(fix.braked), stored: formatGoldFixStored(fix.braked) };
-      view.brakedBelowRaw = isGoldFixValue(fix.raw) && isGoldFixValue(fix.braked) && fix.braked < fix.raw;
+      view.brakedAboveRaw = isGoldFixValue(fix.raw) && isGoldFixValue(fix.braked) && fix.braked > fix.raw;
       view.satsPerGram = formatGoldFixSatsPerGram(fix.raw);
       view.ecxPerGram = formatGoldFixEcxPerGram(fix.raw);
     }

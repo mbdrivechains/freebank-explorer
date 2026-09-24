@@ -48,7 +48,7 @@
                   <td>
                     <span placement="bottom" container="body"
                       ngbTooltip="A damped copy of the fix. It follows a rise at once, but falls only a small step per block, so a sudden drop in the reported price reaches it slowly.">{{ view.braked.price }}</span>
-                    <span class="symbol" *ngIf="view.brakedBelowRaw"> still coming down</span>
+                    <span class="symbol" *ngIf="view.brakedAboveRaw"> still coming down to the fix</span>
                   </td>
                 </tr>
                 <tr>
