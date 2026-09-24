@@ -352,8 +352,9 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
         tx.largeOutput = tx.vout.some(vout => (vout?.value > 1000000000));
 
         // FreeBank: name the coinbase commitments and sidechain objects (deposits, withdrawals)
+        const isCoinbase = !!tx.vin[0]?.is_coinbase;
         for (const vout of tx.vout) {
-          vout.freebankLabel = getFreebankOutputLabel(vout.scriptpubkey);
+          vout.freebankLabel = getFreebankOutputLabel(vout.scriptpubkey, isCoinbase);
         }
       });
 

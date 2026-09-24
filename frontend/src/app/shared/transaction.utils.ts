@@ -635,30 +635,39 @@ export function getCreditTxLabel(tx: { version: number }): string | undefined {
   return CREDIT_TX_LABELS[tx?.version];
 }
 
-// FreeBank coinbase commitments and sidechain objects: OP_RETURN followed by a raw 4-byte tag
-// (not a push, so the node reports the type as 'nonstandard'). See freebank validation.cpp
-// Generate*Commit and sidechain.cpp SidechainObj::GetScript.
-const FREEBANK_OUTPUT_TAGS: { [tag: string]: string } = {
+// FreeBank protocol outputs: OP_RETURN followed by a raw 4-byte tag (not a push, so the node
+// reports the type as 'nonstandard'). See freebank validation.cpp Generate*Commit and
+// GenerateWithdrawalRefundRequest, miner.cpp, and sidechain.cpp SidechainObj::GetScript.
+// Block producers write the coinbase ones, so they are only named in a coinbase: a look-alike
+// output in an ordinary tx (the node accepts nonstandard txs) gets no label.
+const FREEBANK_COINBASE_TAGS: { [tag: string]: string } = {
   'fd7ad1ef': 'Previous block commitment',
   'a7e67e1f': 'Block version commitment',
   'ef5d1dfe': 'Withdrawal bundle commitment',
+  'fa86c689': 'Withdrawal bundle failed',
+  'fb5345de': 'Withdrawal bundle paid out',
+};
+const FREEBANK_TX_TAGS: { [tag: string]: string } = {
+  'fcd2e546': 'Withdrawal refund request',
 };
 // sidechain objects (tag acdcf66f): the byte after the tag is the object type
-const FREEBANK_SIDECHAIN_OBJECTS: { [op: string]: string } = {
+const FREEBANK_COINBASE_OBJECTS: { [op: string]: string } = {
   '44': 'Mainchain deposit', // 'D'
-  '57': 'Withdrawal', // 'W'
   '50': 'Withdrawal bundle', // 'P'
 };
+const FREEBANK_TX_OBJECTS: { [op: string]: string } = {
+  '57': 'Withdrawal', // 'W'
+};
 
-export function getFreebankOutputLabel(scriptpubkey: string): string | undefined {
+export function getFreebankOutputLabel(scriptpubkey: string, isCoinbase: boolean): string | undefined {
   if (!scriptpubkey?.startsWith('6a') || scriptpubkey.length < 10) {
     return undefined;
   }
   const tag = scriptpubkey.slice(2, 10);
   if (tag === 'acdcf66f') {
-    return FREEBANK_SIDECHAIN_OBJECTS[scriptpubkey.slice(10, 12)];
+    return (isCoinbase ? FREEBANK_COINBASE_OBJECTS : FREEBANK_TX_OBJECTS)[scriptpubkey.slice(10, 12)];
   }
-  return FREEBANK_OUTPUT_TAGS[tag];
+  return (isCoinbase ? FREEBANK_COINBASE_TAGS : FREEBANK_TX_TAGS)[tag];
 }
 
 const ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {
