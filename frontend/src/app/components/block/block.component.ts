@@ -69,7 +69,8 @@ export class BlockComponent implements OnInit, OnDestroy {
   overviewError: any = null;
   webGlEnabled = true;
   auditParamEnabled: boolean = false;
-  auditSupported: boolean = this.stateService.env.AUDIT && this.stateService.env.BASE_MODULE === 'mempool' && this.stateService.env.MINING_DASHBOARD === true;
+  // FreeBank: no block audit or Health score for BMM blocks (for now), whatever the AUDIT setting
+  auditSupported: boolean = false;
   auditModeEnabled: boolean = !this.stateService.hideAudit.value;
   auditAvailable = true;
   showAudit: boolean;

@@ -164,12 +164,12 @@
             </td>
           </ng-template>
         </tr>
-        <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
-          <td i18n="block.subsidy-and-fees|Total subsidy and fees in a block">Subsidy + fees</td>
+        <!-- FreeBank: the subsidy is always 0; the coinbase pays fees plus mainchain deposits and withdrawal refunds -->
+        <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet' && block.extras.reward > block.extras.totalFees">
+          <td>Deposits paid</td>
           <td>
-            <app-amount [satoshis]="block.extras.reward" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
-            <span class="fiat">
-              <app-fiat [blockConversion]="blockConversion" [value]="(blockSubsidy + fees) * 100000000" digitsInfo="1.0-0"></app-fiat>
+            <span ngbTooltip="Coinbase outputs minus fees: mainchain deposits paid to depositors (with 1,000 sats per deposit to the block producer) and any withdrawal refunds" placement="bottom">
+              <app-amount [satoshis]="block.extras.reward - block.extras.totalFees" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
             </span>
           </td>
         </tr>
@@ -178,10 +178,6 @@
         <tr>
           <td i18n="block.total-fees|Total fees in a block">Total fees</td>
           <td style="width: 75%;"><span class="skeleton-loader"></span></td>
-        </tr>
-        <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
-          <td i18n="block.subsidy-and-fees|Total subsidy and fees in a block">Subsidy + fees</td>
-          <td><span class="skeleton-loader"></span></td>
         </tr>
       </ng-template>
       <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
@@ -330,10 +326,7 @@
                   <td class="td-width" i18n="transaction.version">Version</td>
                   <td>{{ block.version | decimal2hex }} <span *ngIf="displayTaprootStatus() && hasTaproot(block.version)" class="badge badge-success ml-1" i18n="tx-features.tag.taproot|Taproot">Taproot</span></td>
                 </tr>
-                <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
-                  <td i18n="block.bits">Bits</td>
-                  <td>{{ block.bits | decimal2hex }}</td>
-                </tr>
+                <!-- FreeBank: no Bits, Difficulty or Nonce rows; BMM blocks have no proof of work -->
                 <tr>
                   <td i18n="block.merkle-root">Merkle root</td>
                   <td><p class="break-all">{{ block.merkle_root }}</p></td>
@@ -346,15 +339,7 @@
               <tbody>
                 <tr *ngIf="isMobile"></tr>
                 <tr>
-                  <td class="td-width" i18n="block.difficulty">Difficulty</td>
-                  <td>{{ block.difficulty }}</td>
-                </tr>
-                <tr>
-                  <td i18n="block.nonce">Nonce</td>
-                  <td>{{ block.nonce | decimal2hex }}</td>
-                </tr>
-                <tr>
-                  <td i18n="block.header">Block Header Hex</td>
+                  <td class="td-width" i18n="block.header">Block Header Hex</td>
                   <td><a target="_blank" href="{{ network === '' ? '' : '/' + network }}/api/block/{{block.id}}/header"><fa-icon [icon]="['fas', 'external-link-alt']" [fixedWidth]="true"></fa-icon></a></td>
                 </tr>
               </tbody>
