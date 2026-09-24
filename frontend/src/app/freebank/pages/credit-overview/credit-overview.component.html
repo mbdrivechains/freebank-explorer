@@ -1,13 +1,174 @@
 <div class="container-xl credit-page">
-  <h1>Credit</h1>
-  <p>
-    <a [routerLink]="['/houses' | relativeUrl]">Houses</a> ·
-    <a [routerLink]="['/bills' | relativeUrl]">Bills</a> ·
-    <a [routerLink]="['/pools' | relativeUrl]">Pools</a> ·
-    <a [routerLink]="['/gold' | relativeUrl]">Gold fix</a>
+
+  <div class="title-block">
+    <h1>Credit</h1>
+  </div>
+
+  <p class="credit-intro">
+    FreeBank's credit layer: houses issue notes against reserves they attest on chain, discount bills of exchange
+    onto their loan books, and settle each other's notes at par.
+    <ng-container *ngIf="(summary$ | async)?.load?.data as summary">
+      Figures at block <a [routerLink]="['/block/' | relativeUrl, summary.tip_height]">{{ summary.tip_height }}</a>.
+    </ng-container>
   </p>
-  <h2>Summary</h2>
-  <app-credit-raw-json [state]="summary$ | async" errorText="Could not load the credit summary"></app-credit-raw-json>
-  <h2>Recent activity</h2>
-  <app-credit-raw-json [state]="activity$ | async" errorText="Could not load recent credit activity"></app-credit-raw-json>
+
+  <nav class="credit-links" aria-label="Credit pages">
+    <a class="btn btn-sm btn-outline-info" [routerLink]="['/houses' | relativeUrl]">Houses</a>
+    <a class="btn btn-sm btn-outline-info" [routerLink]="['/bills' | relativeUrl]">Bills</a>
+    <a class="btn btn-sm btn-outline-info" [routerLink]="['/pools' | relativeUrl]">Pools</a>
+    <a class="btn btn-sm btn-outline-info" [routerLink]="['/gold' | relativeUrl]">Gold fix</a>
+  </nav>
+
+  <!-- SUMMARY TILES -->
+  <ng-container *ngIf="summary$ | async as view">
+    <app-http-error *ngIf="view.load.error && !view.load.data" [error]="view.load.error">Could not load the credit summary</app-http-error>
+
+    <div class="credit-tiles" *ngIf="view.load.data as summary">
+
+      <div class="box credit-tile credit-tile-houses">
+        <a class="credit-tile-title" [routerLink]="['/houses' | relativeUrl]">Houses</a>
+        <div class="credit-tile-value">
+          <span ngbTooltip="Discount houses: banks that issue notes and prove their reserves on chain" placement="bottom">{{ summary.houses | number }}</span>
+        </div>
+        <div class="credit-tile-badges" *ngIf="view.badges.length; else noHouses" [attr.aria-label]="view.badgesText">
+          <span *ngFor="let entry of view.badges" class="badge house-health" [ngClass]="'house-health-' + entry.badge"
+            tabindex="0" [ngbTooltip]="entry.explainer" placement="bottom" container="body">{{ entry.count }} {{ entry.label }}</span>
+        </div>
+        <ng-template #noHouses>
+          <div class="credit-tile-line" *ngIf="!summary.houses">No house has registered yet.</div>
+        </ng-template>
+      </div>
+
+      <div class="box credit-tile">
+        <a class="credit-tile-title" [routerLink]="['/houses' | relativeUrl]">Notes outstanding</a>
+        <div class="credit-tile-value">
+          {{ summary.minted_units_total | noteUnits }} <span class="credit-tile-unit">units</span>
+        </div>
+        <div class="credit-tile-line">
+          <span class="credit-grams" ngbTooltip="Grams of gold at the node's presentation scale, for reading only. It is not the gold fix." placement="bottom">{{ summary.minted_grams_total | grams }}</span>.
+          Notes of every house in circulation. One unit redeems for 1 sat of ECX at its house.
+        </div>
+      </div>
+
+      <div class="box credit-tile">
+        <a class="credit-tile-title" [routerLink]="['/bills' | relativeUrl]">Active bills</a>
+        <div class="credit-tile-value">{{ summary.bills_active | number }}</div>
+        <div class="credit-tile-line">Bills of exchange not yet paid or defaulted, including bills discounted at a house.</div>
+      </div>
+
+      <div class="box credit-tile">
+        <a class="credit-tile-title" [routerLink]="['/bills' | relativeUrl]">Loan book</a>
+        <div class="credit-tile-value">
+          {{ summary.loanbook_face_total | satsAsEcx }} <span class="credit-tile-unit">ECX</span>
+        </div>
+        <div class="credit-tile-line">
+          <ng-container *ngIf="summary.loanbook_face_total_grams !== undefined && summary.loanbook_face_total_grams !== null">
+            <span class="credit-grams" ngbTooltip="Grams of gold at the node's presentation scale, for reading only. It is not the gold fix." placement="bottom">{{ summary.loanbook_face_total_grams | grams }}</span>.
+          </ng-container>
+          Face value of the bills the houses have discounted and hold until they fall due.
+        </div>
+      </div>
+
+      <div class="box credit-tile">
+        <a class="credit-tile-title" [routerLink]="['/pools' | relativeUrl]">Pools</a>
+        <div class="credit-tile-value">{{ summary.pools | number }}</div>
+        <div class="credit-tile-line">Pools where a house's notes trade against ECX at a market price.</div>
+      </div>
+
+      <div class="box credit-tile">
+        <a class="credit-tile-title" [routerLink]="['/gold' | relativeUrl]">Gold fix</a>
+        <ng-container *ngIf="summary.gold_fix as fix; else noGoldFix">
+          <div class="credit-tile-value">
+            <span ngbTooltip="Grams of gold one ECX buys at the fix: the middle of the prices that bonded submitters reported in one block" placement="bottom">{{ view.goldFixPrice }}</span>
+          </div>
+          <div class="credit-tile-line">
+            Formed at block <app-credit-height [height]="fix.fixheight" [tipHeight]="summary.tip_height" [showRelative]="false"></app-credit-height><ng-container *ngIf="view.goldFixAge !== null">, {{ view.goldFixAge | blockCount }} ago</ng-container>.
+            For information: the credit rules do not use it yet.
+          </div>
+        </ng-container>
+        <ng-template #noGoldFix>
+          <div class="credit-tile-value">None yet</div>
+          <div class="credit-tile-line">A fix forms once enough bonded submitters report a gold price in the same block.</div>
+        </ng-template>
+      </div>
+
+    </div>
+
+    <div class="credit-tiles" *ngIf="!view.load.data && !view.load.error" aria-busy="true">
+      <div class="box credit-tile" *ngFor="let i of skeletonTiles">
+        <span class="skeleton-loader credit-skeleton-title"></span>
+        <span class="skeleton-loader credit-skeleton-value"></span>
+        <span class="skeleton-loader"></span>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- RECENT CREDIT ACTIVITY -->
+  <ng-container *ngIf="activity$ | async as activity">
+    <div class="credit-subtitle">
+      <h2 id="activity">Recent credit activity</h2>
+    </div>
+
+    <div class="credit-filter" role="group" aria-label="Show one type of credit transaction">
+      <button type="button" class="btn btn-sm btn-outline-info" [class.active]="!activity.family" [attr.aria-pressed]="!activity.family"
+        (click)="setFamily(null)">All</button>
+      <button *ngFor="let entry of families" type="button" class="btn btn-sm btn-outline-info" [class.active]="activity.family === entry.family"
+        [attr.aria-pressed]="activity.family === entry.family" (click)="setFamily(entry.family)">{{ entry.label }}</button>
+    </div>
+
+    <app-http-error *ngIf="activity.load.error && !activity.load.data" [error]="activity.load.error">Could not load recent credit activity</app-http-error>
+
+    <div class="box credit-activity" *ngIf="!activity.load.error || activity.load.data">
+      <table class="table table-borderless table-striped table-fixed credit-activity-table">
+        <thead>
+          <tr>
+            <th class="col-what">What happened</th>
+            <th class="col-height">Block</th>
+            <th class="col-time">Time</th>
+            <th class="col-txid">Transaction</th>
+          </tr>
+        </thead>
+        <tbody *ngIf="activity.load.data; else activitySkeleton" [style.opacity]="activity.load.loading ? 0.75 : null">
+          <tr *ngFor="let row of activity.rows; trackBy: trackByTxid">
+            <td class="col-what">
+              <span class="badge badge-info credit-family" ngbTooltip="FreeBank credit transaction (version {{ row.item.version }})" placement="bottom">{{ row.familyLabel }}</span>
+              <a class="credit-op" [routerLink]="['/tx/' | relativeUrl, row.item.txid]">{{ row.opLabel }}</a>
+              <div class="credit-summary" *ngIf="row.summary">{{ row.summary }}</div>
+            </td>
+            <td class="col-height">
+              <a [routerLink]="['/block/' | relativeUrl, row.item.height]">{{ row.item.height }}</a>
+            </td>
+            <td class="col-time">
+              <app-time kind="since" [time]="row.item.time" [fastRender]="true" [showTooltip]="true"></app-time>
+            </td>
+            <td class="col-txid">
+              <app-truncate [text]="row.item.txid" [lastChars]="5" [link]="['/tx/' | relativeUrl, row.item.txid]"></app-truncate>
+            </td>
+          </tr>
+          <tr *ngIf="!activity.rows.length">
+            <td colspan="4" class="credit-empty">
+              <ng-container *ngIf="activity.family; else noActivityAtAll">No credit transactions of this type yet.</ng-container>
+              <ng-template #noActivityAtAll>No credit transactions yet.</ng-template>
+            </td>
+          </tr>
+        </tbody>
+        <ng-template #activitySkeleton>
+          <tbody aria-busy="true">
+            <tr *ngFor="let i of skeletonRows">
+              <td class="col-what"><span class="skeleton-loader"></span><span class="skeleton-loader credit-skeleton-summary"></span></td>
+              <td class="col-height"><span class="skeleton-loader"></span></td>
+              <td class="col-time"><span class="skeleton-loader"></span></td>
+              <td class="col-txid"><span class="skeleton-loader"></span></td>
+            </tr>
+          </tbody>
+        </ng-template>
+      </table>
+    </div>
+
+    <p class="credit-footnote" *ngIf="activity.load.data as data">
+      Newest first<ng-container *ngIf="activity.rows.length >= activityLimit">, the latest {{ activityLimit }}</ng-container>.
+      <ng-container *ngIf="data.scanned_from_height > 0">Blocks before {{ data.scanned_from_height }} have not been scanned, so older activity is not listed.</ng-container>
+    </p>
+  </ng-container>
+
 </div>
