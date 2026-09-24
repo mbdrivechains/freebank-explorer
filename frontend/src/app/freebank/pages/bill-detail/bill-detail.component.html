@@ -1,6 +1,6 @@
 <div class="container-xl credit-page" *ngIf="view$ | async as view">
   <div class="title-block">
-    <h1>Bill {{ billId }}</h1>
+    <h1>Bill {{ idText }}</h1>
     <div class="title-badges" *ngIf="view.bill">
       <span class="badge bill-status" [ngClass]="'bill-status-' + view.key" [ngbTooltip]="view.statusHelp" placement="bottom" container="body">{{ view.statusLabel }}</span>
       <span class="title-note" *ngIf="view.bill.owner_house_id">on <a [routerLink]="['/house/' | relativeUrl, view.bill.owner_house_id]">house {{ view.bill.owner_house_id }}</a>'s loan book</span>
@@ -8,8 +8,8 @@
   </div>
 
   <app-http-error *ngIf="view.error" [error]="view.error">
-    <ng-container *ngIf="view.error.status === 404; else loadFailed">There is no bill {{ billId }} on this chain.</ng-container>
-    <ng-template #loadFailed>Could not load bill {{ billId }}.</ng-template>
+    <ng-container *ngIf="view.error.status === 404 || view.error.status === 400; else loadFailed">There is no bill {{ idText }} on this chain.</ng-container>
+    <ng-template #loadFailed>Could not load bill {{ idText }}.</ng-template>
   </app-http-error>
 
   <!-- loading: the panels as skeletons -->
@@ -171,8 +171,14 @@
                       <ng-template #tooLateToDiscount><span class="explain">No house holds it, and past maturity it can no longer be discounted.</span></ng-template>
                     </ng-container>
                     <ng-template #closedOwnership>
-                      No one
-                      <span class="explain">The bill is closed: {{ view.statusLabel | lowercase }}.</span>
+                      <ng-container *ngIf="view.key === 'defaulted'; else noOwner">
+                        The last holder
+                        <span class="explain">The escrow bond has been claimed. If the face was more than the bond, a party liable on the bill (the drawer or an endorser) can still pay the holder the difference and take the bill over.</span>
+                      </ng-container>
+                      <ng-template #noOwner>
+                        No one
+                        <span class="explain">The bill is closed: {{ view.statusLabel | lowercase }}.</span>
+                      </ng-template>
                     </ng-template>
                   </td>
                 </tr>
@@ -231,7 +237,7 @@
                 <td>State</td>
                 <td [ngSwitch]="view.key">
                   <ng-container *ngSwitchCase="'retired'">Released <span class="explain">The acceptor paid the bill, so the bond was freed.</span></ng-container>
-                  <ng-container *ngSwitchCase="'defaulted'">Claimed <span class="explain">The bill went unpaid; the holder took the bond.</span></ng-container>
+                  <ng-container *ngSwitchCase="'defaulted'">Claimed <span class="explain">The bill went unpaid; <ng-container *ngIf="view.pastHouseId; else holderClaimed">house {{ view.pastHouseId }}, which held it, took the bond.</ng-container><ng-template #holderClaimed>the holder took the bond.</ng-template></span></ng-container>
                   <ng-container *ngSwitchCase="'disputed'">Held <span class="explain">The bill is marked disputed.</span></ng-container>
                   <ng-container *ngSwitchCase="'unknown'">Unknown</ng-container>
                   <ng-container *ngSwitchDefault>
@@ -321,10 +327,10 @@
       <ng-container *ngIf="event.from"> from <span class="nowrap">{{ event.from | shortenString: 12 }}</span></ng-container>
     </ng-container>
     <ng-container *ngSwitchCase="'retire'">The acceptor paid the face value to the holder</ng-container>
-    <ng-container *ngSwitchCase="'hretire'">The acceptor paid the face value to <a *ngIf="event.houseId" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a></ng-container>
+    <ng-container *ngSwitchCase="'hretire'">The acceptor paid the face value to <a *ngIf="event.houseId; else theHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a><ng-template #theHouse>the house</ng-template></ng-container>
     <ng-container *ngSwitchCase="'claim'">The holder took the escrow bond</ng-container>
     <ng-container *ngSwitchCase="'hclaim'">The house took the escrow bond</ng-container>
-    <ng-container *ngSwitchCase="'recourse'">An earlier party paid the holder and took over the bill</ng-container>
+    <ng-container *ngSwitchCase="'recourse'">A party liable on the bill (the drawer or an endorser) paid the holder and took the bill over</ng-container>
     <ng-container *ngSwitchDefault></ng-container>
   </ng-container>
 </ng-template>

@@ -64,6 +64,7 @@ interface BillDetailView {
 })
 export class BillDetailComponent implements OnInit {
   billId: number;
+  idText = '';                        // the id as typed in the URL, for the title and the not-found line
   view$: Observable<BillDetailView>;
   skeletonRows = [1, 2, 3, 4, 5];
 
@@ -77,12 +78,14 @@ export class BillDetailComponent implements OnInit {
 
   ngOnInit(): void {
     // set before the first render: the tap below runs inside the first change detection pass
-    this.billId = parseInt(this.route.snapshot.paramMap.get('id'), 10);
+    this.idText = this.route.snapshot.paramMap.get('id') || '';
+    this.billId = parseInt(this.idText, 10);
     this.websocketService.want(['blocks']);
 
     const bill$ = this.route.paramMap.pipe(
       tap((params) => {
-        this.billId = parseInt(params.get('id'), 10);
+        this.idText = params.get('id') || '';
+        this.billId = parseInt(this.idText, 10);
         this.seoService.setTitle(`Bill ${params.get('id')}`);
         this.seoService.setDescription(`FreeBank bill of exchange ${params.get('id')}: face value, escrow, maturity and endorsements.`);
       }),
