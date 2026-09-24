@@ -428,7 +428,8 @@ export class TransactionComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     this.miningSubscription = this.fetchMiningInfo$.pipe(
-      filter((target) => target.txid === this.txId && !this.pool),
+      // FreeBank: the genesis coinbase has no block hash; don't ask for /api/v1/block/undefined
+      filter((target) => target.txid === this.txId && !this.pool && !!target.hash),
       tap(() => {
         this.pool = null;
       }),
