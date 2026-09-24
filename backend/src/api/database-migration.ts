@@ -7,7 +7,7 @@ import cpfpRepository from '../repositories/CpfpRepository';
 import { RowDataPacket } from 'mysql2';
 
 class DatabaseMigration {
-  private static currentVersion = 106;
+  private static currentVersion = 107;
   private queryTimeout = 3600_000;
   private statisticsAddedIndexed = false;
   private uniqueLogs: string[] = [];
@@ -1221,6 +1221,12 @@ class DatabaseMigration {
         await this.$executeQuery(`UPDATE state SET number = 929700 WHERE name = 'last_bitcoin_block_audit';`);
       }
       await this.updateToSchemaVersion(106);
+    }
+
+    // FreeBank: a blind-merged-mined block header is 136 bytes (272 hex chars), not Bitcoin's 80
+    if (databaseSchemaVersion < 107) {
+      await this.$executeQuery('ALTER TABLE `blocks` MODIFY header varchar(272) NOT NULL');
+      await this.updateToSchemaVersion(107);
     }
   }
 
