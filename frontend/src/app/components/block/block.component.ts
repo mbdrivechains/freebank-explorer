@@ -558,6 +558,10 @@ export class BlockComponent implements OnInit, OnDestroy {
   }
 
   navigateToNextBlock(): void  {
+    // FreeBank: no next height to go to until this block has loaded (else /block/undefined)
+    if (!this.block) {
+      return;
+    }
     const block = this.latestBlocks.find((b) => b.height === this.nextBlockHeight);
     this.router.navigate([this.relativeUrlPipe.transform('/block/'),
       block ? block.id : this.nextBlockHeight], { state: { data: { block, blockHeight: this.nextBlockHeight } } });
