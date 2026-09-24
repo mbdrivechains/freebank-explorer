@@ -18,9 +18,9 @@
         <th class="timestamp" i18n="latest-blocks.timestamp" *ngIf="!widget" [class]="isMempoolModule ? '' : 'legacy'">Timestamp</th>
         <th *ngIf="auditAvailable" class="health text-right" i18n="latest-blocks.health" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"
           i18n-ngbTooltip="latest-blocks.health" ngbTooltip="Health" placement="bottom" #health [disableTooltip]="!isEllipsisActive(health)">Health</th>
-        <th *ngIf="isMempoolModule" class="reward text-right" i18n="latest-blocks.reward" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"
-          i18n-ngbTooltip="latest-blocks.reward" ngbTooltip="Reward" placement="bottom" #reward [disableTooltip]="!isEllipsisActive(reward)">Reward</th>
-        <th *ngIf="isMempoolModule && !auditAvailable || isMempoolModule && !widget" class="fees text-right" i18n="latest-blocks.fees" [class]="isMempoolModule ? '' : 'legacy'">Fees</th>
+        <!-- FreeBank: no Reward column. There is no block subsidy, and the coinbase also pays out mainchain deposits,
+             so block.extras.reward is not income; Fees shows in every mode instead -->
+        <th *ngIf="isMempoolModule" class="fees text-right" i18n="latest-blocks.fees" [class]="isMempoolModule ? '' : 'legacy'">Fees</th>
         <th *ngIf="auditAvailable && !widget" class="fee-delta" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"></th>
         <th *ngIf="isMempoolModule" class="txs text-right" i18n="dashboard.txs" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"
           i18n-ngbTooltip="dashboard.txs" ngbTooltip="TXs" placement="bottom" #txs [disableTooltip]="!isEllipsisActive(txs)">TXs</th>
@@ -65,10 +65,7 @@
               <span class="health-badge badge badge-secondary" i18n="unknown">Unknown</span>
             </ng-template>
           </td>
-          <td *ngIf="isMempoolModule" class="reward text-right" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
-            <app-amount [satoshis]="block.extras.reward" [noFiat]="true" digitsInfo="1.2-2"></app-amount>
-          </td>
-          <td *ngIf="isMempoolModule && !auditAvailable || isMempoolModule && !widget" class="fees text-right" [class]="isMempoolModule ? '' : 'legacy'">
+          <td *ngIf="isMempoolModule" class="fees text-right" [class]="isMempoolModule ? '' : 'legacy'">
             <app-amount [satoshis]="block.extras.totalFees" [noFiat]="true" digitsInfo="1.2-2"></app-amount>
           </td>
           <td *ngIf="auditAvailable" class="fee-delta" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
@@ -103,10 +100,7 @@
             <td *ngIf="auditAvailable" class="health text-right" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
               <span class="skeleton-loader" style="max-width: 75px"></span>
             </td>
-            <td *ngIf="isMempoolModule" class="reward text-right" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}">
-              <span class="skeleton-loader" style="max-width: 75px"></span>
-            </td>
-            <td *ngIf="isMempoolModule && !auditAvailable || isMempoolModule && !widget" class="fees text-right" [class]="isMempoolModule ? '' : 'legacy'">
+            <td *ngIf="isMempoolModule" class="fees text-right" [class]="isMempoolModule ? '' : 'legacy'">
               <span class="skeleton-loader" style="max-width: 75px"></span>
             </td>
             <td *ngIf="auditAvailable && !widget" class="fee-delta" [class]="isMempoolModule ? '' : 'legacy'">

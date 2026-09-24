@@ -166,9 +166,7 @@ tr, td, th {
 
 .fees {
   width: 8%;
-  @media (max-width: 820px) {
-    display: none;
-  }
+  // FreeBank: Fees stays on narrow screens, where the (removed) Reward column used to be
 }
 .fees.widget {
   width: 20%;
