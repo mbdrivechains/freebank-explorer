@@ -46,6 +46,12 @@ export interface HouseDeferral {
   text: string;
 }
 
+export interface HouseOptionClause {
+  text: string;                   // 'available', 'in force', 'not available', 'not needed'
+  sub: string;                    // why, in a short line
+  warn: boolean;
+}
+
 export interface HouseDetailData {
   tip: number;
   house: FreebankHouse;
@@ -61,7 +67,10 @@ export interface HouseDetailData {
   mintCapLine: string;            // notes against the mint cap, in words
   depositGrams: number | undefined;
   roomGrams: number | undefined;
+  issueBlocked: string | null;    // why the house cannot issue in the next block, whatever the caps allow
+  depositsMatured: boolean;       // term deposits outstanding whose average maturity has passed
   deferral: HouseDeferral;
+  optionClause: HouseOptionClause;
   insolvent: boolean;
   partners: HousePartnerRow[];
   partnersActive: number;
@@ -129,6 +138,53 @@ function deferralView(house: FreebankHouse, tip: number): HouseDeferral {
   return { state: 'never', text: 'Never invoked' };
 }
 
+/**
+ * Why the house cannot issue notes (or discount a bill, which issues notes) in the next block,
+ * as the node checks it (validation.cpp NOTE_OP_MINT, BILL_OP_DISCOUNT): the house must be open,
+ * and its last attestation at most one cadence old at the height of the new block. null if the
+ * only limit is the caps.
+ */
+function issueBlockedText(house: FreebankHouse, health: HouseHealth, tip: number): string | null {
+  const effective = house.effective_status || house.status;
+  if (health.badge === 'insolvent') {
+    return 'none: an insolvent house cannot issue';
+  }
+  if (health.badge === 'wound_down') {
+    return 'none: the house is wound down';
+  }
+  if (effective === 'deferred' || house.defer_invoked_height) {
+    return 'none while the option clause is in force';
+  }
+  if (health.badge === 'stressed' || effective !== 'open') {
+    return 'none while the house is stressed: only an open house can issue';
+  }
+  if (houseNeverAttested(house)) {
+    return 'none until the house first attests its reserves';
+  }
+  if (health.nextAttestationDue !== null && tip + 1 > health.nextAttestationDue) {
+    return 'none until it attests again: issuing needs an attestation within one cadence';
+  }
+  return null;
+}
+
+// The option clause is a tool for a stressed house only (validation.cpp HOUSE_OP_DEFER).
+function optionClauseView(house: FreebankHouse, health: HouseHealth): HouseOptionClause {
+  const effective = house.effective_status || house.status;
+  if (health.badge === 'insolvent' || health.badge === 'wound_down') {
+    return { text: 'not available', sub: health.badge === 'insolvent' ? 'the house is insolvent' : 'the house is wound down', warn: false };
+  }
+  if (effective === 'deferred' || house.defer_invoked_height) {
+    return { text: 'in force', sub: 'redemptions are deferred', warn: true };
+  }
+  if (house.confidence_dead) {
+    return { text: 'not available', sub: 'used too recently or for too long', warn: true };
+  }
+  if (effective === 'stressed') {
+    return { text: 'available', sub: 'the partners may invoke it after a fresh attestation, locking the reserves in escrow', warn: false };
+  }
+  return { text: 'not needed', sub: 'only a stressed house can invoke it', warn: false };
+}
+
 function toData(response: FreebankHouseResponse): HouseDetailData {
   const house = response.house;
   const tip = response.tip_height;
@@ -155,7 +211,10 @@ function toData(response: FreebankHouseResponse): HouseDetailData {
       : (capacity.mint.over ? 'over the mint cap' : `the mint cap is 0${house.reservecapunits ? '' : ' until the house attests reserves'}`),
     depositGrams: unitsToGrams(capacity.deposits, capacity.gramsPerUnit),
     roomGrams: unitsToGrams(capacity.roomToIssue, capacity.gramsPerUnit),
+    issueBlocked: issueBlockedText(house, health, tip),
+    depositsMatured: capacity.deposits > 0 && !house.depositwam,
     deferral: deferralView(house, tip),
+    optionClause: optionClauseView(house, health),
     insolvent: health.badge === 'insolvent',
     partnersActive: (house.partners || []).filter((partner) => partner.status === 'active').length,
     partners: (house.partners || []).map((partner) => ({
@@ -216,6 +275,7 @@ function toActivity(state: CreditLoad<FreebankActivityResponse>, houseId: number
 })
 export class HouseDetailComponent implements OnInit {
   houseId: number;
+  idText: string;                 // the id as typed in the URL, for the header and the not-found line
   view$: Observable<HouseDetailView>;
   activityLimit = ACTIVITY_LIMIT;
   skeletonLines = [1, 2, 3, 4, 5];
@@ -231,6 +291,7 @@ export class HouseDetailComponent implements OnInit {
   ngOnInit(): void {
     // set before the first render: the tap below runs inside the first change detection pass
     this.houseId = parseInt(this.route.snapshot.paramMap.get('id'), 10);
+    this.idText = this.route.snapshot.paramMap.get('id') || '';
     this.websocketService.want(['blocks']);
 
     // chain-wide, so it stays loaded when the page moves to another house
@@ -239,6 +300,7 @@ export class HouseDetailComponent implements OnInit {
     const house$ = this.route.paramMap.pipe(
       tap((params) => {
         this.houseId = parseInt(params.get('id'), 10);
+        this.idText = params.get('id') || '';
         this.seoService.setTitle(`House ${params.get('id')}`);
         this.seoService.setDescription(`FreeBank house ${params.get('id')}: its health, attested reserves, notes issued, partners, loan book and pool.`);
       }),
@@ -264,7 +326,8 @@ export class HouseDetailComponent implements OnInit {
           loading: state.loading && !data,
           refreshing: state.loading && !!data,
           error: state.error,
-          notFound: state.error?.status === 404,
+          // 400 is a malformed id (/house/abc), 404 an id the chain does not know
+          notFound: state.error?.status === 404 || state.error?.status === 400,
           data,
           activity: toActivity(activity, houseId, data?.house),
         };

@@ -5,7 +5,7 @@
     <h1>
       House
       <span class="house-classid" *ngIf="view.data; else titleNumber">{{ view.data.house.classid }}</span>
-      <ng-template #titleNumber><span class="house-classid">{{ houseId }}</span></ng-template>
+      <ng-template #titleNumber><span class="house-classid">{{ idText }}</span></ng-template>
     </h1>
     <span class="house-number" *ngIf="view.data">#{{ view.data.house.id }}</span>
     <div class="spinner-border" role="status" *ngIf="view.refreshing"><span class="sr-only">Loading</span></div>
@@ -17,7 +17,7 @@
   <!-- NOT FOUND / ERROR -->
   <ng-container *ngIf="view.error && !view.data">
     <app-http-error [error]="view.error">
-      <ng-container *ngIf="view.notFound; else loadError">There is no house {{ houseId }} on this chain.</ng-container>
+      <ng-container *ngIf="view.notFound; else loadError">There is no house {{ idText }} on this chain.</ng-container>
       <ng-template #loadError>Could not load this house</ng-template>
     </app-http-error>
     <p class="credit-footnote"><a [routerLink]="['/houses' | relativeUrl]">See every house</a></p>
@@ -139,8 +139,12 @@
                 <td>
                   <ng-container *ngIf="d.attests; else noClock">
                     <span [class.overdue]="d.clock.overdue">{{ d.clock.text }}</span>
-                    <div class="sub">block <app-credit-height [height]="d.clock.deadline" [tipHeight]="d.tip" [showRelative]="false"></app-credit-height>;
+                    <div class="sub" *ngIf="!d.clock.overdue; else deadlinePassed">block <app-credit-height [height]="d.clock.deadline" [tipHeight]="d.tip" [showRelative]="false"></app-credit-height>;
                       stressed from block {{ d.clock.deadline + 1 }} without one</div>
+                    <ng-template #deadlinePassed>
+                      <div class="sub">block <app-credit-height [height]="d.clock.deadline" [tipHeight]="d.tip" [showRelative]="false"></app-credit-height>
+                        passed without one, so the house is stressed</div>
+                    </ng-template>
                   </ng-container>
                   <ng-template #noClock><span class="muted">no longer attests</span></ng-template>
                 </td>
@@ -149,9 +153,8 @@
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
                   ngbTooltip="The option clause lets a stressed house defer redemptions for a limited window. Holders who lodge a demand earn 5% a year from the date of demand. A house that used it too recently or for too long cannot invoke it again.">Option clause</span></td>
                 <td>
-                  <ng-container *ngIf="!d.house.confidence_dead; else clauseSpent">available</ng-container>
-                  <ng-template #clauseSpent><span class="overdue">not available</span>
-                    <div class="sub">used too recently or for too long</div></ng-template>
+                  <span [class.overdue]="d.optionClause.warn">{{ d.optionClause.text }}</span>
+                  <div class="sub">{{ d.optionClause.sub }}</div>
                 </td>
               </tr>
               <tr>
@@ -240,10 +243,16 @@
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="How many more units the caps allow, the lower of the room under each. Minting also needs an attestation within one cadence and reserves proven live in the same transaction, so the real room can be lower.">Room to issue</span></td>
+                  ngbTooltip="How many more units the caps allow, the lower of the room under each. Discounting a bill counts too: the house pays for it in new notes. Only an open house that attested within one cadence can issue, and it must prove its reserves live in the same transaction, so the real room can be lower.">Room to issue</span></td>
                 <td>
-                  <app-credit-amount [units]="d.capacity.roomToIssue" [grams]="d.roomGrams"></app-credit-amount>
-                  <div class="sub">limited by the {{ d.capacity.binding }} cap</div>
+                  <ng-container *ngIf="!d.issueBlocked; else cannotIssue">
+                    <app-credit-amount [units]="d.capacity.roomToIssue" [grams]="d.roomGrams"></app-credit-amount>
+                    <div class="sub">limited by the {{ d.capacity.binding }} cap</div>
+                  </ng-container>
+                  <ng-template #cannotIssue>
+                    <span class="overdue">{{ d.issueBlocked }}</span>
+                    <div class="sub" *ngIf="d.capacity.roomToIssue">the caps alone would allow {{ d.capacity.roomToIssue | noteUnits }} units</div>
+                  </ng-template>
                 </td>
               </tr>
               <tr>
@@ -252,14 +261,15 @@
                 <td>
                   <app-credit-amount [units]="d.capacity.deposits" [grams]="d.depositGrams"></app-credit-amount>
                   <div class="sub" *ngIf="d.capacity.deposits && d.house.depositwam">average remaining term {{ d.house.depositwam | blockCount }}</div>
+                  <div class="sub" *ngIf="d.depositsMatured">past maturity on average, not yet withdrawn</div>
                 </td>
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="The chain's match-funding check: whether term money covers the part of the loan book that deposits fund.">Match funding</span></td>
+                  ngbTooltip="The chain's match-funding rule: term deposits must run at least as long as the part of the loan book they fund, so a house cannot fund long bills with short money. Checked when the house discounts a bill or takes a deposit.">Match funding</span></td>
                 <td>
-                  <ng-container *ngIf="d.house.matchfundingok; else notMatched">covered</ng-container>
-                  <ng-template #notMatched><span class="overdue">not covered</span></ng-template>
+                  <ng-container *ngIf="d.house.matchfundingok; else notMatched">met</ng-container>
+                  <ng-template #notMatched><span class="overdue">not met</span></ng-template>
                 </td>
               </tr>
             </tbody>
@@ -520,6 +530,7 @@
               <a class="activity-op" [routerLink]="['/tx/' | relativeUrl, row.item.txid]">{{ row.item.family | creditOp: row.item.op : row.item.op_name }}</a>
               <div class="sub" *ngIf="row.detail.text || row.detail.billId">
                 <a *ngIf="row.detail.billId" [routerLink]="['/bill/' | relativeUrl, row.detail.billId]">Bill {{ row.detail.billId }}</a>
+                <ng-container *ngIf="row.detail.counterpartyId">With <a [routerLink]="['/house/' | relativeUrl, row.detail.counterpartyId]">house {{ row.detail.counterpartyId }}</a>:</ng-container>
                 {{ row.detail.text }}
               </div>
             </td>
