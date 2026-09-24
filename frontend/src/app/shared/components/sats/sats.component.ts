@@ -1,6 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { StateService } from '@app/services/state.service';
+import { SUBUNIT } from '@app/app.constants';
 
 @Component({
   selector: 'app-sats',
@@ -15,6 +16,7 @@ export class SatsComponent implements OnInit {
   @Input() valueOverride: string | undefined = undefined;
 
   network = '';
+  subunit = SUBUNIT;
   stateSubscription: Subscription;
 
   constructor(

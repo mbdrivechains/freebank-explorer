@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { StorageService } from '@app/services/storage.service';
 import { StateService } from '@app/services/state.service';
+import { UNIT, SUBUNIT } from '@app/app.constants';
 
 @Component({
   selector: 'app-amount-selector',
@@ -12,7 +13,9 @@ import { StateService } from '@app/services/state.service';
 })
 export class AmountSelectorComponent implements OnInit {
   amountForm: UntypedFormGroup;
-  modes = ['btc', 'sats', 'fiat'];
+  modes = ['btc', 'sats'];
+  unit = UNIT;
+  subunit = SUBUNIT;
 
   constructor(
     private formBuilder: UntypedFormBuilder,
@@ -25,7 +28,8 @@ export class AmountSelectorComponent implements OnInit {
       mode: ['btc']
     });
     this.stateService.viewAmountMode$.subscribe((mode) => {
-      this.amountForm.get('mode')?.setValue(mode);
+      // no fiat on FreeBank: fiat mode displays as the main unit
+      this.amountForm.get('mode')?.setValue(mode === 'fiat' ? 'btc' : mode);
     });
   }
 
