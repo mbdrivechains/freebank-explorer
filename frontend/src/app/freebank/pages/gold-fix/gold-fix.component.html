@@ -1,0 +1,7 @@
+<div class="container-xl credit-page">
+  <h1>Gold fix</h1>
+  <ng-container *ngIf="state$ | async as state">
+    <p *ngIf="state.data && !state.data.fix">No gold fix has formed yet.</p>
+    <app-credit-raw-json [state]="state" errorText="Could not load the gold fix"></app-credit-raw-json>
+  </ng-container>
+</div>

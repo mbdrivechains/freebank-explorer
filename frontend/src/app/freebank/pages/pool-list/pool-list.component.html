@@ -1,0 +1,13 @@
+<div class="container-xl credit-page">
+  <h1>Pools</h1>
+  <ng-container *ngIf="state$ | async as state">
+    <ul *ngIf="state.data">
+      <li *ngFor="let pool of state.data.pools">
+        <a [routerLink]="['/pool/' | relativeUrl, pool.pool_id]">Pool {{ pool.pool_id }}</a>:
+        <app-credit-amount [units]="pool.note_reserve" [grams]="pool.note_reserve_grams"></app-credit-amount> and
+        <app-credit-amount [sats]="pool.btx_reserve" [grams]="pool.btx_reserve_grams"></app-credit-amount>, fee {{ pool.fee_bps | bps }}
+      </li>
+    </ul>
+    <app-credit-raw-json [state]="state" errorText="Could not load the pools"></app-credit-raw-json>
+  </ng-container>
+</div>
