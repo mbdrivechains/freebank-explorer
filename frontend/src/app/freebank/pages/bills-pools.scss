@@ -62,13 +62,20 @@
   margin-top: 0.5rem;
 }
 
+// Mempool sets `tr { white-space: nowrap }` on every table, so a cell's second line or a long value
+// widens the table past its panel. Credit table cells wrap instead; figures, badges, ids and short
+// hashes stay on one line through their own classes (.col-id, .nowrap, .credit-amount, .bill-status).
 .credit-table {
   th {
     white-space: nowrap;
+    @media (max-width: 575.98px) {
+      white-space: normal;
+    }
   }
 
   td {
     vertical-align: top;
+    white-space: normal;
   }
 
   &.reloading {
@@ -97,6 +104,7 @@
 .credit-detail-table {
   td {
     vertical-align: top;
+    white-space: normal;
   }
 
   td:first-child {
@@ -104,6 +112,16 @@
     @media (max-width: 575.98px) {
       width: 42%;
     }
+  }
+
+  // a value with no break in it (a raw outpoint) breaks anywhere rather than widen the table
+  td + td {
+    overflow-wrap: anywhere;
+  }
+
+  // app-truncate fits a key or hash to the cell with an ellipsis: it has to stay on one line
+  app-truncate {
+    white-space: nowrap;
   }
 }
 

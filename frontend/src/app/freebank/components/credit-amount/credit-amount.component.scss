@@ -1,4 +1,13 @@
+// "95,040,000 hone units (19.71 g)": the amount with its unit stays on one line, and so do the
+// grams; a narrow cell breaks the line between the two (the template's &ngsp;) rather than
+// widen its table.
 .credit-amount {
+  white-space: normal;
+}
+
+.credit-amount-value,
+.symbol,
+.credit-amount-grams {
   white-space: nowrap;
 }
 

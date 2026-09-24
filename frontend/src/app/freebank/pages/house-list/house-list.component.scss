@@ -39,9 +39,23 @@
   th, td {
     vertical-align: top;
     padding: 0.65rem 0.6rem;
+    // all ten columns show from 1200px, in the container's fixed 1140px
+    @media (min-width: 1200px) {
+      padding-left: 0.45rem;
+      padding-right: 0.45rem;
+    }
   }
 
   td {
+    white-space: nowrap;
+  }
+
+  // Figures and second lines stay on one line; the worded values ("no notes outstanding",
+  // "overdue by 127 blocks") wrap, so all ten columns fit the 1140px container
+  td.col-status, td.col-ratio, td.col-last, td.col-deadline {
+    white-space: normal;
+  }
+  td .sub {
     white-space: nowrap;
   }
 

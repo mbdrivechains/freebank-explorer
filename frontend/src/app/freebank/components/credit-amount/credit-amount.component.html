@@ -1,8 +1,9 @@
 <span class="credit-amount" *ngIf="amountText">
+  <!-- &ngsp; is a space Angular keeps: a narrow cell breaks the line there, before the grams -->
   <ng-container *ngIf="!gramsFirst || !gramsText; else gramsFirstTemplate">
-    <span class="credit-amount-value">{{ amountText }}</span><span class="symbol"> {{ symbol }}</span><span class="credit-amount-grams" *ngIf="gramsText"> ({{ gramsText }})</span>
+    <span class="credit-amount-value">{{ amountText }}</span><span class="symbol"> {{ symbol }}</span><ng-container *ngIf="gramsText">&ngsp;<span class="credit-amount-grams">({{ gramsText }})</span></ng-container>
   </ng-container>
   <ng-template #gramsFirstTemplate>
-    <span class="credit-amount-value">{{ gramsText }}</span><span class="credit-amount-grams"> ({{ amountText }} {{ symbol }})</span>
+    <span class="credit-amount-value">{{ gramsText }}</span>&ngsp;<span class="credit-amount-grams">({{ amountText }} {{ symbol }})</span>
   </ng-template>
 </span>
