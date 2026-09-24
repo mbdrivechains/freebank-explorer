@@ -229,6 +229,11 @@
                   "maximumWarning": "6kb"
                 }
               ]
+            },
+            "en-only": {
+              "localize": [
+                "en-US"
+              ]
             }
           },
           "defaultConfiguration": ""
