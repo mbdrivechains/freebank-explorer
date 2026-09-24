@@ -214,7 +214,7 @@ class Server {
     // FreeBank: backfill the credit-activity index in the background (/api/v1/freebank/activity)
     creditActivity.kick();
     // FreeBank: the BMM view's eCash lookups, in the background (/api/v1/freebank/bmm*); off
-    // unless FREEBANK.BMM_ENABLED
+    // unless FREEBANK.BMM_ENABLED. With cluster workers only the first makes requests (bmm.ts)
     bmm.start();
 
     if (config.MEMPOOL.ENABLED) {

@@ -81,6 +81,33 @@
   font-weight: bold;
 }
 
+// FreeBank: with the BMM view on, a cube holds six lines (the bid big, the fees small under it) in
+// the same var(--block-size) (125px; it does not change on mobile). The bid line and the tx count's
+// top margin give up 6px, and the fees line is 10px on a 12px line. Line heights from the top
+// (body line-height 1.5): fees 10+18+2, fee span 16.5+5, bid 20, fees 12, tx count 1+15+4,
+// time 19.5 = 123px (117px without the view).
+.bmm-bid {
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bmm-fees {
+  font-size: 10px;
+  line-height: 12px;
+  white-space: nowrap;
+
+  // styles.scss sets every .symbol in the strip to 16px
+  ::ng-deep .symbol {
+    font-size: 10px;
+  }
+}
+
+.bmm-fees + .transaction-count {
+  margin-top: 1px;
+}
+
 .blocks-container {
   --block-size: 125px;
   --block-offset: calc(0.32 * var(--block-size));

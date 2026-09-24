@@ -108,7 +108,7 @@ describe('FreeBank tx parser', () => {
   });
 
   describe('other transactions', () => {
-    test.each(fixtures.other.map((t: any): [string, any] => [`v${t.version}${t.has_witness ? ' with witness' : ''} at ${t.height}`, t]))(
+    test.each<[string, any]>(fixtures.other.map((t: any): [string, any] => [`v${t.version}${t.has_witness ? ' with witness' : ''} at ${t.height}`, t]))(
       '%s: txid, wtxid, size and output values',
       (_label, t: any) => {
         const tx = parseFreebankTx(t.hex);

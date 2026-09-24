@@ -1,7 +1,8 @@
 import { FreebankBmmBlock, FreebankBmmStatus } from '@interfaces/freebank-bmm.interface';
 import { formatUnits } from '@app/freebank/credit-units';
 
-// Display helpers for the BMM view (/bmm and the block page's "Carried by eCash block" row).
+// Display helpers for the BMM view (/bmm, the block page's "Carried by eCash block" row and the
+// bid on the block cubes).
 // Pure TypeScript. Links to the eCash explorer are built here from the explorer_url the API
 // sends; the browser never fetches anything from that host, it only links to it.
 
@@ -113,6 +114,32 @@ export function bmmRow(item: FreebankBmmBlock, explorerUrl: string): BmmRow {
     bidTxShort: shortTxid(item.bid_txid),
     bidText: formatBidSats(item.bid_sats),
     rateText: formatBidRate(item.bid_rate),
+  };
+}
+
+/** What a block cube in the header strip shows from the BMM view (BmmCubesService). */
+export interface BmmCube {
+  bidText: string;                // the cube's big line: '2,000 sats', or 'bid …' while pending
+  poolName: string;               // the badge under the cube; '' for none
+  poolUrl: string | null;         // the pool's page on the eCash explorer
+}
+
+/**
+ * The cube for one block: the bid once the backend has found it ('ok'), 'bid …' while the backend
+ * will still look (pending, or a failed lookup it retries), and null for every final status other
+ * than 'ok' (the cube then shows what it shows without the view).
+ */
+export function bmmCube(item: FreebankBmmBlock, explorerUrl: string): BmmCube | null {
+  if (bmmWaiting(item.status)) {
+    return { bidText: 'bid …', poolName: '', poolUrl: null };
+  }
+  if (item.status !== 'ok' || typeof item.bid_sats !== 'number') {
+    return null;
+  }
+  return {
+    bidText: formatBidSats(item.bid_sats) + ' sats',
+    poolName: item.pool?.name || item.pool?.slug || '',
+    poolUrl: item.pool?.slug ? ecashExplorerUrl(explorerUrl, 'mining/pool', item.pool.slug) : null,
   };
 }
 

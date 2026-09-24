@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Location } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
-import { Observable, Subject, distinctUntilChanged, map, merge, shareReplay, switchMap } from 'rxjs';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { Observable, Subject, distinctUntilChanged, filter, map, merge, shareReplay, switchMap } from 'rxjs';
 import { ApiService } from '@app/services/api.service';
 import { StateService } from '@app/services/state.service';
 import { WebsocketService } from '@app/services/websocket.service';
@@ -16,6 +16,8 @@ import { FreebankActivityResponse, FreebankSummaryResponse, FreebankTxFamily } f
 // txs from GET /activity with a family filter (?family=bill). The filter buttons rewrite the URL
 // in place (Location.replaceState) instead of navigating, because a router navigation would
 // scroll the page back to the top (scrollPositionRestoration) every time a filter is clicked.
+// The router does not see that rewrite, so a later link to /credit (the nav icon, the footer)
+// navigates without changing queryParamMap; the page reads ?family= again after each navigation.
 
 const ACTIVITY_LIMIT = 50;
 
@@ -88,6 +90,10 @@ export class CreditOverviewComponent implements OnInit {
 
     this.activity$ = merge(
       this.route.queryParamMap.pipe(map((params) => parseCreditFamily(params.get('family')))),
+      this.router.events.pipe(
+        filter((event) => event instanceof NavigationEnd),
+        map(() => parseCreditFamily(this.route.snapshot.queryParamMap.get('family'))),
+      ),
       this.familyClick$,
     ).pipe(
       distinctUntilChanged(),

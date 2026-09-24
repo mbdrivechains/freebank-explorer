@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import cluster from 'cluster';
 import * as fs from 'fs';
 import * as path from 'path';
 import config from '../../config';
@@ -6,6 +7,7 @@ import logger from '../../logger';
 import bitcoinClient from '../bitcoin/bitcoin-client';
 import freebankApi from './freebank-api';
 import { parseBmmBlock } from './bmm-parser';
+import { FreebankParseError } from './freebank-tx-parser';
 import { BmmBlock, BmmList, BmmPool, BmmPoolShare, BmmStatus, BmmSummary } from './freebank.interfaces';
 
 // FreeBank: the data behind the BMM view (/api/v1/freebank/bmm*): for each FreeBank block,
@@ -20,19 +22,35 @@ import { BmmBlock, BmmList, BmmPool, BmmPoolShare, BmmStatus, BmmSummary } from 
 //                                is the only way to find the bid (bmm-parser.ts).
 //   GET /tx/<M8 txid>            fee (= the bid, the M8's output is worth 0) and weight
 //
-// Requests go one at a time, BMM_MIN_INTERVAL_MS apart, with a 30 s timeout and
-// MEMPOOL.USER_AGENT. A 429, a 5xx or no answer pauses all requests: 30 s, doubling up to
-// 10 min. With BMM_ENABLED off nothing here runs and no request is ever made.
+// Requests go one at a time, BMM_MIN_INTERVAL_MS apart, each cut off after 30 s, with
+// MEMPOOL.USER_AGENT. Only a 200 with the expected answer and a 404 are answers. Anything
+// else pauses all requests: no answer, a 429, a 5xx, a 403 or any other status, a page that is
+// not the API's (a bot filter's HTML). The pause is 30 s, doubling up to 10 min, and starts at
+// 30 s again once a lookup goes through. With BMM_ENABLED off nothing here runs and no request
+// is ever made.
+//
+// A 404 from v1/block becomes 'no-mainchain-block' only once the FreeBank block is an hour old
+// and the eCash explorer's own tip (asked at most once a minute) is an hour past it: an
+// explorer that is restarting, reindexing or behind answers 404 too. Until then the block is
+// retried ('not yet'); and if the explorer's tip is over 2 h old, the 404 pauses all requests.
 //
 // Results are kept per FreeBank block hash, so a FreeBank reorg needs nothing special, in
 // <CACHE_DIR>/bmm/bmm-v1.json (a subdirectory: the deploy clears the cache's top-level *.json).
-// Final statuses are never looked up again; 'error' is retried, 30 s doubling up to 10 min.
+// Final statuses are never looked up again. A failed lookup ('error') is retried from where it
+// stopped, so a retry does not download the raw block again: 30 s doubling up to 10 min, and
+// only every 6 h once the block has failed MAX_ATTEMPTS times on its own (at once if its raw
+// block cannot be read). A block is tried at least until its first hour is over. 'Not yet' and
+// the explorer's failures (a pause) do not count as the block's own; after MAX_PAUSES pauses a
+// block is also tried every 6 h only.
 //
 // Order of work: blocks the API asked for and new blocks, then failed blocks that are due,
 // then the backfill of the newest BMM_BACKFILL_BLOCKS blocks, newest first. The worker keeps a
 // view of the active chain over that window (height -> hash, each linked to the one below by
 // previousblockhash, walked back after a reorg as credit-activity.ts does); /bmm/summary
 // counts the window.
+//
+// With MEMPOOL.SPAWN_CLUSTER_PROCS, only the first cluster worker makes requests and writes
+// the cache file; the others read that file every 30 s and answer from it.
 
 const DEFAULT_API = 'https://explorer.beta.ecash.ninja/api';
 const DEFAULT_EXPLORER_URL = 'https://explorer.beta.ecash.ninja';
@@ -44,16 +62,24 @@ const CACHE_VERSION = 1;
 const CACHE_SUBDIR = 'bmm';
 const CACHE_FILE = 'bmm-v1.json';
 const SAVE_DELAY_MS = 10_000;
+const CACHE_RELOAD_MS = 30_000; // cluster workers that make no requests
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_RAW_BLOCK_BYTES = 16 * 1024 * 1024;
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
 const BACKOFF_MIN_MS = 30_000;
 const BACKOFF_MAX_MS = 600_000;
+const MAX_ATTEMPTS = 6; // failures of the block's own, then RETRY_LATER_MS
+const MAX_PAUSES = 24; // failures that paused all requests, then RETRY_LATER_MS
+const RETRY_LATER_MS = 6 * 3600_000;
 const NODE_RETRY_MS = 30_000;
 // The eCash explorer can be a little behind the eCash node that FreeBank follows, so a 404
-// for a block younger than this is retried instead of taken as final.
+// is final only for a block older than this, and once the explorer's tip is this much newer.
 const NOT_FOUND_GRACE_S = 3600;
+const EXPLORER_TIP_TTL_MS = 60_000;
+// An explorer whose newest block is older than this is behind (reindexing, stuck): a 404 from
+// it pauses all requests. At 10 min a block, a 2 h gap is rare (about 1 in 160,000 blocks).
+const EXPLORER_STALE_S = 2 * 3600;
 const QUEUE_MAX = 2000;
 const FB_BLOCK_MEMO_MAX = 5000;
 
@@ -81,18 +107,45 @@ interface FbBlock {
   prev: string; // '' for genesis
 }
 
-interface Retry {
-  attempts: number;
-  at: number; // ms
-  entry: BmmBlock; // status 'error'
+/** How far a failed lookup got, so its retry starts there. */
+interface Progress {
+  found?: BmmBlock; // from v1/block (and other_sidechains from the raw block)
+  bidTxid?: string; // from the raw block: only /tx is left
 }
 
-/** A retry that is expected (the eCash explorer may not have the block yet): logged quietly. */
+interface Retry {
+  failures: number; // all of them (the backoff)
+  attempts: number; // the block's own: not 'not yet', not a pause
+  pauses: number; // the ones that paused all requests (the explorer's)
+  late: boolean; // retried every RETRY_LATER_MS now
+  at: number; // ms
+  entry: BmmBlock; // status 'error'
+  progress: Progress;
+}
+
+/** The eCash explorer may not have the block yet: retried, logged quietly, not the block's fault. */
 class NotYet extends Error {}
 
-function intSetting(value: unknown, fallback: number, min: number, max: number): number {
-  const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
-  return Number.isFinite(n) && n >= min && n <= max ? Math.floor(n) : fallback;
+/** The eCash explorer failed as a whole and all requests are paused: not the block's fault. */
+class Paused extends Error {}
+
+/** The eCash block cannot be read (malformed, not the block asked for, too big). */
+class Unreadable extends Error {}
+
+/** A whole number from min to max (clamped); the default when unset or not a number. */
+function intSetting(name: string, value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
+  if (!Number.isFinite(n)) {
+    if (value !== undefined && value !== null && value !== '') {
+      logger.warn(`FreeBank BMM view: FREEBANK.${name} is not a number (${String(value)}), using ${fallback}`);
+    }
+    return fallback;
+  }
+  const clamped = Math.min(max, Math.max(min, Math.floor(n)));
+  if (clamped !== n) {
+    logger.warn(`FreeBank BMM view: FREEBANK.${name} is ${n}, using ${clamped} (a whole number from ${min} to ${max})`);
+  }
+  return clamped;
 }
 
 function readSettings(): BmmSettings {
@@ -101,9 +154,9 @@ function readSettings(): BmmSettings {
     enabled: c?.BMM_ENABLED === true || String(c?.BMM_ENABLED) === 'true',
     api: (c?.BMM_API || DEFAULT_API).replace(/\/+$/, ''),
     explorerUrl: (c?.BMM_EXPLORER_URL || DEFAULT_EXPLORER_URL).replace(/\/+$/, ''),
-    slot: intSetting(c?.BMM_SLOT, DEFAULT_SLOT, 0, 255),
-    backfill: intSetting(c?.BMM_BACKFILL_BLOCKS, DEFAULT_BACKFILL_BLOCKS, 1, 10_000_000),
-    minIntervalMs: intSetting(c?.BMM_MIN_INTERVAL_MS, DEFAULT_MIN_INTERVAL_MS, 0, 3_600_000),
+    slot: intSetting('BMM_SLOT', c?.BMM_SLOT, DEFAULT_SLOT, 0, 255),
+    backfill: intSetting('BMM_BACKFILL_BLOCKS', c?.BMM_BACKFILL_BLOCKS, DEFAULT_BACKFILL_BLOCKS, 1, 10_000_000), // 0 or 1: the tip only
+    minIntervalMs: intSetting('BMM_MIN_INTERVAL_MS', c?.BMM_MIN_INTERVAL_MS, DEFAULT_MIN_INTERVAL_MS, 0, 3_600_000),
   };
 }
 
@@ -145,15 +198,22 @@ function isFinalEntry(hash: string, entry: any): entry is BmmBlock {
     && typeof entry.freebank_height === 'number' && FINAL_STATUSES.includes(entry.status);
 }
 
-function expectOk(res: AxiosResponse, what: string): void {
-  if (res.status !== 200) {
-    throw new Error(`${what}: HTTP ${res.status}`);
-  }
+function backoffMs(failures: number): number {
+  return Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS * 2 ** Math.min(failures - 1, 10));
+}
+
+function hasHeightAndTime(body: any): boolean {
+  return typeof body.height === 'number' && typeof body.timestamp === 'number';
+}
+
+function hasFeeAndWeight(body: any): boolean {
+  return typeof body.fee === 'number' && typeof body.weight === 'number' && body.weight > 0;
 }
 
 class BmmIndex {
   private readonly settings = readSettings();
   private started = false;
+  private lookups = true; // false in a cluster worker that only reads the cache file
   private entries = new Map<string, BmmBlock>(); // final statuses, by FreeBank block hash
   private retries = new Map<string, Retry>(); // status 'error', by FreeBank block hash
   private queue: string[] = []; // FreeBank block hashes, next first
@@ -172,9 +232,11 @@ class BmmIndex {
   private lastRequestEnd = 0;
   private pauseMs = 0;
   private pauseUntil = 0;
+  private explorerTip: { height: number, time: number, at: number } | null = null;
 
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private saving = false;
+  private cacheMtimeMs = 0;
 
   /** Load the cache and start the worker. Does nothing when BMM_ENABLED is off. */
   public start(): void {
@@ -186,9 +248,13 @@ class BmmIndex {
       return;
     }
     this.started = true;
+    // with SPAWN_CLUSTER_PROCS every worker gets here; the first (its workerId survives a
+    // restart) makes the requests, the others answer from its cache file
+    this.lookups = !cluster.isWorker || process.env.workerId === '0';
     this.loadCache();
     logger.info(`FreeBank BMM view: slot ${this.settings.slot}, eCash API ${this.settings.api}, `
-      + `${this.entries.size} block(s) cached, backfill ${this.settings.backfill}`);
+      + `${this.entries.size} block(s) cached, backfill ${this.settings.backfill}`
+      + (this.lookups ? '' : ', cluster worker: reading the cache file only'));
     this.kick();
   }
 
@@ -349,7 +415,7 @@ class BmmIndex {
 
   /** Put blocks at the front of the queue, the last one first. */
   private prioritize(hashes: string[]): void {
-    if (!this.started) {
+    if (!this.started || !this.lookups) {
       return;
     }
     let added = false;
@@ -376,16 +442,21 @@ class BmmIndex {
   private async $work(): Promise<void> {
     this.working = true;
     try {
+      if (!this.lookups) {
+        this.loadCache();
+      }
       do {
         this.again = false;
         await this.$syncChain();
         const hash = await this.$nextBlock();
         if (hash !== null) {
-          await this.$resolve(hash);
+          if (this.lookups) {
+            await this.$resolve(hash);
+          }
           this.again = true;
         }
       } while (this.again);
-      let next = Infinity;
+      let next = this.lookups ? Infinity : Date.now() + CACHE_RELOAD_MS;
       for (const retry of this.retries.values()) {
         next = Math.min(next, retry.at);
       }
@@ -490,9 +561,21 @@ class BmmIndex {
       }
     }
     const now = Date.now();
-    for (const [hash, retry] of this.retries) {
-      if (retry.at <= now) {
-        return hash;
+    const due = (): string | null => {
+      for (const [hash, retry] of this.retries) {
+        if (retry.at <= now) {
+          return hash;
+        }
+      }
+      return null;
+    };
+    // Retries first, except while requests are paused after a failure: a retry is due exactly when
+    // the pause ends, so retries alone would take every turn and the backfill would never move.
+    // The first success resets pauseMs, and retries come first again.
+    if (!this.pauseMs) {
+      const retry = due();
+      if (retry !== null) {
+        return retry;
       }
     }
     // backfill: extend the view down the window, one block at a time
@@ -507,7 +590,7 @@ class BmmIndex {
         return prev;
       }
     }
-    return null;
+    return this.pauseMs ? due() : null;
   }
 
   /** @asyncUnsafe */
@@ -559,28 +642,54 @@ class BmmIndex {
       throw e;
     }
     const base = pendingEntry(fb);
+    const retry = this.retries.get(hash);
+    const progress: Progress = retry?.progress ?? {};
     let entry: BmmBlock;
     try {
-      entry = await this.$lookUpOnEcash(fb, base);
+      entry = await this.$lookUpOnEcash(fb, base, progress);
     } catch (e) {
-      const attempts = (this.retries.get(hash)?.attempts ?? 0) + 1;
-      const delay = Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS * 2 ** Math.min(attempts - 1, 10));
-      this.retries.set(hash, { attempts, at: Date.now() + delay, entry: { ...base, status: 'error' } });
-      const message = `FreeBank BMM view: block ${fb.height} (${hash}): ${errMsg(e)}; retry ${attempts} in ${delay / 1000} s`;
-      if (attempts === 1 && !(e instanceof NotYet)) {
-        logger.warn(message);
-      } else {
-        logger.debug(message);
-      }
+      this.retryLater(fb, base, retry, progress, e);
       return;
     }
     this.retries.delete(hash);
     this.entries.set(hash, entry);
+    this.pauseMs = 0; // the explorer answered: a next pause starts at 30 s again
     this.scheduleSave();
   }
 
+  /** Record a failed lookup ('error') and when to try it again. */
+  private retryLater(fb: FbBlock, base: BmmBlock, retry: Retry | undefined, progress: Progress, e: unknown): void {
+    const paused = e instanceof Paused;
+    const own = !paused && !(e instanceof NotYet);
+    const failures = (retry?.failures ?? 0) + 1;
+    const attempts = (retry?.attempts ?? 0) + (own ? 1 : 0);
+    const pauses = (retry?.pauses ?? 0) + (paused ? 1 : 0);
+    const now = Date.now();
+    const graceLeftMs = (fb.time + NOT_FOUND_GRACE_S) * 1000 - now;
+    let delay = backoffMs(failures);
+    if (e instanceof Unreadable || e instanceof FreebankParseError) {
+      delay = RETRY_LATER_MS; // the same bytes would fail the same way
+    } else if (paused) {
+      // not before the pause ends; backing off too, so that blocks the explorer keeps failing on
+      // do not take every turn after a pause
+      delay = pauses > MAX_PAUSES ? RETRY_LATER_MS : Math.max(this.pauseUntil - now, delay);
+    } else if (graceLeftMs > 0) {
+      delay = Math.min(delay, graceLeftMs + 1000); // young: tried again at least once its hour is over
+    } else if (attempts > MAX_ATTEMPTS) {
+      delay = RETRY_LATER_MS;
+    }
+    const late = delay >= RETRY_LATER_MS;
+    this.retries.set(fb.hash, { failures, attempts, pauses, late, at: now + delay, entry: { ...base, status: 'error' }, progress });
+    const message = `FreeBank BMM view: block ${fb.height} (${fb.hash}): ${errMsg(e)}; retry in ${Math.round(delay / 1000)} s`;
+    if ((late && !retry?.late) || (own && attempts === 1)) {
+      logger.warn(message);
+    } else {
+      logger.debug(message);
+    }
+  }
+
   /** @asyncUnsafe */
-  private async $lookUpOnEcash(fb: FbBlock, base: BmmBlock): Promise<BmmBlock> {
+  private async $lookUpOnEcash(fb: FbBlock, base: BmmBlock, progress: Progress): Promise<BmmBlock> {
     const ecashHash = fb.hashmainblock;
     if (ecashHash === ZERO_HASH) {
       return { ...base, status: 'no-mainchain-block' }; // genesis: carried by no eCash block
@@ -589,67 +698,107 @@ class BmmIndex {
       throw new Error('the node gave no hashmainblock');
     }
 
-    const blockRes = await this.$request(`/v1/block/${ecashHash}`, 'json');
-    if (blockRes.status === 404) {
-      if (Date.now() / 1000 - fb.time < NOT_FOUND_GRACE_S) {
-        throw new NotYet('eCash block not on the eCash explorer yet');
+    if (!progress.found) {
+      const info = await this.$request(`/v1/block/${ecashHash}`, 'json', hasHeightAndTime);
+      if (info === null) {
+        await this.$checkNotFound(fb);
+        return { ...base, status: 'no-mainchain-block' };
       }
-      return { ...base, status: 'no-mainchain-block' };
+      const pool = info.extras?.pool;
+      progress.found = {
+        ...base,
+        ecash_height: info.height,
+        ecash_time: info.timestamp,
+        pool: typeof pool?.name === 'string' && typeof pool?.slug === 'string' ? { name: pool.name, slug: pool.slug } : null,
+      };
     }
-    expectOk(blockRes, 'v1/block');
-    const info = blockRes.data;
-    if (typeof info?.height !== 'number' || typeof info?.timestamp !== 'number') {
-      throw new Error('v1/block: no height or timestamp');
-    }
-    const pool = info.extras?.pool;
-    const found: BmmBlock = {
-      ...base,
-      ecash_height: info.height,
-      ecash_time: info.timestamp,
-      pool: typeof pool?.name === 'string' && typeof pool?.slug === 'string' ? { name: pool.name, slug: pool.slug } : null,
-    };
+    const found = progress.found;
 
-    const rawRes = await this.$request(`/block/${ecashHash}/raw`, 'raw');
-    expectOk(rawRes, 'block raw');
-    const records = parseBmmBlock(Buffer.from(rawRes.data));
-    if (records.hash !== ecashHash) {
-      throw new Error(`block raw: got block ${records.hash}`);
-    }
-    const slot = this.settings.slot;
-    found.other_sidechains = [...new Set(records.coinbaseM7.map((m) => m.slot).filter((s) => s !== slot))];
-    if (!records.coinbaseM7.some((m) => m.slot === slot && m.hstar === fb.merkleroot)) {
-      return { ...found, status: 'no-commitment' };
-    }
-    const bids = records.m8.filter((m) => m.slot === slot && m.hstar === fb.merkleroot);
-    const bid = bids.find((m) => m.prev === records.prevBlock) ?? bids[0];
-    if (!bid) {
-      return { ...found, status: 'no-bid' };
+    if (progress.bidTxid === undefined) {
+      const raw = await this.$request(`/block/${ecashHash}/raw`, 'raw');
+      if (raw === null) {
+        throw new Error('block raw: HTTP 404');
+      }
+      const records = parseBmmBlock(Buffer.from(raw)); // FreebankParseError: unreadable
+      if (records.hash !== ecashHash) {
+        throw new Unreadable(`block raw: got block ${records.hash}`);
+      }
+      const slot = this.settings.slot;
+      found.other_sidechains = [...new Set(records.coinbaseM7.map((m) => m.slot).filter((s) => s !== slot))];
+      if (!records.coinbaseM7.some((m) => m.slot === slot && m.hstar === fb.merkleroot)) {
+        return { ...found, status: 'no-commitment' };
+      }
+      const bids = records.m8.filter((m) => m.slot === slot && m.hstar === fb.merkleroot);
+      const bid = bids.find((m) => m.prev === records.prevBlock) ?? bids[0];
+      if (!bid) {
+        return { ...found, status: 'no-bid' };
+      }
+      progress.bidTxid = bid.txid;
     }
 
-    const txRes = await this.$request(`/tx/${bid.txid}`, 'json');
-    expectOk(txRes, 'tx');
-    const fee = txRes.data?.fee;
-    const weight = txRes.data?.weight;
-    if (typeof fee !== 'number' || typeof weight !== 'number' || weight <= 0) {
-      throw new Error('tx: no fee or weight');
+    const tx = await this.$request(`/tx/${progress.bidTxid}`, 'json', hasFeeAndWeight);
+    if (tx === null) {
+      throw new Error('tx: HTTP 404');
     }
-    const vsize = weight / 4;
+    const vsize = tx.weight / 4;
     return {
       ...found,
-      bid_sats: fee,
-      bid_txid: bid.txid,
+      bid_sats: tx.fee,
+      bid_txid: progress.bidTxid,
       bid_vsize: vsize,
-      bid_rate: Math.round(fee / vsize * 100) / 100,
+      bid_rate: Math.round(tx.fee / vsize * 100) / 100,
       status: 'ok',
     };
   }
 
   /**
-   * One GET to BMM_API, after the minimum interval and any pause. Resolves with every HTTP
-   * status except 429 and 5xx (which pause all requests and reject).
+   * After a 404 from v1/block: returns if the 404 is final, i.e. the block is past its grace
+   * hour and the eCash explorer's tip is an hour past it. Otherwise throws NotYet, or pauses all
+   * requests (Paused) if the explorer's tip is over EXPLORER_STALE_S old.
    * @asyncUnsafe
    */
-  private async $request(pathname: string, kind: 'json' | 'raw'): Promise<AxiosResponse> {
+  private async $checkNotFound(fb: FbBlock): Promise<void> {
+    const now = Date.now() / 1000;
+    const graceEnd = fb.time + NOT_FOUND_GRACE_S;
+    if (now < graceEnd) {
+      throw new NotYet('eCash block not on the eCash explorer yet');
+    }
+    const tip = await this.$explorerTip();
+    const newest = `its newest block (${tip.height}) is from ${new Date(tip.time * 1000).toISOString()}`;
+    if (tip.time < now - EXPLORER_STALE_S) {
+      throw this.pause(`is behind: 404 for the eCash block of FreeBank block ${fb.height}, and ${newest}`);
+    }
+    if (tip.time < graceEnd) {
+      throw new NotYet(`eCash block not found, but the eCash explorer's ${newest}, not an hour past this block yet`);
+    }
+  }
+
+  /** The eCash explorer's newest block, asked at most once a minute. @asyncUnsafe */
+  private async $explorerTip(): Promise<{ height: number, time: number }> {
+    if (this.explorerTip && Date.now() - this.explorerTip.at < EXPLORER_TIP_TTL_MS) {
+      return this.explorerTip;
+    }
+    const hash = await this.$request('/blocks/tip/hash', 'text', (body) => HASH_RE.test(body.trim()));
+    if (hash === null) {
+      throw new Error('blocks/tip/hash: HTTP 404');
+    }
+    const info = await this.$request(`/v1/block/${hash.trim()}`, 'json', hasHeightAndTime);
+    if (info === null) {
+      throw new Error('v1/block of the explorer\'s tip: HTTP 404');
+    }
+    this.explorerTip = { height: info.height, time: info.timestamp, at: Date.now() };
+    return this.explorerTip;
+  }
+
+  /**
+   * One GET to BMM_API, after the minimum interval and any pause, cut off after
+   * REQUEST_TIMEOUT_MS. Resolves with the body of a 200 answer, or null for a 404. Anything else
+   * pauses all requests and rejects with Paused: no answer, any other status, or a 200 that is
+   * not the API's answer (HTML, or JSON that `valid` rejects). A body over the size cap rejects
+   * with Unreadable, without a pause.
+   * @asyncUnsafe
+   */
+  private async $request(pathname: string, kind: 'json' | 'text' | 'raw', valid: (body: any) => boolean = (): boolean => true): Promise<any> {
     const wait = Math.max(this.lastRequestEnd + this.settings.minIntervalMs, this.pauseUntil) - Date.now();
     if (wait > 0) {
       await sleep$(wait);
@@ -658,57 +807,78 @@ class BmmIndex {
     try {
       res = await axios.get(this.settings.api + pathname, {
         headers: { 'User-Agent': config.MEMPOOL.USER_AGENT },
-        timeout: REQUEST_TIMEOUT_MS,
-        responseType: kind === 'raw' ? 'arraybuffer' : 'json',
+        timeout: REQUEST_TIMEOUT_MS, // only a socket that goes quiet
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), // the whole request
+        responseType: kind === 'raw' ? 'arraybuffer' : kind,
         maxContentLength: kind === 'raw' ? MAX_RAW_BLOCK_BYTES : MAX_JSON_BYTES,
         validateStatus: () => true,
       });
     } catch (e) {
       this.lastRequestEnd = Date.now();
-      if (!/maxContentLength/.test(errMsg(e))) {
-        this.pause(`${pathname}: ${errMsg(e)}`); // no answer: timeout, refused, reset...
+      if (/maxContentLength/.test(errMsg(e))) {
+        throw new Unreadable(`${pathname}: ${errMsg(e)}`);
       }
-      throw e;
+      const why = (e as any)?.code === 'ERR_CANCELED' ? `no full answer in ${REQUEST_TIMEOUT_MS / 1000} s` : errMsg(e);
+      throw this.pause(`${pathname}: ${why}`); // no answer: timeout, refused, reset...
     }
     this.lastRequestEnd = Date.now();
-    if (res.status === 429 || res.status >= 500) {
-      this.pause(`${pathname}: HTTP ${res.status}`);
-      throw new Error(`${pathname}: HTTP ${res.status}`);
+    if (res.status === 404) {
+      return null;
     }
-    this.pauseMs = 0;
-    return res;
+    if (res.status !== 200) {
+      throw this.pause(`${pathname}: HTTP ${res.status}`);
+    }
+    const body = res.data;
+    const html = /text\/html/i.test(String(res.headers?.['content-type'] ?? ''));
+    const expected = kind === 'json' ? typeof body === 'object' && body !== null && valid(body)
+      : kind === 'text' ? typeof body === 'string' && valid(body)
+        : !html && (Buffer.isBuffer(body) || body instanceof ArrayBuffer);
+    if (!expected) {
+      throw this.pause(`${pathname}: not the API's answer (${html ? 'an HTML page' : 'unexpected content'})`);
+    }
+    return body;
   }
 
-  private pause(reason: string): void {
+  /** Pause all requests (30 s, doubling up to 10 min); returns the error to throw. */
+  private pause(reason: string): Paused {
     this.pauseMs = this.pauseMs ? Math.min(BACKOFF_MAX_MS, this.pauseMs * 2) : BACKOFF_MIN_MS;
     this.pauseUntil = Date.now() + this.pauseMs;
     logger.warn(`FreeBank BMM view: eCash explorer ${reason}; pausing requests for ${this.pauseMs / 1000} s`);
+    return new Paused(`eCash explorer ${reason}`);
   }
 
   private cacheFile(): string {
     return path.join(config.MEMPOOL.CACHE_DIR, CACHE_SUBDIR, CACHE_FILE);
   }
 
+  /** Read the final entries from the cache file; again only when the file has changed. */
   private loadCache(): void {
     const file = this.cacheFile();
     let data: any;
     try {
+      const mtimeMs = fs.statSync(file).mtimeMs;
+      if (mtimeMs === this.cacheMtimeMs) {
+        return;
+      }
+      this.cacheMtimeMs = mtimeMs;
       data = JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch (e) {
       if ((e as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-        logger.warn(`FreeBank BMM view: cannot read ${file} (${errMsg(e)}), starting empty`);
+        logger.warn(`FreeBank BMM view: cannot read ${file} (${errMsg(e)})`);
       }
       return;
     }
     if (data?.version !== CACHE_VERSION || data.slot !== this.settings.slot || data.api !== this.settings.api) {
-      logger.info(`FreeBank BMM view: ${file} is for another slot or eCash API, starting empty`);
+      logger.info(`FreeBank BMM view: ${file} is for another slot or eCash API, not using it`);
       return;
     }
+    const entries = new Map<string, BmmBlock>();
     for (const [hash, entry] of Object.entries(data.entries ?? {})) {
       if (isFinalEntry(hash, entry)) {
-        this.entries.set(hash, entry);
+        entries.set(hash, entry);
       }
     }
+    this.entries = entries;
   }
 
   private scheduleSave(): void {
@@ -721,7 +891,7 @@ class BmmIndex {
     }, SAVE_DELAY_MS);
   }
 
-  /** Write the final entries (temp file, then rename). Never rejects. @asyncSafe */
+  /** Write the final entries (a temp file of this process's, then rename). Never rejects. @asyncSafe */
   private async $save(): Promise<void> {
     if (this.saving) {
       this.scheduleSave();
@@ -729,6 +899,7 @@ class BmmIndex {
     }
     this.saving = true;
     const file = this.cacheFile();
+    const tmp = `${file}.${process.pid}.tmp`;
     try {
       await fs.promises.mkdir(path.dirname(file), { recursive: true });
       const body = JSON.stringify({
@@ -737,8 +908,8 @@ class BmmIndex {
         api: this.settings.api,
         entries: Object.fromEntries(this.entries),
       });
-      await fs.promises.writeFile(file + '.tmp', body);
-      await fs.promises.rename(file + '.tmp', file);
+      await fs.promises.writeFile(tmp, body);
+      await fs.promises.rename(tmp, file);
     } catch (e) {
       logger.warn(`FreeBank BMM view: cannot write ${file}: ${errMsg(e)}`);
     } finally {

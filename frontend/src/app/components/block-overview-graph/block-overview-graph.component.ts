@@ -209,6 +209,16 @@ export class BlockOverviewGraphComponent implements AfterViewInit, OnDestroy, On
     }
   }
 
+  // FreeBank: size the tiles for a block of blockLimit vbytes from the next setup() on (the block
+  // page scales a small block up); a graph not drawn yet uses it when its scene is made
+  setBlockLimit(blockLimit: number): void {
+    if (!(blockLimit > 0)) {
+      return;
+    }
+    this.blockLimit = blockLimit;
+    this.scene?.setBlockLimit(blockLimit);
+  }
+
   // initialize the scene without any entry transition
   setup(transactions: TransactionStripped[], sort: boolean = false): void {
     const filtersAvailable = transactions.reduce((flagSet, tx) => flagSet || tx.flags > 0, false);

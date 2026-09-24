@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Location } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
-import { EMPTY, Observable, Subject, combineLatest, distinctUntilChanged, expand, map, merge, switchMap, timer } from 'rxjs';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { EMPTY, Observable, Subject, catchError, combineLatest, distinctUntilChanged, expand, filter, map, merge, of, switchMap, timer } from 'rxjs';
 import { ApiService } from '@app/services/api.service';
 import { StateService } from '@app/services/state.service';
 import { WebsocketService } from '@app/services/websocket.service';
@@ -15,7 +15,9 @@ import { FreebankBmmBlock, FreebankBmmListResponse, FreebankBmmSummaryResponse }
 // /bmm - which eCash block carried each FreeBank block, the pool that mined it and the bid paid.
 // Summary cards and pool shares from GET /bmm/summary, then the blocks from GET /bmm, paged with
 // ?before=<height>. Like the /credit filters, Older/Newer rewrite the URL in place
-// (Location.replaceState) so the page does not jump back to the top on every click.
+// (Location.replaceState) so the page does not jump back to the top on every click. The router
+// does not see that rewrite, so a later link to /bmm (the nav icon, the footer) navigates without
+// changing queryParamMap; the page reads ?before= again after each navigation.
 //
 // The backend looks blocks up on the eCash explorer one request at a time, so right after a
 // start many rows are still pending: while any are, the page asks our API again every
@@ -110,6 +112,10 @@ export class BmmComponent implements OnInit {
 
     const blocks$ = merge(
       this.route.queryParamMap.pipe(map((params) => parseBmmBefore(params.get('before')))),
+      this.router.events.pipe(
+        filter((event) => event instanceof NavigationEnd),
+        map(() => parseBmmBefore(this.route.snapshot.queryParamMap.get('before'))),
+      ),
       this.pageClick$,
     ).pipe(
       distinctUntilChanged(),
@@ -161,9 +167,15 @@ export class BmmComponent implements OnInit {
   }
 }
 
-/** request() now, then again every REFRESH_MS for as long as waiting(answer) holds. */
+/**
+ * request() now, then again every REFRESH_MS for as long as waiting(answer) holds. A repeat that
+ * fails gives the last answer again, so the polling goes on; only an error of the first request
+ * reaches loadOnEachBlock.
+ */
 function repeatWhileWaiting<T>(request: () => Observable<T>, waiting: (answer: T) => boolean): Observable<T> {
   return request().pipe(
-    expand((answer) => waiting(answer) ? timer(REFRESH_MS).pipe(switchMap(() => request())) : EMPTY),
+    expand((answer) => waiting(answer)
+      ? timer(REFRESH_MS).pipe(switchMap(() => request().pipe(catchError(() => of(answer)))))
+      : EMPTY),
   );
 }

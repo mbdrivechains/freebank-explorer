@@ -54,10 +54,21 @@
                 <app-fee-rate unitClass=""></app-fee-rate>
               </div>
             </ng-template>
-            <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" *ngIf="blockDisplayMode === 'fees'; else noMiningInfo"
-              class="block-size">
-              <app-amount [satoshis]="block.extras?.totalFees ?? 0" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
-            </div>
+            <ng-container *ngIf="blockDisplayMode === 'fees'; else noMiningInfo">
+              <!-- FreeBank: with the BMM view on, the big line is the bid the eCash miner was paid for this
+                   block ('bid …' until the backend has found it) and the fees go on a small line under it -->
+              <ng-container *ngIf="bmmCubes[block.id] as bmmCube; else feesOnly">
+                <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bid'" class="block-size bmm-bid">{{ bmmCube.bidText }}</div>
+                <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" class="bmm-fees">
+                  fees <app-amount [satoshis]="block.extras?.totalFees ?? 0" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
+                </div>
+              </ng-container>
+              <ng-template #feesOnly>
+                <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" class="block-size">
+                  <app-amount [satoshis]="block.extras?.totalFees ?? 0" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
+                </div>
+              </ng-template>
+            </ng-container>
             <ng-template #noMiningInfo>
             <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + 'block-size'"
               class="block-size" [innerHTML]="'&lrm;' + (block.size | bytes: 2)"></div>
@@ -73,6 +84,16 @@
             </div>
           </ng-container>
         </div>
+        <!-- FreeBank: the eCash pool that carried this block (the BMM view), as text; a plain link to the eCash explorer -->
+        @if (!minimal && showPools && bmmCubes[block.id]?.poolName) {
+          <div class="animated">
+            @if (bmmCubes[block.id].poolUrl) {
+              <a [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge" [href]="bmmCubes[block.id].poolUrl" target="_blank" rel="noopener">{{ bmmCubes[block.id].poolName }}</a>
+            } @else {
+              <span [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge">{{ bmmCubes[block.id].poolName }}</span>
+            }
+          </div>
+        }
         <div class="animated" *ngIf="block.extras?.pool != undefined && showPools && stateService.env.MINING_DASHBOARD">
           <a [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-pool'" class="badge" [class.miner-name]="block.extras.pool.minerNames?.length > 1 && block.extras.pool.minerNames[1] != ''" [routerLink]="[('/mining/pool/' + block.extras.pool.slug) | relativeUrl]">
             <ng-container *ngIf="block.extras.pool.minerNames?.length > 1 && block.extras.pool.minerNames[1] != ''; else centralisedPool">

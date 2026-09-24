@@ -363,7 +363,7 @@ const defaults: IConfig = {
     'BMM_API': 'https://explorer.beta.ecash.ninja/api',
     'BMM_EXPLORER_URL': 'https://explorer.beta.ecash.ninja', // for links only
     'BMM_SLOT': 130, // FreeBank's sidechain slot on eCash
-    'BMM_BACKFILL_BLOCKS': 2000, // newest FreeBank blocks looked up at startup
+    'BMM_BACKFILL_BLOCKS': 2000, // newest FreeBank blocks looked up at startup (0 or 1: the tip only)
     'BMM_MIN_INTERVAL_MS': 1000, // between two requests to BMM_API
   }
 };

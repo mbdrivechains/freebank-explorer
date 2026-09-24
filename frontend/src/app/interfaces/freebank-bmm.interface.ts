@@ -54,6 +54,12 @@ export interface FreebankBmmPoolShare extends FreebankBmmPool {
   share: number;                  // 0-1 of the carried blocks
 }
 
+/** Whether the BMM view is on, and the eCash explorer for links: fixed while the backend runs (ApiService.getFreebankBmmConfig$). */
+export interface FreebankBmmConfig {
+  enabled: boolean;
+  explorer_url: string;
+}
+
 /** GET /bmm/summary : over the cached entries on the active chain. */
 export interface FreebankBmmSummaryResponse {
   enabled: boolean;

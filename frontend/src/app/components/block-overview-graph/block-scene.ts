@@ -61,6 +61,12 @@ export default class BlockScene {
     }
   }
 
+  // FreeBank: a new scale (vbytes per grid unit) for a block of this size; used by the next
+  // setup/replace/update, the tiles already laid out keep their size
+  setBlockLimit(blockLimit: number): void {
+    this.vbytesPerUnit = blockLimit / Math.pow(this.gridWidth / 1.02, 2);
+  }
+
   setHighlighting(enabled: boolean): void {
     this.highlightingEnabled = enabled;
     if (this.initialised && this.scene) {
