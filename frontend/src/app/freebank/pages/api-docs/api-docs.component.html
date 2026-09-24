@@ -1,0 +1,76 @@
+<div class="container-xl credit-page api-docs-page">
+  <div class="title-block">
+    <h1>REST API</h1>
+  </div>
+
+  <p class="credit-intro">
+    Everything this explorer shows comes from its API: JSON over HTTP, no key needed. The address is
+    <code>{{ base }}</code>.
+  </p>
+  <p class="api-lead">
+    Amounts are integers in szats (1 ECX = 100,000,000 szats) and fee rates are in szat/vB. Please keep to a few
+    requests a second. Each example below is a real answer from this chain (block {{ tip }}), shortened: long lists show
+    their first two items.
+  </p>
+
+  <nav class="api-toc" aria-label="API sections">
+    <a *ngFor="let group of groups" [href]="'#' + group.id" (click)="scrollTo($event, group.id)">{{ group.title }}</a>
+    <a href="#live-updates" (click)="scrollTo($event, 'live-updates')">Live updates</a>
+    <a href="#not-available" (click)="scrollTo($event, 'not-available')">Not available</a>
+  </nav>
+
+  <section *ngFor="let group of groups" [id]="group.id">
+    <div class="credit-section-title">
+      <h2>{{ group.title }}</h2>
+    </div>
+    <p *ngIf="group.intro" class="api-group-intro">{{ group.intro }}</p>
+
+    <div class="box api-endpoint" *ngFor="let endpoint of group.endpoints; trackBy: trackByPath" [id]="anchor(endpoint)">
+      <div class="api-endpoint-head">
+        <span class="api-method" [class.post]="endpoint.method === 'POST'">{{ endpoint.method }}</span>
+        <code class="api-path">{{ endpoint.path }}</code>
+      </div>
+      <p class="api-description">{{ endpoint.description }}</p>
+      <pre class="api-code">{{ curl(endpoint) }}</pre>
+      <p *ngIf="endpoint.method === 'GET' && !endpoint.example" class="api-note">No example yet: the chain has none to show.</p>
+      <details *ngIf="endpoint.response" class="api-example">
+        <summary>Example answer<ng-container *ngIf="exampleUrl(endpoint) as url"> · <a [href]="url" target="_blank" rel="noopener">try it</a></ng-container></summary>
+        <pre class="api-code">{{ endpoint.response }}</pre>
+      </details>
+    </div>
+  </section>
+
+  <section id="live-updates">
+    <div class="credit-section-title">
+      <h2>Live updates</h2>
+    </div>
+    <div class="box api-endpoint">
+      <div class="api-endpoint-head">
+        <span class="api-method ws">WS</span>
+        <code class="api-path">/api/v1/ws</code>
+      </div>
+      <p class="api-description">
+        A WebSocket, as the explorer's own pages use. Connect and say what you want; the explorer then sends each new
+        block, the mempool statistics and the projected next blocks as they change.
+      </p>
+      <pre class="api-code">{{ wsBase }}/api/v1/ws
+&#123; "action": "want", "data": ["blocks", "stats", "mempool-blocks"] &#125;</pre>
+    </div>
+  </section>
+
+  <section id="not-available">
+    <div class="credit-section-title">
+      <h2>Not available</h2>
+    </div>
+    <div class="box">
+      <table class="table table-borderless table-striped credit-table api-not-available">
+        <tbody>
+          <tr *ngFor="let item of notAvailable">
+            <td>{{ item.what }}</td>
+            <td>{{ item.why }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

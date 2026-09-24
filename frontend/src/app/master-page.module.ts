@@ -79,6 +79,14 @@ const routes: Routes = [
         data: { preload: true, networkSpecific: true },
         loadChildren: () => import('@components/block/block.module').then(m => m.BlockModule),
       },
+      // FreeBank: the REST API documentation (the upstream /docs pages were mempool.space's and are gone)
+      {
+        path: 'docs/api/rest',
+        loadChildren: () => import('@app/freebank/api-docs.module').then(m => m.FreebankApiDocsModule),
+      },
+      { path: 'docs', redirectTo: 'docs/api/rest', pathMatch: 'full' },
+      { path: 'docs/api', redirectTo: 'docs/api/rest', pathMatch: 'full' },
+      { path: 'api', redirectTo: 'docs/api/rest', pathMatch: 'full' },
       // FreeBank: the BMM view (which eCash block carried each FreeBank block), lazy like the credit pages
       {
         path: 'bmm',

@@ -1,0 +1,92 @@
+// /docs/api/rest - listed after ../bills-pools.scss (page frame, intro, section titles, .credit-table).
+// Theme variables only (theme-freebank.scss).
+
+.api-lead {
+  color: var(--transparent-fg);
+  max-width: 60rem;
+}
+
+.api-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.api-group-intro {
+  color: var(--transparent-fg);
+  margin-top: -0.25rem;
+}
+
+.api-endpoint {
+  margin-bottom: 0.75rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.api-endpoint-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.api-method {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+  background: var(--primary);
+  color: var(--bg);
+
+  &.post {
+    background: var(--tertiary);
+    color: var(--fg);
+  }
+
+  &.ws {
+    background: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+  }
+}
+
+.api-path {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.api-description {
+  margin: 0.5rem 0;
+}
+
+.api-note {
+  color: var(--transparent-fg);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0;
+}
+
+.api-code {
+  background: var(--stat-box-bg, rgba(0, 0, 0, 0.25));
+  border-radius: 0.3rem;
+  color: var(--fg);
+  font-size: 0.8rem;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.api-example {
+  margin-top: 0.5rem;
+
+  summary {
+    cursor: pointer;
+    color: var(--transparent-fg);
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+}
+
+.api-not-available td {
+  white-space: normal;
+}
