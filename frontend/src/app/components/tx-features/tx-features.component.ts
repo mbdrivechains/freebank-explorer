@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, OnChanges, Input } from '@angular/core';
-import { calcSegwitFeeGains, isFeatureActive } from '@app/bitcoin.utils';
+import { calcSegwitFeeGains } from '@app/bitcoin.utils';
 import { Transaction } from '@interfaces/electrs.interface';
 import { StateService } from '@app/services/state.service';
 
@@ -35,9 +35,11 @@ export class TxFeaturesComponent implements OnChanges {
     if (!this.tx) {
       return;
     }
-    this.segwitEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'segwit');
-    this.taprootEnabled = false; // FreeBank has no Taproot, so no Taproot badge or fee-saving advice
-    this.rbfEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'rbf');
+    // FreeBank: SegWit (ALWAYS_ACTIVE) and opt-in RBF work from genesis, so no Bitcoin
+    // activation heights; there is no Taproot, so no Taproot badge or fee-saving advice
+    this.segwitEnabled = true;
+    this.taprootEnabled = false;
+    this.rbfEnabled = true;
     this.segwitGains = calcSegwitFeeGains(this.tx);
     this.isRbfTransaction = this.tx.vin.some((v) => v.sequence < 0xfffffffe);
     this.isTaproot = this.tx.vin.some((v) => v.prevout && v.prevout.scriptpubkey_type === 'v1_p2tr');
