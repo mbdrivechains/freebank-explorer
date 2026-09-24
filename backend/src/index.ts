@@ -163,8 +163,8 @@ class Server {
 
     await poolsUpdater.updatePoolsJson(); // Needs to be done before loading the disk cache because we sometimes wipe it
     if (config.DATABASE.ENABLED === true && config.MEMPOOL.ENABLED && ['mainnet', 'testnet', 'signet', 'testnet4', 'regtest'].includes(config.MEMPOOL.NETWORK) && !poolsUpdater.currentSha) {
-      logger.err(`Failed to retreive pools-v2.json sha, cannot run block indexing. Please make sure you've set valid urls in your mempool-config.json::MEMPOOL::POOLS_JSON_URL and mempool-config.json::MEMPOOL::POOLS_JSON_TREE_UR, aborting now`);
-      return process.exit(1);
+      // FreeBank: keep running instead of exiting (blocks get pool 'Unknown'); the pools updater tries again later
+      logger.warn(`Failed to retrieve the mining pools list sha. Check mempool-config.json::MEMPOOL::POOLS_JSON_URL (empty = the bundled list) and POOLS_JSON_TREE_URL. Continuing without it.`);
     }
 
     await syncAssets.syncAssets$();
