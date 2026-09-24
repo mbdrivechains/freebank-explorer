@@ -7,11 +7,15 @@
   font-size: 0.85em;
 }
 
-// pubkeys and hashes: truncate to the cell, keep the copy button
+// pubkeys and hashes: truncate to the cell, keep the copy button. Chrome counts app-truncate's
+// full hex in the cell's minimum width, so the table grew to fit whole keys and ran past its
+// panel; inline-size containment keeps the hex out of the column sizing, and the block fills
+// whatever width the cell gets.
 .key-cell app-truncate, .hash-cell app-truncate {
   display: block;
   max-width: 100%;
   min-width: 0;
+  contain: inline-size;
 }
 
 .house-line {
