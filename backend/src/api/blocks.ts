@@ -28,7 +28,7 @@ import chainTips from './chain-tips';
 import websocketHandler from './websocket-handler';
 import redisCache from './redis-cache';
 import rbfCache from './rbf-cache';
-import { calcBitsDifference } from './difficulty-adjustment';
+import { calcBitsDifference, HAS_DIFFICULTY_RETARGET } from './difficulty-adjustment';
 import AccelerationRepository from '../repositories/AccelerationRepository';
 import { calculateFastBlockCpfp, calculateGoodBlockCpfp } from './cpfp';
 import mempool from './mempool';
@@ -994,7 +994,7 @@ class Blocks {
       indexer.reindex(); // Make sure to index the skipped blocks #1619
     }
 
-    if (!this.lastDifficultyAdjustmentTime) {
+    if (HAS_DIFFICULTY_RETARGET && !this.lastDifficultyAdjustmentTime) {
       const blockchainInfo = await bitcoinClient.getBlockchainInfo();
       this.updateTimerProgress(timer, 'got blockchain info for initial difficulty adjustment');
       if (blockchainInfo.blocks === blockchainInfo.headers) {
@@ -1106,7 +1106,7 @@ class Blocks {
       this.updateTimerProgress(timer, `starting async callbacks for ${this.currentBlockHeight}`);
       const callbackPromises = this.newAsyncBlockCallbacks.map((cb) => cb(blockExtended, txIds, cpfpSummary.transactions));
 
-      if (block.height % 2016 === 0) {
+      if (HAS_DIFFICULTY_RETARGET && block.height % 2016 === 0) {
         if (Common.indexingEnabled()) {
           let adjustment;
           if (['liquid', 'liquidtestnet'].includes(config.MEMPOOL.NETWORK)) {
@@ -1209,7 +1209,7 @@ class Blocks {
 
   /** @asyncUnsafe */
   private async updateQuarterEpochBlockTime(): Promise<void> {
-    if (this.currentBlockHeight >= 503) {
+    if (HAS_DIFFICULTY_RETARGET && this.currentBlockHeight >= 503) {
       try {
         const quarterEpochBlockHash = await bitcoinApi.$getBlockHash(this.currentBlockHeight - 503);
         const quarterEpochBlock = await bitcoinApi.$getBlock(quarterEpochBlockHash);

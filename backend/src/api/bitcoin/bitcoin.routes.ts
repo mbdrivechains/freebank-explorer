@@ -16,7 +16,7 @@ import { TransactionExtended } from '../../mempool.interfaces';
 import logger from '../../logger';
 import blocks from '../blocks';
 import bitcoinClient from './bitcoin-client';
-import difficultyAdjustment from '../difficulty-adjustment';
+import difficultyAdjustment, { HAS_DIFFICULTY_RETARGET } from '../difficulty-adjustment';
 import transactionRepository from '../../repositories/TransactionRepository';
 import rbfCache from '../rbf-cache';
 import { calculateMempoolTxCpfp } from '../cpfp';
@@ -1048,6 +1048,10 @@ class BitcoinRoutes {
 
   private getDifficultyChange(req: Request, res: Response) {
     try {
+      if (!HAS_DIFFICULTY_RETARGET) {
+        handleError(req, res, 404, 'FreeBank has no difficulty adjustment: blocks are merged-mined, with no proof of work');
+        return;
+      }
       const da = difficultyAdjustment.getDifficultyAdjustment();
       if (da) {
         res.json(da);

@@ -2,6 +2,13 @@ import config from '../config';
 import { IDifficultyAdjustment } from '../mempool.interfaces';
 import blocks from './blocks';
 
+/**
+ * FreeBank blocks are made by blind merged mining: there is no proof of work, no difficulty
+ * and no retarget, so the Bitcoin model below (2016 blocks, 600 s) does not apply.
+ * With this off the backend publishes no difficulty adjustment ('da') and skips retarget indexing.
+ */
+export const HAS_DIFFICULTY_RETARGET = false;
+
 export interface DifficultyAdjustment {
   progressPercent: number;       // Percent: 0 to 100
   difficultyChange: number;      // Percent: -75 to 300
@@ -162,6 +169,9 @@ export function calcDifficultyAdjustment(
 
 class DifficultyAdjustmentApi {
   public getDifficultyAdjustment(): IDifficultyAdjustment | null {
+    if (!HAS_DIFFICULTY_RETARGET) {
+      return null;
+    }
     const DATime = blocks.getLastDifficultyAdjustmentTime();
     const previousRetarget = blocks.getPreviousDifficultyRetarget();
     const blockHeight = blocks.getCurrentBlockHeight();
