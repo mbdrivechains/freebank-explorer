@@ -7737,7 +7737,7 @@ export const restApiDocsData = [
     fragment: 'get-recommended-fees-precise',
     title: 'GET Recommended Fees (Precise)',
     description: {
-      default: 'Returns our currently-suggested feerates with up to 3 decimal places, including sub-szat feerates down to 0.1 szat/vB.'
+      default: 'Returns our currently-suggested feerates with up to 3 decimal places, including sub-sat feerates down to 0.1 s/vb.'
     },
     urlString: '/v1/fees/precise',
     showConditions: bitcoinNetworks.concat(liquidNetworks),
@@ -12630,7 +12630,7 @@ export const faqData = [
     category: 'basics',
     showConditions: bitcoinNetworks,
     fragment: 'what-is-svb',
-    title: 'What is szat/vB?',
+    title: 'What is sat/vB?',
   },
   {
     type: 'category',
