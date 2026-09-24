@@ -1135,7 +1135,11 @@ class BitcoinRoutes {
     try {
       res.json(await bitcoinApi.$getBlockStatus(req.params.hash));
     } catch (e) {
-      handleError(req, res, blockErrorStatus(e), 'Failed to get block status');
+      if (blockErrorStatus(e) === 404) {
+        res.json({ in_best_chain: false });   // esplora: any hash off the best chain, known or not
+        return;
+      }
+      handleError(req, res, 500, 'Failed to get block status');
     }
   }
 

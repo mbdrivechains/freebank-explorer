@@ -9,6 +9,13 @@ import transactionUtils from '../transaction-utils';
 import { Common } from '../common';
 import { merkleBranch, merkleRootFromBranch } from './merkle';
 
+// FreeBank: an output that can never be spent (OP_RETURN, or a script over 10,000 bytes: Core's IsUnspendable) is not in
+// the UTXO set, so gettxout answers null for it as for a spent output; esplora reports it unspent. Every FreeBank
+// coinbase has three OP_RETURN outputs.
+function isUnspendable(scriptHex: string | undefined): boolean {
+  return typeof scriptHex === 'string' && (scriptHex.startsWith('6a') || scriptHex.length > 20000);
+}
+
 class BitcoinApi implements AbstractBitcoinApi {
   private rawMempoolCache: IBitcoinApi.RawMempool | null = null;
   protected bitcoindClient: any;
@@ -259,6 +266,13 @@ class BitcoinApi implements AbstractBitcoinApi {
   /** @asyncUnsafe */
   async $getOutspend(txId: string, vout: number): Promise<IEsploraApi.Outspend> {
     const txOut = await this.bitcoindClient.getTxOut(txId, vout, false);
+    // FreeBank: gettxout answers null for an output that can never be spent, as for a spent one
+    if (txOut === null) {
+      const tx: IBitcoinApi.Transaction = await this.bitcoindClient.getRawTransaction(txId, true);
+      if (isUnspendable(tx.vout[vout]?.scriptPubKey?.hex)) {
+        return { spent: false };
+      }
+    }
     return {
       spent: txOut === null,
       status: {
@@ -272,7 +286,12 @@ class BitcoinApi implements AbstractBitcoinApi {
     const outSpends: IEsploraApi.Outspend[] = [];
     const tx = await this.$getRawTransaction(txId, true, false);
     for (let i = 0; i < tx.vout.length; i++) {
-      if (tx.status && tx.status.block_height === 0) {
+      // FreeBank: skipConversion gives the node's own form, with each output's script
+      if (isUnspendable((tx.vout[i] as unknown as IBitcoinApi.Vout)?.scriptPubKey?.hex)) {
+        outSpends.push({
+          spent: false
+        });
+      } else if (tx.status && tx.status.block_height === 0) {
         outSpends.push({
           spent: false
         });
