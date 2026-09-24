@@ -50,6 +50,11 @@
   }
 }
 
+.api-path,
+.credit-intro code {
+  color: var(--primary);
+}
+
 .api-path {
   font-size: 1rem;
   overflow-wrap: anywhere;

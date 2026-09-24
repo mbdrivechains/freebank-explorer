@@ -484,7 +484,7 @@ export const API_NOT_AVAILABLE: { what: string, why: string }[] = [
     "why": "The explorer has no price feed."
   },
   {
-    "what": "Lightning, Liquid assets and the accelerator",
-    "why": "These are mempool.space services; FreeBank has none of them."
+    "what": "Lightning, Liquid assets and transaction acceleration",
+    "why": "FreeBank has none of these."
   }
 ];
