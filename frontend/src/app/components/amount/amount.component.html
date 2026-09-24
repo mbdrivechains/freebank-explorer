@@ -24,7 +24,7 @@
     @if ((viewAmountMode$ | async) === 'btc' || (viewAmountMode$ | async) === 'fiat' || ignoreViewMode === true) {
       &lrm;{{ addPlus && satoshis >= 0 ? '+' : '' }}{{ satoshis / 100000000 | number : digitsInfo }}
       <span class="symbol">
-        <ng-container *ngTemplateOutlet="prefix"></ng-container>BTC
+        <ng-container *ngTemplateOutlet="prefix"></ng-container>{{ unit }}
       </span>
     } @else {
       @if (digitsInfo === '1.8-8') {
@@ -33,7 +33,7 @@
         &lrm;{{ addPlus && satoshis >= 0 ? '+' : '' }}{{ satoshis | amountShortener : (satoshis < 1000 && satoshis > -1000 ? 0 : 1) : undefined : true }}
       }
       <span class="symbol">
-        <ng-container *ngTemplateOutlet="prefix"></ng-container>sats
+        <ng-container *ngTemplateOutlet="prefix"></ng-container>{{ subunit }}
       </span>
     }
   </ng-template>

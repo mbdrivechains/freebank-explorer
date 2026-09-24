@@ -89,6 +89,7 @@ export interface Env {
   PACKAGE_JSON_VERSION_MEMPOOL_SPACE?: string;
   STRATUM_ENABLED: boolean;
   SERVICES_API?: string;
+  SOURCE_URL?: string;
   customize?: Customization;
   PROD_DOMAINS: string[];
 }
@@ -113,9 +114,9 @@ const defaultEnv: Env = {
   'MEMPOOL_BLOCKS_AMOUNT': 8,
   'GIT_COMMIT_HASH': '',
   'PACKAGE_JSON_VERSION': '',
-  'MEMPOOL_WEBSITE_URL': 'https://mempool.space',
-  'LIQUID_WEBSITE_URL': 'https://liquid.network',
-  'MINING_DASHBOARD': true,
+  'MEMPOOL_WEBSITE_URL': '',
+  'LIQUID_WEBSITE_URL': '',
+  'MINING_DASHBOARD': false,
   'LIGHTNING': false,
   'AUDIT': false,
   'MAINNET_BLOCK_AUDIT_START_HEIGHT': 0,
@@ -128,13 +129,14 @@ const defaultEnv: Env = {
   'TESTNET4_TX_FIRST_SEEN_START_HEIGHT': 0,
   'SIGNET_TX_FIRST_SEEN_START_HEIGHT': 0,
   'REGTEST_TX_FIRST_SEEN_START_HEIGHT': 0,
-  'HISTORICAL_PRICE': true,
+  'HISTORICAL_PRICE': false,
   'ACCELERATOR': false,
-  'ACCELERATOR_BUTTON': true,
+  'ACCELERATOR_BUTTON': false,
   'PUBLIC_ACCELERATIONS': false,
   'ADDITIONAL_CURRENCIES': false,
   'STRATUM_ENABLED': false,
-  'SERVICES_API': 'https://mempool.space/api/v1/services',
+  'SERVICES_API': '',
+  'SOURCE_URL': '',
   'PROD_DOMAINS': [],
 };
 
@@ -242,10 +244,6 @@ export class StateService {
 
     if (defaultEnv.BASE_MODULE !== 'mempool') {
       this.env.MINING_DASHBOARD = false;
-    }
-
-    if (document.location.hostname.endsWith('.onion')) {
-      this.env.SERVICES_API = 'http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion/api/v1/services';
     }
 
     if (this.isBrowser) {
@@ -385,7 +383,7 @@ export class StateService {
     this.blockDisplayMode$ = new BehaviorSubject<string>(blockDisplayModePreference || 'fees');
 
     const viewAmountModePreference = this.storageService.getValue('view-amount-mode') as 'btc' | 'sats' | 'fiat';
-    this.viewAmountMode$ = new BehaviorSubject<'btc' | 'sats' | 'fiat'>(viewAmountModePreference || 'btc');
+    this.viewAmountMode$ = new BehaviorSubject<'btc' | 'sats' | 'fiat'>((viewAmountModePreference !== 'fiat' && viewAmountModePreference) || 'btc');
 
     const timezonePreference = this.storageService.getValue('timezone-preference');
     this.timezone$ = new BehaviorSubject<string>(timezonePreference || 'local');
@@ -393,6 +391,11 @@ export class StateService {
     this.backend$.subscribe(backend => {
       this.backend = backend;
     });
+
+    // FreeBank: no fiat prices (the websocket no longer forwards 'conversions').
+    // Emit null once so combineLatest users of conversions$ (address graph) still
+    // run, while <app-fiat> and <app-amount> treat null as "no conversion".
+    this.conversions$.next(null);
   }
 
   setNetworkBasedonUrl(url: string) {

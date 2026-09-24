@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, Input, ChangeDetectionStrategy, ChangeDet
 import { StateService } from '@app/services/state.service';
 import { Observable, Subscription } from 'rxjs';
 import { Price } from '@app/services/price.service';
+import { UNIT, SUBUNIT } from '@app/app.constants';
 
 @Component({
   selector: 'app-amount',
@@ -15,6 +16,8 @@ export class AmountComponent implements OnInit, OnDestroy {
   currency: string;
   viewAmountMode$: Observable<'btc' | 'sats' | 'fiat'>;
   network = '';
+  unit = UNIT;
+  subunit = SUBUNIT;
 
   stateSubscription: Subscription;
   currencySubscription: Subscription;
