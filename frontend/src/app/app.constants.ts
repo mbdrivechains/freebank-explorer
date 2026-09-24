@@ -1,3 +1,8 @@
+// FreeBank Explorer: the coin unit shown next to amounts. The small unit
+// (1e-8 of UNIT) keeps the name 'sats', as do fee rates (sat/vB).
+export const UNIT = 'ECX';
+export const SUBUNIT = 'sats';
+
 export const defaultMempoolFeeColors = [
   '007d3d',
   '557d00',
