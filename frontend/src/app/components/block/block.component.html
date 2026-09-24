@@ -12,14 +12,16 @@
       } @else {
         <ng-container i18n="shared.stale-block-title">Stale Block</ng-container>
       }
-      <span class="next-previous-blocks">
-        <a *ngIf="showNextBlocklink" class="nav-arrow next" [routerLink]="['/block/' | relativeUrl, nextBlockHeight]" (click)="navigateToNextBlock()" i18n-ngbTooltip="Next Block" ngbTooltip="Next Block" placement="bottom">
+      <!-- FreeBank: no arrows or /block/undefined link when the block could not be loaded (e.g. a height above the tip) -->
+      <span class="next-previous-blocks" *ngIf="!error">
+        <a *ngIf="showNextBlocklink && block" class="nav-arrow next" [routerLink]="['/block/' | relativeUrl, nextBlockHeight]" (click)="navigateToNextBlock()" i18n-ngbTooltip="Next Block" ngbTooltip="Next Block" placement="bottom">
           <fa-icon [icon]="['fas', 'angle-left']" [fixedWidth]="true"></fa-icon>
         </a>
-        <span *ngIf="!showNextBlocklink" placement="bottom" class="disable nav-arrow next">
+        <span *ngIf="!showNextBlocklink || !block" placement="bottom" class="disable nav-arrow next">
           <fa-icon [icon]="['fas', 'angle-left']" [fixedWidth]="true"></fa-icon>
         </span>
-        <a [routerLink]="['/block/' | relativeUrl, blockHash]" class="block-link">{{ blockHeight }}</a>
+        <a *ngIf="blockHash; else blockHeightText" [routerLink]="['/block/' | relativeUrl, blockHash]" class="block-link">{{ blockHeight }}</a>
+        <ng-template #blockHeightText><span class="block-link">{{ blockHeight }}</span></ng-template>
         <a *ngIf="showPreviousBlocklink && block" class="nav-arrow prev"  [routerLink]="['/block/' | relativeUrl, block.previousblockhash]" (click)="navigateToPreviousBlock()" i18n-ngbTooltip="Previous Block" ngbTooltip="Previous Block" placement="bottom">
           <fa-icon [icon]="['fas', 'angle-right']" [fixedWidth]="true"></fa-icon>
         </a>
