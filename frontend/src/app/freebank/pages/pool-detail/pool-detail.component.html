@@ -1,9 +1,258 @@
-<div class="container-xl credit-page">
-  <h1>Pool {{ poolId }}</h1>
-  <ng-container *ngIf="state$ | async as state">
-    <p *ngIf="state.data && state.data.house">
-      Notes of <a [routerLink]="['/house/' | relativeUrl, state.data.house.id]">house {{ state.data.house.id }}</a>&nbsp;<app-house-health-badge [house]="state.data.house" [tipHeight]="state.data.tip_height"></app-house-health-badge>
+<div class="container-xl credit-page" *ngIf="view$ | async as view">
+  <div class="title-block">
+    <h1>Pool {{ poolId }}</h1>
+    <div class="title-badges" *ngIf="view.pool">
+      <span class="title-note">notes of</span>
+      <a [routerLink]="['/house/' | relativeUrl, view.pool.house_id]">House {{ view.pool.house_id }}</a>
+      <app-house-health-badge *ngIf="view.house" [house]="view.house" [tipHeight]="view.tipHeight"></app-house-health-badge>
+    </div>
+  </div>
+
+  <app-http-error *ngIf="view.error" [error]="view.error">
+    <ng-container *ngIf="view.error.status === 404; else loadFailed">There is no pool {{ poolId }} on this chain.</ng-container>
+    <ng-template #loadFailed>Could not load pool {{ poolId }}.</ng-template>
+  </app-http-error>
+
+  <!-- loading: the panels as skeletons -->
+  <div class="row" *ngIf="!view.pool && !view.error">
+    <div class="col-lg-6" *ngFor="let panel of ['Reserves', 'Fee and liquidity']">
+      <div class="credit-section-title"><h2>{{ panel }}</h2></div>
+      <div class="box">
+        <table class="table table-borderless table-striped credit-detail-table">
+          <tbody>
+            <tr *ngFor="let i of skeletonRows">
+              <td><span class="skeleton-loader"></span></td>
+              <td><span class="skeleton-loader"></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <ng-container *ngIf="view.pool as pool">
+    <p class="credit-intro">
+      A market in house {{ pool.house_id }}'s {{ view.noteLabel }} against ECX, opened at block {{ pool.createheight }}.
+      <ng-container *ngIf="view.price.spot !== null; else emptyPool">
+        One note unit trades at {{ view.price.spot | number: '1.4-4' }} sats here, {{ view.price.vsParText }}.
+      </ng-container>
+      <ng-template #emptyPool>It holds no notes, so it has no price.</ng-template>
     </p>
-    <app-credit-raw-json [state]="state" errorText="Could not load this pool"></app-credit-raw-json>
+
+    <div class="row">
+      <!-- RESERVES -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>Reserves</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <tr>
+                <td><span class="help" ngbTooltip="The house's notes held by the pool. One note unit redeems for 1 sat at the house. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Notes</span></td>
+                <td>
+                  <app-credit-amount [units]="pool.note_reserve" [grams]="pool.note_reserve_grams" [unitLabel]="view.noteLabel"></app-credit-amount>
+                  <span class="sub" *ngIf="view.shareOfHouseNotes !== null">{{ view.shareOfHouseNotes | number: '1.0-2' }}% of the house's notes outstanding</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The ECX the pool holds against the notes." placement="bottom" container="body">ECX</span></td>
+                <td><app-credit-amount [sats]="pool.btx_reserve" [grams]="pool.btx_reserve_grams"></app-credit-amount></td>
+              </tr>
+              <tr *ngIf="view.totalAtParSats !== null">
+                <td><span class="help" ngbTooltip="Both sides added up, counting each note unit at par (1 sat), the sum the house redeems it for." placement="bottom" container="body">Both sides at par</span></td>
+                <td>
+                  <app-credit-amount [sats]="view.totalAtParSats" [grams]="view.totalGrams"></app-credit-amount>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The ECX side divided by the note side: what one note unit is worth in the pool, in sats. A real trade pays the fee as well, and moves the price as it goes." placement="bottom" container="body">Note price</span></td>
+                <td>
+                  <ng-container *ngIf="view.price.spot !== null; else noPrice">
+                    {{ view.price.spot | number: '1.4-4' }} <span class="symbol">sats per note unit</span>
+                  </ng-container>
+                  <ng-template #noPrice>None <span class="explain">The pool holds no notes.</span></ng-template>
+                </td>
+              </tr>
+              <tr *ngIf="view.price.spot !== null">
+                <td><span class="help" ngbTooltip="Par is 1 sat per note unit, what the house redeems a unit for. Below par, the market prices the house's notes at a discount; above par, at a premium." placement="bottom" container="body">Against par</span></td>
+                <td>
+                  <span [class.below-par]="view.price.belowPar">{{ view.price.vsParText }}</span>
+                  <span class="explain" *ngIf="view.price.belowPar">Buyers pay less than the house redeems the notes for.</span>
+                  <span class="explain" *ngIf="view.price.vsParPercent >= 0.005">Buyers pay more than the house redeems the notes for.</span>
+                </td>
+              </tr>
+              <tr *ngIf="view.price.unitsPerSat !== null">
+                <td><span class="help" ngbTooltip="At the note price, before the fee and before the trade moves the price." placement="bottom" container="body">One ECX buys about</span></td>
+                <td>{{ view.price.unitsPerSat * 100000000 | number: '1.0-0' }} <span class="symbol">{{ view.noteLabel }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FEE AND LIQUIDITY -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>Fee and liquidity</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <tr>
+                <td><span class="help" ngbTooltip="Set when the pool opened and fixed for its life. It is taken from every trade's input and stays in the pool, so it accrues to the liquidity providers." placement="bottom" container="body">Swap fee</span></td>
+                <td>{{ pool.fee_bps | bps }} <span class="sub">{{ pool.fee_bps | number }} basis points per trade</span></td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="Shares in the pool's two reserves. A provider who burns shares takes that fraction of both sides." placement="bottom" container="body">Liquidity shares</span></td>
+                <td>{{ pool.lp_supply | noteUnits }} <span class="sub">issued in all</span></td>
+              </tr>
+              <tr *ngIf="view.providerLp !== null">
+                <td>Held by providers</td>
+                <td>{{ view.providerLp | noteUnits }}</td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="Locked when the pool opened and never redeemable, so the pool can never be emptied." placement="bottom" container="body">Locked forever</span></td>
+                <td>
+                  {{ pool.locked_lp | noteUnits }}
+                  <span class="sub" *ngIf="view.lockedPercent !== null">{{ view.lockedPercent | number: '1.0-3' }}% of the shares</span>
+                </td>
+              </tr>
+              <tr *ngIf="view.unitsPerShare !== null">
+                <td><span class="help" ngbTooltip="What one share would take out of the pool today: its fraction of each side." placement="bottom" container="body">Behind one share</span></td>
+                <td>
+                  <span class="nowrap">{{ view.unitsPerShare | number: '1.4-4' }} <span class="symbol">note units</span></span> and
+                  <span class="nowrap">{{ view.satsPerShare | number: '1.4-4' }} <span class="symbol">sats</span></span>
+                </td>
+              </tr>
+              <tr>
+                <td>Opened at block</td>
+                <td><app-credit-height [height]="pool.createheight" [tipHeight]="view.tipHeight"></app-credit-height></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- ESCROW -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>Escrow coins</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <tr>
+                <td><span class="help" ngbTooltip="The coin that holds the pool's notes." placement="bottom" container="body">Note side</span></td>
+                <td>
+                  <a *ngIf="view.noteCoin as coin; else noNoteCoin" class="outpoint" [routerLink]="['/tx/' | relativeUrl, coin.txid]" [fragment]="'vout=' + coin.vout">{{ coin.txid | shortenString: 16 }}<span class="vout">:{{ coin.vout }}</span></a>
+                  <ng-template #noNoteCoin>&ndash;</ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="help" ngbTooltip="The coin that holds the pool's ECX." placement="bottom" container="body">ECX side</span></td>
+                <td>
+                  <a *ngIf="view.ecxCoin as coin; else noEcxCoin" class="outpoint" [routerLink]="['/tx/' | relativeUrl, coin.txid]" [fragment]="'vout=' + coin.vout">{{ coin.txid | shortenString: 16 }}<span class="vout">:{{ coin.vout }}</span></a>
+                  <ng-template #noEcxCoin>&ndash;</ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="credit-footnote">Every pool transaction spends both coins and creates new ones, so they always sit in the pool's latest transaction.</p>
+      </div>
+
+      <!-- THE HOUSE -->
+      <div class="col-lg-6">
+        <div class="credit-section-title"><h2>The house</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-detail-table">
+            <tbody>
+              <tr>
+                <td>House</td>
+                <td>
+                  <a [routerLink]="['/house/' | relativeUrl, pool.house_id]">House {{ pool.house_id }}</a>
+                  <span class="explain" *ngIf="view.house"><app-house-health-badge [house]="view.house" [tipHeight]="view.tipHeight" [showSummary]="true"></app-house-health-badge></span>
+                </td>
+              </tr>
+              <ng-container *ngIf="view.house as house">
+                <tr>
+                  <td><span class="help" ngbTooltip="The name of the house's notes." placement="bottom" container="body">Note class</span></td>
+                  <td>{{ house.classid }}</td>
+                </tr>
+                <tr>
+                  <td><span class="help" ngbTooltip="All the house's notes in circulation, the pool's included. Each unit redeems for 1 sat at the house." placement="bottom" container="body">Notes outstanding</span></td>
+                  <td><app-credit-amount [units]="house.mintedunits" [grams]="house.mintedunits_grams" [unitLabel]="view.noteLabel"></app-credit-amount></td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECENT SWAPS AND LIQUIDITY -->
+    <div class="credit-section-title"><h2>Recent swaps and liquidity</h2></div>
+    <div class="box">
+      <table class="table table-borderless table-striped credit-table activity-table">
+        <thead>
+          <tr>
+            <th class="col-id">Block</th>
+            <th>Operation</th>
+            <th class="d-none d-md-table-cell">Details</th>
+            <th class="text-right"><span class="help" ngbTooltip="Sats per note unit this transaction traded or deposited at. For a swap this includes the fee and the price move of the trade itself." placement="bottom" container="body">Price</span></th>
+            <th class="d-none d-sm-table-cell text-right">Transaction</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of view.rows; trackBy: trackByRow">
+            <td class="col-id">
+              <app-credit-height [height]="row.height" [tipHeight]="view.tipHeight" [showRelative]="false"></app-credit-height>
+              <span class="sub" *ngIf="row.time"><app-time kind="since" [time]="row.time" [fastRender]="true"></app-time></span>
+            </td>
+            <td>
+              <a class="d-sm-none" [routerLink]="['/tx/' | relativeUrl, row.txid]">{{ row.label }}</a>
+              <span class="d-none d-sm-inline">{{ row.label }}</span>
+              <span class="sub d-md-none"><ng-container *ngTemplateOutlet="poolDetails; context: { $implicit: row }"></ng-container></span>
+            </td>
+            <td class="d-none d-md-table-cell"><ng-container *ngTemplateOutlet="poolDetails; context: { $implicit: row }"></ng-container></td>
+            <td class="text-right">
+              <span *ngIf="row.price !== null; else noRowPrice" class="nowrap">{{ row.price | number: '1.4-4' }} <span class="symbol">sats</span></span>
+              <ng-template #noRowPrice>&ndash;</ng-template>
+            </td>
+            <td class="d-none d-sm-table-cell text-right">
+              <a [routerLink]="['/tx/' | relativeUrl, row.txid]" [title]="row.txid">{{ row.txid | shortenString: 12 }}</a>
+            </td>
+          </tr>
+          <tr *ngIf="view.activityLoading">
+            <td colspan="5"><span class="skeleton-loader"></span></td>
+          </tr>
+          <tr *ngIf="!view.activityLoading && !view.activityFailed && !view.rows.length">
+            <td colspan="5" class="empty-row">No transactions for this pool in the blocks the explorer has scanned.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="credit-footnote" *ngIf="view.activityFailed">Could not load the credit activity for this pool.</p>
+    <p class="credit-footnote" *ngIf="!view.activityLoading && !view.activityFailed && !view.activityComplete">
+      The explorer's credit activity may not reach back to this pool's opening<ng-container *ngIf="view.activityScannedFrom !== null"> (it starts at block {{ view.activityScannedFrom }})</ng-container>, so older transactions may be missing.
+    </p>
+    <p class="credit-footnote" *ngIf="view.refreshFailed">Could not refresh this pool; showing it as of block {{ view.tipHeight }}.</p>
   </ng-container>
 </div>
+
+<ng-template #poolDetails let-row>
+  <ng-container [ngSwitch]="row.kind">
+    <ng-container *ngSwitchCase="'create'">
+      Opened with <span class="nowrap">{{ row.noteUnits | noteUnits }} note units</span> and <span class="nowrap">{{ row.ecxSats | satsAsEcx }} ECX</span><ng-container *ngIf="row.feeBps !== null">, fee {{ row.feeBps | bps }}</ng-container>
+    </ng-container>
+    <ng-container *ngSwitchCase="'add_liq'">
+      Added <span class="nowrap">{{ row.noteUnits | noteUnits }} note units</span> and <span class="nowrap">{{ row.ecxSats | satsAsEcx }} ECX</span><ng-container *ngIf="row.lpMinted !== null"> for {{ row.lpMinted | noteUnits }} shares</ng-container>
+    </ng-container>
+    <ng-container *ngSwitchCase="'remove_liq'">
+      <ng-container *ngIf="row.lpBurned !== null">Burned {{ row.lpBurned | noteUnits }} shares for </ng-container><ng-container *ngIf="row.lpBurned === null">Took out </ng-container><span class="nowrap">{{ row.noteUnitsOut | noteUnits }} note units</span> and <span class="nowrap">{{ row.ecxSatsOut | satsAsEcx }} ECX</span>
+    </ng-container>
+    <ng-container *ngSwitchCase="'swap'">
+      <ng-container *ngIf="row.direction === 'notes_for_ecx'"><span class="nowrap">{{ row.noteUnits | noteUnits }} note units</span> in, <span class="nowrap">{{ row.ecxSatsOut | satsAsEcx }} ECX</span> out</ng-container>
+      <ng-container *ngIf="row.direction === 'ecx_for_notes'"><span class="nowrap">{{ row.ecxSats | satsAsEcx }} ECX</span> in, <span class="nowrap">{{ row.noteUnitsOut | noteUnits }} note units</span> out</ng-container>
+    </ng-container>
+    <ng-container *ngSwitchCase="'retire'">Closed: the last notes were burned and the ECX paid to the house</ng-container>
+    <ng-container *ngSwitchDefault></ng-container>
+  </ng-container>
+</ng-template>

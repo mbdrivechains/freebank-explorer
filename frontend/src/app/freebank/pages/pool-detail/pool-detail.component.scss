@@ -1,0 +1,14 @@
+.title-note {
+  color: var(--transparent-fg);
+}
+
+// a note price under par: light gold, the explorer's caution colour
+.below-par {
+  color: var(--info);
+}
+
+.activity-table {
+  td:first-child {
+    white-space: nowrap;
+  }
+}
