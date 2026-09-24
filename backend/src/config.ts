@@ -329,7 +329,7 @@ const defaults: IConfig = {
     'BATCH_QUERY_BASE_SIZE': 5000,
   },
   'FIAT_PRICE': {
-    'ENABLED': true,
+    'ENABLED': false, // FreeBank: off - the feeds price BTC, not ECX
     'PAID': false,
     'API_KEY': '',
   },
