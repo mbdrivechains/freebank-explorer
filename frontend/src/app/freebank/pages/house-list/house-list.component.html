@@ -1,11 +1,138 @@
-<div class="container-xl credit-page">
-  <h1>Houses</h1>
-  <ng-container *ngIf="state$ | async as state">
-    <ul *ngIf="state.data">
-      <li *ngFor="let house of state.data.houses">
-        <a [routerLink]="['/house/' | relativeUrl, house.id]">House {{ house.id }} ({{ house.classid }})</a>&nbsp;<app-house-health-badge [house]="house" [tipHeight]="state.data.tip_height"></app-house-health-badge>
-      </li>
-    </ul>
-    <app-credit-raw-json [state]="state" errorText="Could not load the houses"></app-credit-raw-json>
-  </ng-container>
+<div class="container-xl credit-page house-list" *ngIf="view$ | async as view">
+
+  <div class="house-list-title">
+    <h1>Houses</h1>
+    <div class="spinner-border" role="status" *ngIf="view.refreshing"><span class="sr-only">Loading</span></div>
+  </div>
+
+  <p class="credit-intro">
+    A house is a note-issuing bank. Its partners lock capital on chain; it issues its own notes, which it redeems at par
+    (one unit for 1 sat), discounts bills of exchange, and proves its reserves on chain at regular attestations.
+    The badge beside each house is read from those attestations.
+  </p>
+
+  <p class="house-counts" *ngIf="view.rows.length">
+    {{ view.rows.length }} {{ view.rows.length === 1 ? 'house' : 'houses' }} at block
+    <a [routerLink]="['/block/' | relativeUrl, view.tip]">{{ view.tip }}</a>:
+    <ng-container *ngFor="let entry of view.counts; let last = last">
+      <span class="house-count">{{ entry.count }} {{ entry.label | lowercase }}</span><ng-container *ngIf="!last">, </ng-container>
+    </ng-container>
+  </p>
+
+  <app-http-error *ngIf="view.error && !view.rows.length" [error]="view.error">Could not load the houses</app-http-error>
+  <p class="credit-stale" *ngIf="view.error && view.rows.length">Could not refresh: showing the houses as they were at block {{ view.tip }}.</p>
+
+  <div class="box house-table-box" *ngIf="!view.error || view.rows.length">
+    <table class="table table-borderless table-striped house-table">
+      <thead>
+        <tr>
+          <th class="col-house"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The house's note name and its number. Each house issues notes under its own name.">House</span></th>
+          <th class="col-health"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The house health badge, read from the house's own attestations on chain. Point at a badge for the reasons.">Health</span></th>
+          <th class="col-status"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The status the chain gives the house at the latest block: open, stressed, deferred (option clause invoked), insolvent or wound down.">Status</span></th>
+          <th class="col-ratio text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="Reserves the house proved at its last attestation, divided by its notes outstanding. Shown up to 100%. The reserve floor is 10%.">Attested ratio</span></th>
+          <th class="col-notes text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="Notes outstanding. One unit redeems for 1 sat at the house. Grams of gold below, for reading only.">Notes issued</span></th>
+          <th class="col-capital"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="How much of the capital cap is used: notes plus term deposits, against the issuance multiplier times the partner capital locked. Point at a figure for the sum.">Capital cap used</span></th>
+          <th class="col-last"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The block of the house's last reserve attestation.">Last attestation</span></th>
+          <th class="col-deadline"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The house must attest again by this block. With no attestation by then it is stressed from the next block.">Attest by</span></th>
+          <th class="col-book text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="Face value of the bills of exchange the house has discounted and still holds: its loan book.">Loan book</span></th>
+          <th class="col-partners text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="Partners who have pledged capital to the house.">Partners</span></th>
+        </tr>
+      </thead>
+
+      <tbody *ngIf="!view.loading; else skeleton" [style.opacity]="view.refreshing ? 0.75 : 1">
+        <tr *ngFor="let row of view.rows; trackBy: trackByHouse">
+          <td class="col-house">
+            <a class="house-name" [routerLink]="['/house/' | relativeUrl, row.house.id]">{{ row.house.classid }}</a>
+            <span class="house-number">#{{ row.house.id }}</span>
+          </td>
+          <td class="col-health">
+            <app-house-health-badge [house]="row.house" [tipHeight]="view.tip" placement="bottom"></app-house-health-badge>
+          </td>
+          <td class="col-status">
+            {{ row.statusLabel }}
+            <div class="sub" *ngIf="row.house.stress_since">since block {{ row.house.stress_since }}</div>
+          </td>
+          <td class="col-ratio text-right">
+            <span [class.muted]="!row.house.mintedunits">{{ row.ratioText }}</span>
+          </td>
+          <td class="col-notes text-right">
+            {{ row.house.mintedunits | noteUnits }} <span class="symbol">units</span>
+            <div class="sub">{{ row.house.mintedunits_grams | grams }}</div>
+          </td>
+          <td class="col-capital">
+            <span class="credit-term" tabindex="0" container="body" placement="bottom" [ngbTooltip]="row.capitalTip">{{ row.capacity.capital.text }}</span>
+            <div class="credit-meter" [class.full]="(row.capacity.capital.percent || 0) >= 90" [class.over]="row.capacity.capital.over">
+              <div class="credit-meter-fill" [style.width.%]="row.capacity.capital.barPercent"></div>
+            </div>
+          </td>
+          <td class="col-last">
+            <ng-container *ngIf="!row.neverAttested; else neverAttested">
+              <a [routerLink]="['/block/' | relativeUrl, row.house.lastattestheight]">{{ row.house.lastattestheight }}</a>
+              <div class="sub">{{ row.house.lastattestheight | blocksFromTip: view.tip }}</div>
+            </ng-container>
+            <ng-template #neverAttested>
+              <span class="muted">never</span>
+              <div class="sub">registered at block {{ row.house.registeredheight }}</div>
+            </ng-template>
+          </td>
+          <td class="col-deadline">
+            <ng-container *ngIf="row.attests; else noClock">
+              <span [class.overdue]="row.clock.overdue">{{ row.clock.text }}</span>
+              <div class="sub">block {{ row.clock.deadline }}</div>
+            </ng-container>
+            <ng-template #noClock>
+              <span class="muted" tabindex="0" container="body" placement="bottom"
+                [ngbTooltip]="row.health.badge === 'insolvent' ? 'An insolvent house no longer attests.' : 'A wound-down house no longer attests.'">none</span>
+            </ng-template>
+          </td>
+          <td class="col-book text-right">
+            <ng-container *ngIf="row.house.loanbookface; else emptyBook">
+              {{ row.house.loanbookface | satsAsEcx }} <span class="symbol">ECX</span>
+            </ng-container>
+            <ng-template #emptyBook><span class="muted">none</span></ng-template>
+          </td>
+          <td class="col-partners text-right">
+            {{ row.house.partners.length }}
+            <div class="sub" *ngIf="row.partnersActive !== row.house.partners.length">{{ row.partnersActive }} active</div>
+          </td>
+        </tr>
+        <tr *ngIf="!view.rows.length">
+          <td colspan="10" class="credit-empty">No houses have registered on this chain yet.</td>
+        </tr>
+      </tbody>
+
+      <ng-template #skeleton>
+        <tbody>
+          <tr *ngFor="let line of skeletonRows">
+            <td class="col-house"><span class="skeleton-loader" style="max-width: 80px"></span></td>
+            <td class="col-health"><span class="skeleton-loader" style="max-width: 90px"></span></td>
+            <td class="col-status"><span class="skeleton-loader" style="max-width: 70px"></span></td>
+            <td class="col-ratio"><span class="skeleton-loader" style="max-width: 80px"></span></td>
+            <td class="col-notes"><span class="skeleton-loader" style="max-width: 110px"></span></td>
+            <td class="col-capital"><span class="skeleton-loader" style="max-width: 110px"></span></td>
+            <td class="col-last"><span class="skeleton-loader" style="max-width: 80px"></span></td>
+            <td class="col-deadline"><span class="skeleton-loader" style="max-width: 100px"></span></td>
+            <td class="col-book"><span class="skeleton-loader" style="max-width: 80px"></span></td>
+            <td class="col-partners"><span class="skeleton-loader" style="max-width: 30px"></span></td>
+          </tr>
+        </tbody>
+      </ng-template>
+    </table>
+  </div>
+
+  <p class="credit-footnote" *ngIf="view.rows.length">
+    Figures are as of block {{ view.tip }}. Grams of gold use the chain's display rate and are for reading only:
+    notes redeem in ECX, one unit for 1 sat.
+    <span class="d-xl-none">Some columns are hidden on this screen; open a house for all its figures.</span>
+  </p>
 </div>
