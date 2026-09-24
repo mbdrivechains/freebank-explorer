@@ -1030,14 +1030,13 @@ class Blocks {
     }
 
     while (this.currentBlockHeight < blockHeightTip) {
-      if (this.currentBlockHeight === 0) {
-        this.currentBlockHeight = blockHeightTip;
-        await this.updateQuarterEpochBlockTime();
-      } else {
-        this.currentBlockHeight++;
-        await this.updateQuarterEpochBlockTime();
-        logger.debug(`New block found (#${this.currentBlockHeight})!`);
-      }
+      // FreeBank: always step one block. Upstream jumped from height 0 straight to the tip, skipping every
+      // block in between whenever the loop passed height 0: a fresh start on a chain of up to
+      // INITIAL_BLOCKS_AMOUNT blocks, or up to 2 * INITIAL_BLOCKS_AMOUNT new blocks after a list ending at
+      // genesis. The live block strip then had a gap, and the dashboard drew a second genesis in it.
+      this.currentBlockHeight++;
+      await this.updateQuarterEpochBlockTime();
+      logger.debug(`New block found (#${this.currentBlockHeight})!`);
 
       this.updateTimerProgress(timer, `getting block data for ${this.currentBlockHeight}`);
       const blockHash = await bitcoinCoreApi.$getBlockHash(this.currentBlockHeight);
