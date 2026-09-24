@@ -466,7 +466,9 @@ class Blocks {
    * @asyncUnsafe
    */
   private async $findBlockMiner(txMinerInfo: TransactionMinerInfo | undefined): Promise<PoolTag> {
-    if (txMinerInfo === undefined || txMinerInfo.vout.length < 1) {
+    // FreeBank: no subsidy, so a block without fees has a coinbase that pays 0 on every output, and
+    // stripCoinbaseTransaction drops zero-value outputs. The producer's coinbase tag is still there to match.
+    if (txMinerInfo === undefined || !txMinerInfo.vin?.length) {
       if (config.DATABASE.ENABLED === true) {
         return await poolsRepository.$getUnknownPool();
       } else {
