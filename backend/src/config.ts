@@ -8,6 +8,7 @@ interface IConfig {
     OFFICIAL: boolean;
     NETWORK: 'mainnet' | 'testnet' | 'testnet4' | 'signet' | 'liquid' | 'liquidtestnet' | 'regtest';
     BACKEND: 'esplora' | 'electrum' | 'none';
+    HTTP_HOST: string;
     HTTP_PORT: number;
     UNIX_SOCKET_PATH: string;
     SPAWN_CLUSTER_PROCS: number;
@@ -179,6 +180,7 @@ const defaults: IConfig = {
     'OFFICIAL': false,
     'NETWORK': 'mainnet',
     'BACKEND': 'none',
+    'HTTP_HOST': '127.0.0.1', // FreeBank: listen address; '' = all interfaces (upstream behaviour)
     'HTTP_PORT': 8999,
     'UNIX_SOCKET_PATH': '',
     'SPAWN_CLUSTER_PROCS': 0,
@@ -198,11 +200,11 @@ const defaults: IConfig = {
     'EXTERNAL_ASSETS': [],
     'EXTERNAL_MAX_RETRY': 1,
     'EXTERNAL_RETRY_INTERVAL': 0,
-    'USER_AGENT': 'mempool',
+    'USER_AGENT': 'freebank-explorer',
     'STDOUT_LOG_MIN_PRIORITY': 'debug',
     'AUTOMATIC_POOLS_UPDATE': false,
-    'POOLS_JSON_URL': 'https://raw.githubusercontent.com/mempool/mining-pools/master/pools-v2.json',
-    'POOLS_JSON_TREE_URL': 'https://api.github.com/repos/mempool/mining-pools/git/trees/master',
+    'POOLS_JSON_URL': '', // FreeBank: '' = the bundled tasks/freebank-pools.json (see pools-updater.ts)
+    'POOLS_JSON_TREE_URL': '',
     'POOLS_UPDATE_DELAY': 604800, // in seconds, default is one week
     'AUDIT': false,
     'RUST_GBT': true,
@@ -299,11 +301,11 @@ const defaults: IConfig = {
     'USERNAME': '',
     'PASSWORD': ''
   },
-  'EXTERNAL_DATA_SERVER': {
-    'MEMPOOL_API': 'https://mempool.space/api/v1',
-    'MEMPOOL_ONION': 'http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion/api/v1',
-    'LIQUID_API': 'https://liquid.network/api/v1',
-    'LIQUID_ONION': 'http://liquidmom47f6s3m53ebfxn47p76a6tlnxib3wp6deux7wuzotdr6cyd.onion/api/v1'
+  'EXTERNAL_DATA_SERVER': { // FreeBank: no mempool.space / liquid.network data servers
+    'MEMPOOL_API': '',
+    'MEMPOOL_ONION': '',
+    'LIQUID_API': '',
+    'LIQUID_ONION': ''
   },
   'MAXMIND': {
     'ENABLED': false,
@@ -329,7 +331,7 @@ const defaults: IConfig = {
     'BATCH_QUERY_BASE_SIZE': 5000,
   },
   'FIAT_PRICE': {
-    'ENABLED': true,
+    'ENABLED': false, // FreeBank: off - the feeds price BTC, not ECX
     'PAID': false,
     'API_KEY': '',
   },

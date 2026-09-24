@@ -137,6 +137,10 @@ class PriceUpdater {
 
   /** @asyncSafe */
   public async $run(): Promise<void> {
+    if (!config.FIAT_PRICE.ENABLED) {
+      // FreeBank: no calls to the exchange price feeds when fiat prices are off
+      return;
+    }
     if (['testnet', 'signet', 'testnet4', 'regtest'].includes(config.MEMPOOL.NETWORK)) {
       // Coins have no value on testnet/signet, so we want to always show 0
       return;

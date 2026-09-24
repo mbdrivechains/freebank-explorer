@@ -1,4 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
+import * as fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import poolsParser from '../api/pools-parser';
 import config from '../config';
 import DB from '../database';
@@ -7,6 +10,14 @@ import logger from '../logger';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import * as https from 'https';
 import { Common } from '../api/common';
+
+/**
+ * FreeBank: the pools list ships with the explorer, so the backend never needs GitHub.
+ * It is empty for now: FreeBank blocks are made by blind merged mining and carry no pool tag.
+ * MEMPOOL.POOLS_JSON_URL: empty = this bundled file, a file path = that file,
+ * an http(s) URL = fetch it (and its sha from POOLS_JSON_TREE_URL) as upstream does.
+ */
+const BUNDLED_POOLS_FILE = path.join(__dirname, 'freebank-pools.json');
 
 /**
  * Maintain the most recent version of pools-v2.json
@@ -51,8 +62,11 @@ class PoolsUpdater {
         this.currentSha = await this.getShaFromDb();
       }
 
-      const githubSha = await this.fetchPoolsSha(); // Fetch pools-v2.json sha from github
+      const localPools = this.isLocalPoolsFile() ? this.readLocalPools() : null;
+      const githubSha = localPools ? localPools.sha : await this.fetchPoolsSha(); // Fetch pools-v2.json sha from github
       if (githubSha === null) {
+        // FreeBank: the backend no longer exits without a sha, so try again in 10 minutes, not in POOLS_UPDATE_DELAY
+        this.lastRun = now - Math.max(config.MEMPOOL.POOLS_UPDATE_DELAY - 600, 600);
         return;
       }
 
@@ -71,14 +85,16 @@ class PoolsUpdater {
         return;
       }
 
-      const network = config.SOCKS5PROXY.ENABLED ? 'tor' : 'clearnet';
+      const network = localPools ? 'local file' : config.SOCKS5PROXY.ENABLED ? 'tor' : 'clearnet';
+      const source = localPools ? localPools.file : this.poolsUrl;
       if (this.currentSha === null) {
-        logger.info(`Downloading pools-v2.json for the first time from ${this.poolsUrl} over ${network}`, this.tag);
+        logger.info(`Downloading pools-v2.json for the first time from ${source} over ${network}`, this.tag);
       } else {
-        logger.warn(`pools-v2.json is outdated, fetching latest from ${this.poolsUrl} over ${network}`, this.tag);
+        logger.warn(`pools-v2.json is outdated, fetching latest from ${source} over ${network}`, this.tag);
       }
-      const poolsJson = await this.query(this.poolsUrl);
+      const poolsJson = localPools ? localPools.pools : await this.query(this.poolsUrl);
       if (poolsJson === undefined) {
+        this.lastRun = now - Math.max(config.MEMPOOL.POOLS_UPDATE_DELAY - 600, 600); // FreeBank: retry in 10 minutes
         return;
       }
       poolsParser.setMiningPools(poolsJson);
@@ -132,6 +148,27 @@ class PoolsUpdater {
       logger.err('Cannot fetch pools-v2.json sha from db. Reason: ' + (e instanceof Error ? e.message : e), this.tag);
       return null;
     }
+  }
+
+  private isLocalPoolsFile(): boolean {
+    return !/^https?:\/\//i.test(this.poolsUrl);
+  }
+
+  /**
+   * Read the pools list from a local file (default: the bundled freebank-pools.json).
+   * Its sha is the git blob id (`git hash-object <file>`). A missing file gives an empty
+   * list, so the backend still starts; malformed JSON throws (retried in 10 minutes).
+   */
+  private readLocalPools(): { file: string, sha: string, pools: any[] } {
+    const file = this.poolsUrl || BUNDLED_POOLS_FILE;
+    let content: Buffer = Buffer.from('[]');
+    try {
+      content = fs.readFileSync(file);
+    } catch (e) {
+      logger.warn(`Cannot read mining pools file ${file}, using an empty list. Reason: ` + (e instanceof Error ? e.message : e), this.tag);
+    }
+    const sha = crypto.createHash('sha1').update(`blob ${content.length}\0`).update(content).digest('hex');
+    return { file, sha, pools: JSON.parse(content.toString('utf8')) };
   }
 
   /**

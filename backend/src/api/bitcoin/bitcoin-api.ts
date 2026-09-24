@@ -17,16 +17,19 @@ class BitcoinApi implements AbstractBitcoinApi {
   }
 
   static convertBlock(block: IBitcoinApi.Block): IEsploraApi.Block {
+    // FreeBank blocks are made by blind merged mining: the 136-byte header has no bits or nonce,
+    // so the node's JSON has no bits/nonce/difficulty, and this old Core base has no nTx.
+    // Fill neutral values (difficulty 1) instead of letting parseInt() write NaN into the DB.
     return {
       id: block.hash,
       height: block.height,
       version: block.version,
       timestamp: block.time,
-      bits: parseInt(block.bits, 16),
-      nonce: block.nonce,
-      difficulty: block.difficulty,
+      bits: block.bits !== undefined ? parseInt(block.bits, 16) : 0x1d00ffff,
+      nonce: block.nonce ?? 0,
+      difficulty: block.difficulty ?? 1,
       merkle_root: block.merkleroot,
-      tx_count: block.nTx,
+      tx_count: block.nTx ?? block.tx?.length,
       size: block.size,
       weight: block.weight,
       previousblockhash: block.previousblockhash,

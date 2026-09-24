@@ -1,19 +1,19 @@
 #!/bin/sh
+# FreeBank: the defaults below never point the site at mempool.space, liquid.network or
+# mempool's services (/api/v1/services is a local 404 in nginx-mempool.conf, so there is no
+# PROXIED_SERVICES any more). Note ${VAR:=default} treats an empty value as unset.
+# FRONTEND_HTTP_HOST: nginx listen address, default 127.0.0.1 (right with --network host);
+# with bridge networking and published ports set it to 0.0.0.0 (docker-compose.yml does).
 __MEMPOOL_BACKEND_MAINNET_HTTP_HOST__=${BACKEND_MAINNET_HTTP_HOST:=127.0.0.1}
 __MEMPOOL_BACKEND_MAINNET_HTTP_PORT__=${BACKEND_MAINNET_HTTP_PORT:=8999}
+__MEMPOOL_FRONTEND_HTTP_HOST__=${FRONTEND_HTTP_HOST:=127.0.0.1}
 __MEMPOOL_FRONTEND_HTTP_PORT__=${FRONTEND_HTTP_PORT:=8080}
-
-__PROXIED_SERVICES__=${PROXIED_SERVICES:=false}
-__PROXIED_SERVICES_HOST__=${PROXIED_SERVICES_HOST:=https://mempool.space}
-
-if [ "${__PROXIED_SERVICES__}" = "true" ]; then
-  sed -i "s|proxy_pass https://mempool.space;|proxy_pass ${__PROXIED_SERVICES_HOST__};|g" /etc/nginx/conf.d/nginx-mempool.conf
-fi
 
 sed -i "s/__MEMPOOL_BACKEND_MAINNET_HTTP_HOST__/${__MEMPOOL_BACKEND_MAINNET_HTTP_HOST__}/g" /etc/nginx/conf.d/nginx-mempool.conf
 sed -i "s/__MEMPOOL_BACKEND_MAINNET_HTTP_PORT__/${__MEMPOOL_BACKEND_MAINNET_HTTP_PORT__}/g" /etc/nginx/conf.d/nginx-mempool.conf
 
 cp /etc/nginx/nginx.conf /patch/nginx.conf
+sed -i "s/__MEMPOOL_FRONTEND_HTTP_HOST__/${__MEMPOOL_FRONTEND_HTTP_HOST__}/g" /patch/nginx.conf
 sed -i "s/__MEMPOOL_FRONTEND_HTTP_PORT__/${__MEMPOOL_FRONTEND_HTTP_PORT__}/g" /patch/nginx.conf
 cat /patch/nginx.conf > /etc/nginx/nginx.conf
 
@@ -39,9 +39,9 @@ __BLOCK_WEIGHT_UNITS__=${BLOCK_WEIGHT_UNITS:=4000000}
 __MEMPOOL_BLOCKS_AMOUNT__=${MEMPOOL_BLOCKS_AMOUNT:=8}
 __BASE_MODULE__=${BASE_MODULE:=mempool}
 __ROOT_NETWORK__=${ROOT_NETWORK:=}
-__MEMPOOL_WEBSITE_URL__=${MEMPOOL_WEBSITE_URL:=https://mempool.space}
-__LIQUID_WEBSITE_URL__=${LIQUID_WEBSITE_URL:=https://liquid.network}
-__MINING_DASHBOARD__=${MINING_DASHBOARD:=true}
+__MEMPOOL_WEBSITE_URL__=${MEMPOOL_WEBSITE_URL:=}
+__LIQUID_WEBSITE_URL__=${LIQUID_WEBSITE_URL:=}
+__MINING_DASHBOARD__=${MINING_DASHBOARD:=false}
 __LIGHTNING__=${LIGHTNING:=false}
 __AUDIT__=${AUDIT:=false}
 __MAINNET_BLOCK_AUDIT_START_HEIGHT__=${MAINNET_BLOCK_AUDIT_START_HEIGHT:=0}
@@ -55,10 +55,10 @@ __TESTNET4_TX_FIRST_SEEN_START_HEIGHT__=${TESTNET4_TX_FIRST_SEEN_START_HEIGHT:=0
 __SIGNET_TX_FIRST_SEEN_START_HEIGHT__=${SIGNET_TX_FIRST_SEEN_START_HEIGHT:=0}
 __REGTEST_TX_FIRST_SEEN_START_HEIGHT__=${REGTEST_TX_FIRST_SEEN_START_HEIGHT:=0}
 __ACCELERATOR__=${ACCELERATOR:=false}
-__ACCELERATOR_BUTTON__=${ACCELERATOR_BUTTON:=true}
-__SERVICES_API__=${SERVICES_API:=https://mempool.space/api/v1/services}
+__ACCELERATOR_BUTTON__=${ACCELERATOR_BUTTON:=false}
+__SERVICES_API__=${SERVICES_API:=}
 __PUBLIC_ACCELERATIONS__=${PUBLIC_ACCELERATIONS:=false}
-__HISTORICAL_PRICE__=${HISTORICAL_PRICE:=true}
+__HISTORICAL_PRICE__=${HISTORICAL_PRICE:=false}
 __ADDITIONAL_CURRENCIES__=${ADDITIONAL_CURRENCIES:=false}
 __STRATUM_ENABLED__=${STRATUM_ENABLED:=false}
 

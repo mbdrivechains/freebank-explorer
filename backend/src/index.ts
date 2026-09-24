@@ -45,7 +45,6 @@ import accelerationApi from './api/services/acceleration';
 import bitcoinCoreRoutes from './api/bitcoin/bitcoin-core.routes';
 import bitcoinSecondClient from './api/bitcoin/bitcoin-second-client';
 import accelerationRoutes from './api/acceleration/acceleration.routes';
-import aboutRoutes from './api/about.routes';
 import mempoolBlocks from './api/mempool-blocks';
 import walletApi from './api/services/wallets';
 import stratumApi from './api/services/stratum';
@@ -66,6 +65,7 @@ class Server {
 
   constructor() {
     this.app = express();
+    this.app.disable('x-powered-by');
 
     if (!config.MEMPOOL.SPAWN_CLUSTER_PROCS) {
       void this.startServer();
@@ -140,7 +140,7 @@ class Server {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With');
-        res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count,X-Mempool-Auth');
+        res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
         next();
       })
       .use(express.urlencoded({ extended: true, limit: '10mb' }))
@@ -164,8 +164,8 @@ class Server {
 
     await poolsUpdater.updatePoolsJson(); // Needs to be done before loading the disk cache because we sometimes wipe it
     if (config.DATABASE.ENABLED === true && config.MEMPOOL.ENABLED && ['mainnet', 'testnet', 'signet', 'testnet4', 'regtest'].includes(config.MEMPOOL.NETWORK) && !poolsUpdater.currentSha) {
-      logger.err(`Failed to retreive pools-v2.json sha, cannot run block indexing. Please make sure you've set valid urls in your mempool-config.json::MEMPOOL::POOLS_JSON_URL and mempool-config.json::MEMPOOL::POOLS_JSON_TREE_UR, aborting now`);
-      return process.exit(1);
+      // FreeBank: keep running instead of exiting (blocks get pool 'Unknown'); the pools updater tries again in 10 minutes
+      logger.warn(`Failed to retrieve the mining pools list sha. Check mempool-config.json::MEMPOOL::POOLS_JSON_URL (empty = the bundled list) and POOLS_JSON_TREE_URL. Continuing without it.`);
     }
 
     await syncAssets.syncAssets$();
@@ -217,11 +217,12 @@ class Server {
       void this.$runLightningBackend();
     }
 
-    this.server.listen(config.MEMPOOL.HTTP_PORT, () => {
+    // FreeBank: listen on MEMPOOL.HTTP_HOST (default 127.0.0.1) instead of every interface; empty = all
+    this.server.listen(config.MEMPOOL.HTTP_PORT, config.MEMPOOL.HTTP_HOST || undefined, () => {
       if (worker) {
         logger.info(`Mempool Server worker #${process.pid} started`);
       } else {
-        logger.notice(`Mempool Server is running on port ${config.MEMPOOL.HTTP_PORT}`);
+        logger.notice(`Mempool Server is running on ${config.MEMPOOL.HTTP_HOST || '*'}:${config.MEMPOOL.HTTP_PORT}`);
       }
     });
 
@@ -374,9 +375,7 @@ class Server {
     if (config.WALLETS.ENABLED) {
       servicesRoutes.initRoutes(this.app);
     }
-    if (!config.MEMPOOL.OFFICIAL) {
-      aboutRoutes.initRoutes(this.app);
-    }
+    // FreeBank: no aboutRoutes - they proxy donations/contributors/translators/sponsors from mempool.space
   }
 
   healthCheck(): void {

@@ -1166,20 +1166,25 @@ export class Common {
     // We assume txhex to be valid hex (output of getTransactionFromRequest above)
 
     // Check 1: Valid transaction parse
-    let tx: bitcoinjs.Transaction;
+    // FreeBank: bitcoinjs cannot parse FreeBank's v3 txs (extra byte after the version) or its
+    // credit txs (v11-v17 payloads), so a parse failure is not an error here: those txs go on to
+    // the node's sendrawtransaction, which does the real validation.
+    let tx: bitcoinjs.Transaction | null = null;
     try {
       tx = bitcoinjs.Transaction.fromHex(txhex);
     } catch(e) {
-      throw Object.assign(new Error('Invalid transaction (could not parse)'), { code: -4 });
+      tx = null;
     }
 
     // Check 2: Simple size check
-    if (tx.weight() > config.MEMPOOL.MAX_PUSH_TX_SIZE_WEIGHT) {
+    // (unparsed: weight is at most 4 x the serialized size, so use that bound)
+    const weight = tx ? tx.weight() : txhex.length / 2 * 4;
+    if (weight > config.MEMPOOL.MAX_PUSH_TX_SIZE_WEIGHT) {
       throw Object.assign(new Error(`Transaction too large (max ${config.MEMPOOL.MAX_PUSH_TX_SIZE_WEIGHT} weight units)`), { code: -3 });
     }
 
     // Check 3: Check unreachable script in taproot (if not allowed)
-    if (!config.MEMPOOL.ALLOW_UNREACHABLE) {
+    if (tx && !config.MEMPOOL.ALLOW_UNREACHABLE) {
       tx.ins.forEach(input => {
         const witness = input.witness;
         // See BIP 341: Script validation rules
