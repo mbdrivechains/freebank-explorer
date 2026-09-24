@@ -87,7 +87,7 @@
                 }
                 <td class="address-cell">
                   <div [ngSwitch]="true">
-                    <ng-container *ngSwitchCase="vin.is_coinbase"><span i18n="transactions-list.coinbase">Coinbase</span><br /><a placement="bottom" [ngbTooltip]="vin.scriptsig | hex2ascii"><span class="badge badge-secondary scriptmessage longer">{{ vin.scriptsig | hex2ascii }}</span></a></ng-container>
+                    <ng-container *ngSwitchCase="vin.is_coinbase"><span i18n="transactions-list.coinbase">Coinbase</span>@if (vin['_showAscii']) {<br /><a placement="bottom" [ngbTooltip]="vin.scriptsig | hex2ascii"><span class="badge badge-secondary scriptmessage longer">{{ vin.scriptsig | hex2ascii }}</span></a>}</ng-container>
                     <ng-container *ngSwitchCase="vin.is_pegin">
                       <span i18n="transactions-list.peg-in">Peg-in</span>
                     </ng-container>
@@ -362,7 +362,7 @@
                         OP_RETURN&nbsp;
                         @if (vout.isRunestone) {
                           <button (click)="toggleOrdData(tx.txid, 'vout', vindex)" type="button" class="btn btn-sm badge badge-ord">Runestone</button>
-                        } @else {
+                        } @else if (vout['_showAscii']) {
                           <a placement="bottom" style="cursor: pointer;">
                             @if ((vout.scriptpubkey_asm | hex2ascii).length > 200) {
                               <span *ngIf="vout.scriptpubkey_asm !== 'OP_RETURN'" class="badge badge-secondary scriptmessage opreturn-msg" (click)="toggleShowFullOpReturnPreview(vindex)">{{ vout.scriptpubkey_asm | hex2ascii | slice:0:200 }}</span>

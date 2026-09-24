@@ -18,6 +18,7 @@ import { SeoService } from '@app/services/seo.service';
 import { seoDescriptionNetwork } from '@app/shared/common.utils';
 import { CpfpInfo } from '@interfaces/node-api.interface';
 import { LiquidUnblinding } from '@components/transaction/liquid-ublinding';
+import { isMostlyText } from '@app/shared/transaction.utils';
 
 @Component({
   selector: 'app-transaction-preview',
@@ -233,13 +234,15 @@ export class TransactionPreviewComponent implements OnInit, OnDestroy {
     return tx.vout.map((v: Vout) => v.value || 0).reduce((a: number, b: number) => a + b);
   }
 
+  // FreeBank: only OP_RETURN data and coinbase scriptsigs that read as text; binary data
+  // (hashes, the coinbase height push) renders as tofu
   getOpReturns(tx: Transaction): Vout[] {
-    return tx.vout.filter((v) => v.scriptpubkey_type === 'op_return' && v.scriptpubkey_asm !== 'OP_RETURN');
+    return tx.vout.filter((v) => v.scriptpubkey_type === 'op_return' && v.scriptpubkey_asm !== 'OP_RETURN' && isMostlyText(v.scriptpubkey_asm));
   }
 
   chooseExtraData(): 'none' | 'opreturn' | 'coinbase' {
     if (this.isCoinbase(this.tx)) {
-      return 'coinbase';
+      return isMostlyText(this.tx.vin[0]?.scriptsig) ? 'coinbase' : 'none';
     } else if (this.opReturns?.length) {
       return 'opreturn';
     } else {

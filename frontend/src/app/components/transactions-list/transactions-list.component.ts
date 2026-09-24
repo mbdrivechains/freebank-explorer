@@ -15,7 +15,7 @@ import { OrdApiService } from '@app/services/ord-api.service';
 import { Inscription } from '@app/shared/ord/inscription.utils';
 import { Etching, Runestone } from '@app/shared/ord/rune.utils';
 import { ADDRESS_SIMILARITY_THRESHOLD, AddressMatch, AddressSimilarity, AddressType, AddressTypeInfo, checkedCompareAddressStrings, detectAddressType } from '@app/shared/address-utils';
-import { processInputSignatures, Sighash, SigInfo, SighashLabels, parseTaproot, getFreebankOutputLabels } from '@app/shared/transaction.utils';
+import { processInputSignatures, Sighash, SigInfo, SighashLabels, parseTaproot, getFreebankOutputLabels, isMostlyText } from '@app/shared/transaction.utils';
 import { ActivatedRoute } from '@angular/router';
 import { SighashFlag } from '@app/shared/transaction.utils';
 
@@ -357,7 +357,12 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
         tx.vout.forEach((vout, index) => {
           vout.freebankLabel = freebankLabels[index]?.label;
           vout['_freebankTooltip'] = freebankLabels[index]?.tooltip;
+          // no ASCII badge for binary data (hashes), which renders as tofu
+          vout['_showAscii'] = vout.scriptpubkey_type === 'op_return' && isMostlyText(vout.scriptpubkey_asm);
         });
+        if (tx.vin[0]?.is_coinbase) {
+          tx.vin[0]['_showAscii'] = isMostlyText(tx.vin[0].scriptsig);
+        }
       });
 
       if (this.blockTime && this.transactions?.length && this.currency) {

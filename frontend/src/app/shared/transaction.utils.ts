@@ -742,6 +742,24 @@ export function getFreebankOutputLabels(tx: Transaction): (FreebankOutputLabel |
   return labels;
 }
 
+// FreeBank: an ASCII preview (coinbase scriptsig, OP_RETURN data) only helps when the bytes are
+// text. Binary data such as the coinbase height push or a hash renders as tofu. Takes what the
+// hex2ascii pipe takes (raw hex, or asm whose first push is the data); true when at least two
+// thirds of the bytes decode to printable text.
+export function isMostlyText(hexOrAsm: string): boolean {
+  const push = hexOrAsm?.split(' ').find((_, i, a) => i > 0 && /^OP_PUSH/.test(a[i - 1]));
+  const hex = push || hexOrAsm;
+  if (!hex || hex.length % 2 || !/^[0-9a-fA-F]+$/.test(hex)) {
+    return false;
+  }
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  const printable = new TextDecoder('utf-8').decode(bytes).replace(/[^\t\n\r\x20-\x7e\u00a0-\ufffc]/g, '');
+  return new TextEncoder().encode(printable).length * 3 >= bytes.length * 2;
+}
+
 const ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {
   'testnet4': 42_000,
   'testnet': 2_900_000,
