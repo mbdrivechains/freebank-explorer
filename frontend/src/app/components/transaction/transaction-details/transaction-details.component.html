@@ -101,7 +101,7 @@
 <ng-template #featuresRow>
   @if (network !== 'liquid' && network !== 'liquidtestnet') {
     @if (!isLoadingTx) {
-      @if (featuresEnabled) {
+      @if (featuresEnabled && usesFeatures) {
         <tr>
           <td class="td-width" i18n="transaction.features|Transaction features" id="acceleratePreviewAnchor">Features</td>
           <td>

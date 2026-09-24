@@ -640,6 +640,16 @@ export function getCreditTxLabel(tx: { version: number }): string | undefined {
   return CREDIT_TX_LABELS[tx?.version];
 }
 
+// FreeBank: the Features row names only features a tx uses. Fees are flat, so mempool's
+// "not used / could save fees" hints do not apply; there is no Taproot.
+export function txUsesSegwit(tx: Transaction): boolean {
+  return !!tx?.vin?.some((v) => !v.is_coinbase && !!v.witness?.length);
+}
+
+export function txSignalsRbf(tx: Transaction): boolean {
+  return !!tx?.vin?.some((v) => v.sequence < 0xfffffffe);
+}
+
 // FreeBank protocol outputs: OP_RETURN followed by a raw 4-byte tag (not a push, so the node
 // reports the type as 'nonstandard'). See freebank validation.cpp Generate*Commit and
 // GenerateWithdrawalRefundRequest, miner.cpp, and sidechain.cpp SidechainObj::GetScript.

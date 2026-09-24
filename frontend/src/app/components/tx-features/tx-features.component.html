@@ -1,11 +1,6 @@
+<!-- FreeBank: fees are flat, so only a badge when the feature is used - no fee-saving hints, no struck-through badges -->
 <ng-template [ngIf]="segwitEnabled">
-<span *ngIf="segwitGains.realizedSegwitGains && !segwitGains.potentialSegwitGains; else segwitTwo" class="badge badge-success mr-1" i18n-ngbTooltip="ngbTooltip about segwit gains" ngbTooltip="This transaction saved {{ segwitGains.realizedSegwitGains * 100 | number:  '1.0-0' }}% on fees by using native SegWit" placement="bottom" i18n="tx-features.tag.segwit|SegWit">SegWit</span>
-<ng-template #segwitTwo>
-  <span *ngIf="segwitGains.realizedSegwitGains && segwitGains.potentialSegwitGains; else potentialP2shSegwitGains" class="badge badge-warning mr-1" i18n-ngbTooltip="ngbTooltip about double segwit gains" ngbTooltip="This transaction saved {{ segwitGains.realizedSegwitGains * 100 | number:  '1.0-0' }}% on fees by using SegWit and could save {{ segwitGains.potentialSegwitGains * 100 | number : '1.0-0' }}% more by fully upgrading to native SegWit" placement="bottom" i18n="tx-features.tag.segwit|SegWit">SegWit</span>
-  <ng-template #potentialP2shSegwitGains>
-    <span *ngIf="segwitGains.potentialP2shSegwitGains" class="badge badge-danger mr-1" i18n-ngbTooltip="ngbTooltip about missed out gains" ngbTooltip="This transaction could save {{ segwitGains.potentialSegwitGains * 100 | number : '1.0-0' }}% on fees by upgrading to native SegWit or {{ segwitGains.potentialP2shSegwitGains * 100 | number:  '1.0-0' }}% by upgrading to SegWit-P2SH" placement="bottom"><del i18n="tx-features.tag.segwit|SegWit">SegWit</del></span>
-  </ng-template>
-</ng-template>
+<span *ngIf="isSegwit" class="badge badge-success mr-1" i18n-ngbTooltip="ngbTooltip about segwit" ngbTooltip="This transaction spends SegWit inputs" placement="bottom" i18n="tx-features.tag.segwit|SegWit">SegWit</span>
 </ng-template>
 
 <ng-template [ngIf]="taprootEnabled">
@@ -25,6 +20,5 @@
 </ng-template>
 
 <ng-template [ngIf]="rbfEnabled">
-<span *ngIf="isRbfTransaction; else rbfDisabled" class="badge badge-success" i18n-ngbTooltip="RBF tooltip" ngbTooltip="This transaction supports Replace-By-Fee (RBF) allowing fee bumping" placement="bottom" i18n="tx-features.tag.rbf|RBF">RBF</span>
-<ng-template #rbfDisabled><span class="badge badge-danger mr-1" i18n-ngbTooltip="RBF disabled tooltip" ngbTooltip="This transaction does NOT support Replace-By-Fee (RBF) and cannot be fee bumped using this method" placement="bottom"><del i18n="tx-features.tag.rbf|RBF">RBF</del></span></ng-template>
+<span *ngIf="isRbfTransaction" class="badge badge-success" i18n-ngbTooltip="RBF tooltip" ngbTooltip="This transaction supports Replace-By-Fee (RBF) allowing fee bumping" placement="bottom" i18n="tx-features.tag.rbf|RBF">RBF</span>
 </ng-template>
