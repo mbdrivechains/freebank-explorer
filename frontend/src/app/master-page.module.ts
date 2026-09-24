@@ -47,7 +47,8 @@ const routes: Routes = [
         path: 'about',
         loadChildren: () => import('@components/about/about.module').then(m => m.AboutModule),
       },
-      // FreeBank Explorer: no stale-tips page; /api/v1/stale-tips answers 503 when there are none, so it only spun
+      // FreeBank Explorer: no stale-tips page; /api/v1/stale-tips answers 503 when there are none,
+      // so the page only showed a spinner that never stopped
       {
         path: 'blocks/stale',
         redirectTo: '/',
