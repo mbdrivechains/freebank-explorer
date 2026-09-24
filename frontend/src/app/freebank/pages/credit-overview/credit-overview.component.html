@@ -7,7 +7,7 @@
   <p class="credit-intro">
     FreeBank's credit layer: houses issue notes against reserves they attest on chain, discount bills of exchange
     onto their loan books, and settle each other's notes at par.
-    <ng-container *ngIf="(summary$ | async)?.load?.data as summary">
+    <ng-container *ngIf="(summary$ | async)?.load.data as summary">
       Figures at block <a [routerLink]="['/block/' | relativeUrl, summary.tip_height]">{{ summary.tip_height }}</a>.
     </ng-container>
   </p>
