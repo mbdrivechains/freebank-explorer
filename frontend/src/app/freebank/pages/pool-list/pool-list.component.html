@@ -21,7 +21,7 @@
               <th><span class="help" ngbTooltip="The house whose notes the pool trades, with its health badge. Each house can have one pool." placement="bottom" container="body">House</span></th>
               <th class="d-none d-sm-table-cell"><span class="help" ngbTooltip="The house's notes held by the pool, in note units. One unit redeems for 1 sat at the house." placement="bottom" container="body">Notes in pool</span></th>
               <th class="d-none d-md-table-cell"><span class="help" ngbTooltip="The ECX held by the pool against the notes." placement="bottom" container="body">ECX in pool</span></th>
-              <th><span class="help" ngbTooltip="The ECX side divided by the note side: what one note unit is worth in the pool, in sats, before the fee and before a trade moves the price. Par is 1 sat." placement="bottom" container="body">Note price</span></th>
+              <th><span class="help" ngbTooltip="The ECX side divided by the note side: what one note unit is worth in the pool, in sats, before the fee and before a trade moves the price. Par is 1 sat per unit, what the house redeems a unit for." placement="bottom" container="body">Note price</span></th>
               <th class="d-none d-sm-table-cell text-right"><span class="help" ngbTooltip="Taken from every trade and left in the pool, so it accrues to the liquidity providers." placement="bottom" container="body">Fee</span></th>
               <th class="d-none d-lg-table-cell text-right"><span class="help" ngbTooltip="Shares in the pool's two reserves. A provider who burns shares takes that fraction of both sides." placement="bottom" container="body">Liquidity shares</span></th>
               <th class="d-none d-md-table-cell text-right">Opened</th>
@@ -47,7 +47,7 @@
               </td>
               <td>
                 <ng-container *ngIf="row.price.spot !== null; else noPrice">
-                  <span class="nowrap">{{ row.price.spot | number: '1.4-4' }} <span class="symbol">sats</span></span>
+                  <span class="nowrap">{{ row.price.spot | number: '1.4-4' }} <span class="symbol">sats</span></span> <span class="symbol">per unit</span>
                   <span class="sub" [class.below-par]="row.price.belowPar">{{ row.price.vsParText }}</span>
                   <span class="sub" *ngIf="row.parCaveat">{{ row.parCaveat }}</span>
                 </ng-container>

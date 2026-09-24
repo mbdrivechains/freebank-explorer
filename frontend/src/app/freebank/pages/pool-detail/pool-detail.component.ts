@@ -57,6 +57,7 @@ interface PoolDetailView {
 })
 export class PoolDetailComponent implements OnInit {
   poolId: number;
+  idText = '';                        // the id as typed in the URL, for the title and the not-found line
   view$: Observable<PoolDetailView>;
   skeletonRows = [1, 2, 3, 4, 5];
 
@@ -70,12 +71,14 @@ export class PoolDetailComponent implements OnInit {
 
   ngOnInit(): void {
     // set before the first render: the tap below runs inside the first change detection pass
-    this.poolId = parseInt(this.route.snapshot.paramMap.get('id'), 10);
+    this.idText = this.route.snapshot.paramMap.get('id') || '';
+    this.poolId = parseInt(this.idText, 10);
     this.websocketService.want(['blocks']);
 
     const pool$ = this.route.paramMap.pipe(
       tap((params) => {
-        this.poolId = parseInt(params.get('id'), 10);
+        this.idText = params.get('id') || '';
+        this.poolId = parseInt(this.idText, 10);
         this.seoService.setTitle(`Pool ${params.get('id')}`);
         this.seoService.setDescription(`FreeBank pool ${params.get('id')}: a house's notes against ECX, with reserves, fee and price.`);
       }),

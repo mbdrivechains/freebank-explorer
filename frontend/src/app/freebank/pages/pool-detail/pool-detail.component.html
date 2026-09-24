@@ -1,6 +1,6 @@
 <div class="container-xl credit-page" *ngIf="view$ | async as view">
   <div class="title-block">
-    <h1>Pool {{ poolId }}</h1>
+    <h1>Pool {{ idText }}</h1>
     <div class="title-badges" *ngIf="view.pool">
       <span class="title-note">notes of</span>
       <a [routerLink]="['/house/' | relativeUrl, view.pool.house_id]">House {{ view.pool.house_id }}</a>
@@ -9,8 +9,8 @@
   </div>
 
   <app-http-error *ngIf="view.error" [error]="view.error">
-    <ng-container *ngIf="view.error.status === 404; else loadFailed">There is no pool {{ poolId }} on this chain.</ng-container>
-    <ng-template #loadFailed>Could not load pool {{ poolId }}.</ng-template>
+    <ng-container *ngIf="view.error.status === 404 || view.error.status === 400; else loadFailed">There is no pool {{ idText }} on this chain.</ng-container>
+    <ng-template #loadFailed>Could not load pool {{ idText }}.</ng-template>
   </app-http-error>
 
   <!-- loading: the panels as skeletons -->
@@ -34,7 +34,9 @@
     <p class="credit-intro">
       A market in house {{ pool.house_id }}'s {{ view.noteLabel }} against ECX, opened at block {{ pool.createheight }}.
       <ng-container *ngIf="view.price.spot !== null; else emptyPool">
-        One note unit trades at {{ view.price.spot | number: '1.4-4' }} sats here, {{ view.price.vsParText }}.
+        One note unit trades at {{ view.price.spot | number: '1.4-4' }} sats here<ng-container *ngIf="view.notesImpaired; else introVsPar">;
+        the house is insolvent, so its notes are claims on its pot, not par money.</ng-container>
+        <ng-template #introVsPar>, {{ view.price.vsParText }}.</ng-template>
       </ng-container>
       <ng-template #emptyPool>It holds no notes, so it has no price.</ng-template>
     </p>
@@ -57,7 +59,7 @@
                 <td><span class="help" ngbTooltip="The ECX the pool holds against the notes." placement="bottom" container="body">ECX</span></td>
                 <td><app-credit-amount [sats]="pool.btx_reserve" [grams]="pool.btx_reserve_grams"></app-credit-amount></td>
               </tr>
-              <tr *ngIf="view.totalAtParSats !== null">
+              <tr *ngIf="view.totalAtParSats !== null && !view.notesImpaired">
                 <td><span class="help" ngbTooltip="Both sides added up, counting each note unit at par (1 sat), the sum the house redeems it for." placement="bottom" container="body">Both sides at par</span></td>
                 <td>
                   <app-credit-amount [sats]="view.totalAtParSats" [grams]="view.totalGrams"></app-credit-amount>
@@ -89,8 +91,8 @@
                 </td>
               </tr>
               <tr *ngIf="view.price.unitsPerSat !== null">
-                <td><span class="help" ngbTooltip="At the note price, before the fee and before the trade moves the price." placement="bottom" container="body">One ECX buys about</span></td>
-                <td>{{ view.price.unitsPerSat * 100000000 | number: '1.0-0' }} <span class="symbol">{{ view.noteLabel }}</span></td>
+                <td><span class="help" ngbTooltip="The note price turned around: how many note units match one ECX at the pool's current ratio. It is a rate, not a trade the pool could fill: a real trade pays the fee, moves the price, and cannot take out more notes than the pool holds." placement="bottom" container="body">One ECX is worth</span></td>
+                <td>{{ view.price.unitsPerSat * 100000000 | number: '1.0-0' }} <span class="symbol">{{ view.noteLabel }} at this price</span></td>
               </tr>
             </tbody>
           </table>
@@ -116,7 +118,7 @@
                 <td>{{ view.providerLp | noteUnits }}</td>
               </tr>
               <tr>
-                <td><span class="help" ngbTooltip="Locked when the pool opened and never redeemable, so the pool can never be emptied." placement="bottom" container="body">Locked forever</span></td>
+                <td><span class="help" ngbTooltip="Locked when the pool opened and never redeemable, so withdrawals can never drain the pool to zero." placement="bottom" container="body">Locked forever</span></td>
                 <td>
                   {{ pool.locked_lp | noteUnits }}
                   <span class="sub" *ngIf="view.lockedPercent !== null">{{ view.lockedPercent | number: '1.0-3' }}% of the shares</span>
