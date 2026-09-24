@@ -32,18 +32,16 @@ const ADDRESS_CHARS: {
     bech32: string;
   };
 } = {
-  mainnet: {
-    base58: `[13]` // Starts with a single 1 or 3
+  mainnet: { // FreeBank mainnet
+    base58: `[Xs]` // X is P2PKH (version 75), s is P2SH (version 125)
       + BASE58_CHARS
-      + `{26,33}`, // Repeat the previous char 26-33 times.
-      // Version byte 0x00 (P2PKH) can be as short as 27 characters, up to 34 length
-      // P2SH must be 34 length
+      + `{33}`, // Both versions always encode to exactly 34 characters
     bech32: `(?:`
-        + `bc1` // Starts with bc1
+        + `fbk1` // Starts with fbk1
         + BECH32_CHARS_LW
         + `{6,100}` // As per bech32, 6 char checksum is minimum
       + `|`
-        + `BC1` // All upper case version
+        + `FBK1` // All upper case version
         + BECH32_CHARS_UP
         + `{6,100}`
       + `)`,
@@ -90,16 +88,16 @@ const ADDRESS_CHARS: {
         + `{6,100}`
       + `)`,
   },
-  regtest: {
-    base58: `[mn2]` // Same as testnet
+  regtest: { // FreeBank regtest
+    base58: `[Xs]` // Same as FreeBank mainnet
       + BASE58_CHARS
-      + `{33,34}`,
+      + `{33}`,
     bech32: `(?:`
-        + `bcrt1` // Starts with bcrt1
+        + `fbkrt1` // Starts with fbkrt1
         + BECH32_CHARS_LW
         + `{6,100}`
       + `|`
-        + `BCRT1` // All upper case version
+        + `FBKRT1` // All upper case version
         + BECH32_CHARS_UP
         + `{6,100}`
       + `)`,
@@ -162,9 +160,16 @@ export type Network = typeof NETWORKS[number]; // Turn const array into union ty
 export const ADDRESS_REGEXES: [RegExp, Network][] = NETWORKS
   .map(network => [getRegex('address', network), network]);
 
+// FreeBank runs only mainnet and regtest; the other entries above are Bitcoin and Liquid formats.
+const FREEBANK_NETWORKS: Network[] = [`mainnet`, `regtest`];
+
 export function findOtherNetworks(address: string, skipNetwork: Network, env: Env): { network: Network, address: string, isNetworkAvailable: boolean }[] {
+  // FreeBank mainnet and regtest share the X / s prefixes, so an address that is valid here is never "other network"
+  if (getRegex('address', skipNetwork).test(address)) {
+    return [];
+  }
   return ADDRESS_REGEXES
-    .filter(([regex, network]) => network !== skipNetwork && regex.test(address))
+    .filter(([regex, network]) => network !== skipNetwork && FREEBANK_NETWORKS.includes(network) && regex.test(address))
     .map(([, network]) => ({ network, address, isNetworkAvailable: isNetworkAvailable(network, env) }));
 }
 
