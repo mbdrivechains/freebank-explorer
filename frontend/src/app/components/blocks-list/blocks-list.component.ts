@@ -73,7 +73,8 @@ export class BlocksList implements OnInit {
       if( this.stateService.network==='liquid'||this.stateService.network==='liquidtestnet' ) {
         this.seoService.setDescription($localize`:@@meta.description.liquid.blocks:See the most recent Liquid${seoDescriptionNetwork(this.stateService.network)} blocks along with basic stats such as block height, block size, and more.`);
       } else {
-        this.seoService.setDescription($localize`:@@meta.description.bitcoin.blocks:See the most recent Bitcoin${seoDescriptionNetwork(this.stateService.network)} blocks along with basic stats such as block height, block reward, block size, and more.`);
+        // FreeBank: no Reward column (no subsidy), so the description names what the list shows
+        this.seoService.setDescription($localize`:@@meta.description.bitcoin.blocks:See the most recent FreeBank${seoDescriptionNetwork(this.stateService.network)} blocks along with basic stats such as block height, timestamp, fees, transaction count and block size.`);
       }
 
       this.blocksCountInitializedSubscription = combineLatest([this.blocksCountInitialized$, this.route.params]).pipe(
