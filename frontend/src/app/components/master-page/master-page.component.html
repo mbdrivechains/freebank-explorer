@@ -90,6 +90,13 @@
           <div class="svg-wrapper"><app-svg-images name="nav-cubes" width="21.59" height="100%"></app-svg-images></div>
         </a>
       </li>
+      <!-- FreeBank: the credit layer (houses, notes, bills, pools, gold fix). routerLinkActive only marks /credit
+           itself: the other credit pages have their own first segment. -->
+      <li class="nav-item" routerLinkActive="active" id="btn-credit">
+        <a class="nav-link" [routerLink]="['/credit' | relativeUrl]" (click)="collapse()" title="Credit" aria-label="Credit">
+          <div class="svg-wrapper"><app-svg-images name="nav-building-columns" width="21.59" height="100%"></app-svg-images></div>
+        </a>
+      </li>
       <li class="nav-item" routerLinkActive="active" id="btn-graphs">
         <a class="nav-link" [routerLink]="['/graphs' | relativeUrl]" (click)="collapse()">
           <div class="svg-wrapper"><app-svg-images name="nav-chart-area" width="21.59" height="100%"></app-svg-images></div>
