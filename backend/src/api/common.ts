@@ -1041,15 +1041,17 @@ export class Common {
     const sortedTxs = nonCoinbaseTransactions.map(tx => { return { txid: tx.txid, weight: tx.weight, rate: tx.effectiveFeePerVsize || ((tx.fee || 0) / (tx.weight / 4)) }; }).sort((a, b) => a.rate - b.rate);
     const totalWeight = nonCoinbaseTransactions.reduce((acc, tx) => acc + tx.weight, 0);
 
-    // include any unused space
-    let weightCount = config.MEMPOOL.BLOCK_WEIGHT_UNITS - totalWeight;
+    // FreeBank: measure the median over the block's actual transactions (weight-weighted, like
+    // getblockstats' feerate_percentiles), not over a notional full block with the unused space
+    // counted as zero fee, which read ~0 sat/vB on nearly empty BMM blocks
+    let weightCount = 0;
     let medianFee = 0;
     let medianWeight = 0;
 
-    // calculate the "medianFee" as the average fee rate of the middle 0.25% weight units of the conceptual block
-    const halfWidth = config.MEMPOOL.BLOCK_WEIGHT_UNITS / 800;
-    const leftBound = Math.floor((config.MEMPOOL.BLOCK_WEIGHT_UNITS / 2) - halfWidth);
-    const rightBound = Math.ceil((config.MEMPOOL.BLOCK_WEIGHT_UNITS / 2) + halfWidth);
+    // calculate the "medianFee" as the average fee rate of the middle 0.25% weight units of the block's transactions
+    const halfWidth = totalWeight / 800;
+    const leftBound = Math.floor((totalWeight / 2) - halfWidth);
+    const rightBound = Math.ceil((totalWeight / 2) + halfWidth);
     for (let i = 0; i < sortedTxs.length && weightCount < rightBound; i++) {
       const left = weightCount;
       const right = weightCount + sortedTxs[i].weight;
