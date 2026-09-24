@@ -8,7 +8,6 @@ import { StartComponent } from '@components/start/start.component';
 import { PushTransactionComponent } from '@components/push-transaction/push-transaction.component';
 import { BlocksList } from '@components/blocks-list/blocks-list.component';
 import { RbfList } from '@components/rbf-list/rbf-list.component';
-import { StaleList } from '@components/stale-list/stale-list.component';
 import { ServerHealthComponent } from '@components/server-health/server-health.component';
 import { ServerStatusComponent } from '@components/server-health/server-status.component';
 import { FaucetComponent } from '@components/faucet/faucet.component';
@@ -48,9 +47,11 @@ const routes: Routes = [
         path: 'about',
         loadChildren: () => import('@components/about/about.module').then(m => m.AboutModule),
       },
+      // FreeBank Explorer: no stale-tips page; /api/v1/stale-tips answers 503 when there are none, so it only spun
       {
         path: 'blocks/stale',
-        component: StaleList,
+        redirectTo: '/',
+        pathMatch: 'full',
       },
       {
         path: 'blocks/:page',
