@@ -60,10 +60,8 @@ export class EnterpriseService {
         this.seoService.setEnterpriseTitle(info.title);
         this.info$.next(this.processEnterpriseInfo(info));
       },
-      (error) => {
-        if (error.status === 404) {
-          window.location.href = 'https://mempool.space' + window.location.pathname;
-        }
+      () => {
+        // FreeBank: an unknown enterprise subdomain stays here (mempool sent it to mempool.space)
       });
     }
   }
@@ -79,66 +77,11 @@ export class EnterpriseService {
     };
   }
 
+  // FreeBank: no analytics. mempool's Matomo (stats.mempool.space, stats.liquid.network) is
+  // never loaded, whatever the hostname or enterprise site_id.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   insertMatomo(siteId?: number): void {
-    let statsUrl = '//stats.mempool.space/';
-
-    if (!siteId) {
-      switch (this.document.location.hostname) {
-        case 'mempool.space':
-          statsUrl = '//stats.mempool.space/';
-          siteId = 5;
-          break;
-        case 'mempool.ninja':
-          statsUrl = '//stats.mempool.space/';
-          siteId = 4;
-          break;
-        case 'liquid.network':
-          siteId = 8;
-          statsUrl = '//stats.liquid.network/';
-          break;
-        case 'liquid.place':
-          siteId = 10;
-          statsUrl = '//stats.liquid.network/';
-          break;
-        default:
-          return;
-      }
-    }
-
-    this.statsUrl = statsUrl;
-    this.siteId = siteId;
-
-    // @ts-ignore
-    if (window._paq && window['Matomo']) {
-      window['Matomo'].addTracker(statsUrl+'m.php', siteId.toString());
-      const matomo = this.getMatomo();
-      matomo.setDocumentTitle(this.seoService.getTitle());
-      matomo.setCustomUrl(this.getCustomUrl());
-      matomo.disableCookies();
-      matomo.trackPageView();
-      matomo.enableLinkTracking();
-    } else {
-      // @ts-ignore
-      const alreadyInitialized = !!window._paq;
-      // @ts-ignore
-      const _paq = window._paq = window._paq || [];
-      _paq.push(['setDocumentTitle', this.seoService.getTitle()]);
-      _paq.push(['setCustomUrl', this.getCustomUrl()]);
-      _paq.push(['disableCookies']);
-      _paq.push(['trackPageView']);
-      _paq.push(['enableLinkTracking']);
-      if (alreadyInitialized) {
-        _paq.push(['addTracker', statsUrl+'m.php', siteId.toString()]);
-      } else {
-        (function() {
-          _paq.push(['setTrackerUrl', statsUrl+'m.php']);
-          _paq.push(['setSiteId', siteId.toString()]);
-          const d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
-          // @ts-ignore
-          g.type='text/javascript'; g.async=true; g.src=statsUrl+'m.js'; s.parentNode.insertBefore(g,s);
-        })();
-      }
-    }
+    return;
   }
 
   private getMatomo() {
