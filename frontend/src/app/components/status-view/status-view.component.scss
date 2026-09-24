@@ -1,0 +1,7 @@
+// The block strip is wider than the viewport (app-start adds 120px for the menu). Pages under the
+// master page are clipped by its wrapper; /status has none, so clip here or the page scrolls sideways.
+:host {
+  display: block;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
