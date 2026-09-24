@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import { IBackendInfo } from '../mempool.interfaces';
 import config from '../config';
 import bitcoinClient from './bitcoin/bitcoin-client';
@@ -24,13 +23,13 @@ class BackendInfo {
       };
     }
     this.backendInfo = {
-      hostname: os.hostname(),
+      hostname: 'freebank-explorer', // FreeBank: do not publish the host's name or kernel
       version: versionInfo.version,
       gitCommit: versionInfo.gitCommit,
       lightning: config.LIGHTNING.ENABLED,
       backend: config.MEMPOOL.BACKEND,
       coreVersion: '?',
-      osVersion: `${os.type()} ${os.release()}`,
+      osVersion: '',
     };
 
     this.timer = setInterval(async () => {
