@@ -48,6 +48,7 @@ import accelerationRoutes from './api/acceleration/acceleration.routes';
 import mempoolBlocks from './api/mempool-blocks';
 import walletApi from './api/services/wallets';
 import stratumApi from './api/services/stratum';
+import { handleError } from './utils/api';
 
 class Server {
   private wss: WebSocket.Server | undefined;
@@ -354,7 +355,15 @@ class Server {
     if (config.MEMPOOL.OFFICIAL) {
       bitcoinCoreRoutes.initRoutes(this.app);
     }
-    pricesRoutes.initRoutes(this.app);
+    if (config.FIAT_PRICE.ENABLED) {
+      pricesRoutes.initRoutes(this.app);
+    } else {
+      // FreeBank: no fiat prices, so no /prices route, and historical-price (registered by
+      // miningRoutes below) answers 404 here first
+      this.app.get(config.MEMPOOL.API_URL_PREFIX + 'historical-price', (req: Request, res: Response) => {
+        handleError(req, res, 404, 'Fiat prices are disabled');
+      });
+    }
     if (config.STATISTICS.ENABLED && config.DATABASE.ENABLED && config.MEMPOOL.ENABLED) {
       statisticsRoutes.initRoutes(this.app);
     }
