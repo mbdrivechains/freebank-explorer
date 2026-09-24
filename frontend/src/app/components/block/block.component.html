@@ -194,8 +194,8 @@
             <a *ngIf="bmmCarried.poolUrl; else bmmPoolName" [href]="bmmCarried.poolUrl" target="_blank" rel="noopener">{{ bmmCarried.item.pool.name }}</a>
             <ng-template #bmmPoolName>{{ bmmCarried.item.pool.name }}</ng-template>
           </span>&ngsp;<span class="bmm-carried-part" *ngIf="bmmCarried.bidText">&middot; bid
-            <a *ngIf="bmmCarried.bidTxUrl; else bmmBid" [href]="bmmCarried.bidTxUrl" target="_blank" rel="noopener">{{ bmmCarried.bidText }} sats</a>
-            <ng-template #bmmBid>{{ bmmCarried.bidText }} sats</ng-template>
+            <a *ngIf="bmmCarried.bidTxUrl; else bmmBid" [href]="bmmCarried.bidTxUrl" target="_blank" rel="noopener">{{ bmmCarried.bidText }} szats</a>
+            <ng-template #bmmBid>{{ bmmCarried.bidText }} szats</ng-template>
           </span>
         </td>
       </tr>

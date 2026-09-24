@@ -25,15 +25,15 @@
 
           <div class="box credit-tile">
             <div class="credit-tile-title">Total bids</div>
-            <div class="credit-tile-value">{{ s.totalBidText || '0' }} <span class="credit-tile-unit">sats</span></div>
+            <div class="credit-tile-value">{{ s.totalBidText || '0' }} <span class="credit-tile-unit">szats</span></div>
             <div class="credit-tile-line">What the winning bids paid eCash miners to carry those blocks.</div>
           </div>
 
           <div class="box credit-tile">
             <div class="credit-tile-title">Average bid</div>
             <ng-container *ngIf="s.avgBidText; else noBids">
-              <div class="credit-tile-value">{{ s.avgBidText }} <span class="credit-tile-unit">sats</span></div>
-              <div class="credit-tile-line" *ngIf="s.medianBidText">Median {{ s.medianBidText }} sats.</div>
+              <div class="credit-tile-value">{{ s.avgBidText }} <span class="credit-tile-unit">szats</span></div>
+              <div class="credit-tile-line" *ngIf="s.medianBidText">Median {{ s.medianBidText }} szats.</div>
             </ng-container>
             <ng-template #noBids>
               <div class="credit-tile-value">None yet</div>
@@ -104,8 +104,8 @@
                 <th>FreeBank block</th>
                 <th>eCash block</th>
                 <th><span class="help" ngbTooltip="The eCash mining pool that mined the eCash block" placement="bottom" container="body">Pool</span></th>
-                <th class="text-right"><span class="help" ngbTooltip="The winning bid: the fee of the eCash transaction that asked miners to carry this FreeBank block" placement="bottom" container="body">Bid (sats)</span></th>
-                <th class="text-right d-none d-md-table-cell">Rate (sat/vB)</th>
+                <th class="text-right"><span class="help" ngbTooltip="The winning bid: the fee of the eCash transaction that asked miners to carry this FreeBank block" placement="bottom" container="body">Bid (szats)</span></th>
+                <th class="text-right d-none d-md-table-cell">Rate (szat/vB)</th>
                 <th class="d-none d-lg-table-cell">Bid tx</th>
                 <th class="text-right d-none d-sm-table-cell">Age</th>
               </tr>

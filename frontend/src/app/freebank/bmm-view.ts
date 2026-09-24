@@ -5,6 +5,8 @@ import { formatUnits } from '@app/freebank/credit-units';
 // bid on the block cubes).
 // Pure TypeScript. Links to the eCash explorer are built here from the explorer_url the API
 // sends; the browser never fetches anything from that host, it only links to it.
+// Amounts on the eCash side (bids) are in szats, the eCash beta's name for its smallest unit
+// (operator, 2026-09-25); FreeBank's own amounts stay in sats.
 
 const rateFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shareFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -71,7 +73,7 @@ export function formatBidSats(sats: number | null): string {
   return typeof sats === 'number' ? formatUnits(sats) : '';
 }
 
-/** 2.656 -> '2.66' (sat/vB, no unit) */
+/** 2.656 -> '2.66' (szat/vB, no unit) */
 export function formatBidRate(rate: number | null): string {
   return typeof rate === 'number' && isFinite(rate) ? rateFormat.format(rate) : '';
 }
@@ -119,7 +121,7 @@ export function bmmRow(item: FreebankBmmBlock, explorerUrl: string): BmmRow {
 
 /** What a block cube in the header strip shows from the BMM view (BmmCubesService). */
 export interface BmmCube {
-  bidText: string;                // the cube's big line: '2,000 sats', or 'bid …' while pending
+  bidText: string;                // the cube's big line: '2,000 szats', or 'bid …' while pending
   poolName: string;               // the badge under the cube; '' for none
   poolUrl: string | null;         // the pool's page on the eCash explorer
 }
@@ -137,7 +139,7 @@ export function bmmCube(item: FreebankBmmBlock, explorerUrl: string): BmmCube | 
     return null;
   }
   return {
-    bidText: formatBidSats(item.bid_sats) + ' sats',
+    bidText: formatBidSats(item.bid_sats) + ' szats',
     poolName: item.pool?.name || item.pool?.slug || '',
     poolUrl: item.pool?.slug ? ecashExplorerUrl(explorerUrl, 'mining/pool', item.pool.slug) : null,
   };
