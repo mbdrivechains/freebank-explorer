@@ -109,6 +109,7 @@
           <app-amount [blockConversion]="isConnector ? blockConversions[line?.status?.block_time] : blockConversions[line?.timestamp]" [satoshis]="line.displayValue" [forceBlockConversion]="isConnector && line?.status?.block_time"></app-amount>
         </ng-template>
       </p>
+      <p *ngIf="line.type !== 'fee' && line.label">{{ line.label }}</p>
       <p *ngIf="line.type !== 'fee' && line.address" class="address">
         <app-truncate [text]="line.address"></app-truncate>
       </p>

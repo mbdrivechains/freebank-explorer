@@ -1,7 +1,7 @@
 import { Component, OnInit, Input, ChangeDetectionStrategy, Output, EventEmitter } from '@angular/core';
 import { Transaction } from '@interfaces/electrs.interface';
 import { Acceleration, CpfpInfo } from '@interfaces/node-api.interface';
-import { Pool, TxAuditStatus } from '@components/transaction/transaction.component';
+import { TxAuditStatus } from '@components/transaction/transaction.component';
 import { Observable } from 'rxjs';
 import { ETA } from '@app/services/eta.service';
 import { MiningStats } from '@app/services/mining.service';
@@ -25,9 +25,9 @@ export class TransactionDetailsComponent implements OnInit {
   @Input() isLoadingFirstSeen: boolean;
   @Input() featuresEnabled: boolean;
   @Input() auditStatus: TxAuditStatus;
+  @Input() auditEnabled: boolean;
   @Input() filters: Filter[];
   @Input() miningStats: MiningStats;
-  @Input() pool: Pool | null;
   @Input() isAcceleration: boolean;
   @Input() hasEffectiveFeeRate: boolean;
   @Input() cpfpInfo: CpfpInfo;

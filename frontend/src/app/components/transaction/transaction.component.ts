@@ -428,7 +428,8 @@ export class TransactionComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     this.miningSubscription = this.fetchMiningInfo$.pipe(
-      filter((target) => target.txid === this.txId && !this.pool),
+      // FreeBank: the genesis coinbase has no block hash; don't ask for /api/v1/block/undefined
+      filter((target) => target.txid === this.txId && !this.pool && !!target.hash),
       tap(() => {
         this.pool = null;
       }),
@@ -518,7 +519,8 @@ export class TransactionComponent implements OnInit, AfterViewInit, OnDestroy {
             );
           }
         } else {
-          const audit = isCoinbase ? { coinbase: true } : null;
+          // FreeBank: the 'Coinbase' audit badge only where block audit is on
+          const audit = (isCoinbase && auditAvailable) ? { coinbase: true } : null;
           return addFirstSeen(audit, hash, height, txid, this.apiService.getBlockSummaryLoaded(hash));
         }
       }),

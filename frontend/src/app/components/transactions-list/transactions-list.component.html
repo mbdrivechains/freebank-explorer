@@ -5,6 +5,9 @@
     <a class="tx-link" [routerLink]="['/tx/' | relativeUrl, tx.txid]">
       <app-truncate [text]="tx.txid"></app-truncate>
     </a>
+    @if (creditTxLabels[tx.version]; as creditLabel) {
+      <span class="badge badge-info mr-3" ngbTooltip="FreeBank credit transaction (version {{ tx.version }})" placement="bottom">{{ creditLabel }}</span>
+    }
     <div>
       <ng-template [ngIf]="tx.status.confirmed"><app-timestamp [customFormat]="'yyyy-MM-dd HH:mm:ss'" [unixTime]="tx.status.block_time" [hideTimeSince]="true"></app-timestamp></ng-template>
       <ng-template [ngIf]="!tx.status.confirmed && tx.firstSeen">
@@ -87,7 +90,7 @@
                 }
                 <td class="address-cell">
                   <div [ngSwitch]="true">
-                    <ng-container *ngSwitchCase="vin.is_coinbase"><span i18n="transactions-list.coinbase">Coinbase</span><br /><a placement="bottom" [ngbTooltip]="vin.scriptsig | hex2ascii"><span class="badge badge-secondary scriptmessage longer">{{ vin.scriptsig | hex2ascii }}</span></a></ng-container>
+                    <ng-container *ngSwitchCase="vin.is_coinbase"><span i18n="transactions-list.coinbase">Coinbase</span>@if (vin['_showAscii']) {<br /><a placement="bottom" [ngbTooltip]="vin.scriptsig | hex2ascii"><span class="badge badge-secondary scriptmessage longer">{{ vin.scriptsig | hex2ascii }}</span></a>}</ng-container>
                     <ng-container *ngSwitchCase="vin.is_pegin">
                       <span i18n="transactions-list.peg-in">Peg-in</span>
                     </ng-container>
@@ -339,6 +342,9 @@
                   </ng-template>
                   <div>
                     <app-address-labels [vout]="vout" [channel]="tx._channels && tx._channels.outputs[vindex] ? tx._channels.outputs[vindex] : null"></app-address-labels>
+                    @if (vout.scriptpubkey_address && vout.freebankLabel) {
+                      <span class="badge badge-pill badge-secondary" [ngbTooltip]="vout['_freebankTooltip']" placement="bottom">{{ vout.freebankLabel }}</span>
+                    }
                   </div>
                   <ng-template #scriptpubkey_type>
                     <ng-template [ngIf]="vout.pegout" [ngIfElse]="defaultscriptpubkey_type">
@@ -355,11 +361,11 @@
                       </ng-template>
                     </ng-template>
                     <ng-template #defaultscriptpubkey_type>
-                      <ng-template [ngIf]="vout.scriptpubkey_type === 'op_return'" [ngIfElse]="otherPubkeyType">
+                      <ng-template [ngIf]="vout.scriptpubkey_type === 'op_return' && !vout.freebankLabel" [ngIfElse]="otherPubkeyType">
                         OP_RETURN&nbsp;
                         @if (vout.isRunestone) {
                           <button (click)="toggleOrdData(tx.txid, 'vout', vindex)" type="button" class="btn btn-sm badge badge-ord">Runestone</button>
-                        } @else {
+                        } @else if (vout['_showAscii']) {
                           <a placement="bottom" style="cursor: pointer;">
                             @if ((vout.scriptpubkey_asm | hex2ascii).length > 200) {
                               <span *ngIf="vout.scriptpubkey_asm !== 'OP_RETURN'" class="badge badge-secondary scriptmessage opreturn-msg" (click)="toggleShowFullOpReturnPreview(vindex)">{{ vout.scriptpubkey_asm | hex2ascii | slice:0:200 }}</span>
@@ -378,7 +384,7 @@
                           </a>
                         }
                       </ng-template>
-                      <ng-template #otherPubkeyType>{{ vout.freebankLabel || (vout.scriptpubkey_type | scriptpubkeyType) }}</ng-template>
+                      <ng-template #otherPubkeyType><span [ngbTooltip]="vout['_freebankTooltip']" placement="bottom">{{ vout.freebankLabel || (vout.scriptpubkey_type | scriptpubkeyType) }}</span></ng-template>
                     </ng-template>
                   </ng-template>
                 </td>
@@ -396,7 +402,7 @@
                   </ng-template>
                 </td>
                 <td class="arrow-td">
-                  <span *ngIf="!tx._outspends || vout.scriptpubkey_type === 'op_return' || vout.scriptpubkey_type === 'fee' || vout.freebankLabel ; else outspend" class="grey">
+                  <span *ngIf="!tx._outspends || vout.scriptpubkey_type === 'op_return' || vout.scriptpubkey_type === 'fee' || (vout.freebankLabel && vout.scriptpubkey.startsWith('6a')) ; else outspend" class="grey">
                     <fa-icon [icon]="['fas', 'arrow-alt-circle-right']" [fixedWidth]="true"></fa-icon>
                   </span>
                   <ng-template #outspend>
@@ -469,7 +475,7 @@
                           </div>
                         </td>
                       </tr>
-                      <tr *ngIf="vout.scriptpubkey_type == 'op_return'">
+                      <tr *ngIf="vout.scriptpubkey_type == 'op_return' && vout['_showAscii']">
                         <td>OP_RETURN <span>data</span></td>
                         <td style="text-align: left; word-break: break-word; white-space: pre-line;">
                           @if (!showFullOpReturnData[vindex]) {

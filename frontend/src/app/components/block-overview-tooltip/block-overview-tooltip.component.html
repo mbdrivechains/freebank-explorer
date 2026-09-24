@@ -14,6 +14,10 @@
           <a [routerLink]="['/tx/' | relativeUrl, txid]">{{ txid | shortenString : 16}}</a>
         </td>
       </tr>
+      <tr *ngIf="creditLabel">
+        <td class="label">Type</td>
+        <td class="value"><span class="badge badge-info">{{ creditLabel }}</span></td>
+      </tr>
       <tr *ngIf="time">
         <ng-container [ngSwitch]="timeMode">
           <ng-container *ngSwitchCase="'mempool'">

@@ -1,9 +1,19 @@
-import { Component, ElementRef, ViewChild, Input, OnChanges, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, ElementRef, ViewChild, Input, OnChanges, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Subject, Subscription, of } from 'rxjs';
+import { catchError, debounceTime, map, switchMap } from 'rxjs/operators';
 import { Position } from '@components/block-overview-graph/sprite-types.js';
 import { Price } from '@app/services/price.service';
 import { TransactionStripped } from '@interfaces/node-api.interface.js';
 import { Filter, FilterMode, TransactionFlags, toFilters } from '@app/shared/filters.utils';
 import { Block } from '@interfaces/electrs.interface.js';
+import { CacheService } from '@app/services/cache.service';
+import { ElectrsApiService } from '@app/services/electrs-api.service';
+import { getCreditTxLabel } from '@app/shared/transaction.utils';
+
+// FreeBank: the stripped txs behind the block overview carry no tx version, so the credit type
+// badge comes from the tx list cache or from the version bytes of the raw tx (first 4, little
+// endian). Results are kept per txid for the session.
+const creditLabelByTxid = new Map<string, string | null>();
 
 @Component({
   selector: 'app-block-overview-tooltip',
@@ -11,7 +21,7 @@ import { Block } from '@interfaces/electrs.interface.js';
   styleUrls: ['./block-overview-tooltip.component.scss'],
   standalone: false,
 })
-export class BlockOverviewTooltipComponent implements OnChanges {
+export class BlockOverviewTooltipComponent implements OnChanges, OnDestroy {
   @Input() tx: TransactionStripped | void;
   @Input() relativeTime?: number;
   @Input() cursorPosition: Position;
@@ -33,6 +43,9 @@ export class BlockOverviewTooltipComponent implements OnChanges {
   timeMode: 'mempool' | 'mined' | 'missed' | 'after' = 'mempool';
   filters: Filter[] = [];
   activeFilters: { [key: string]: boolean } = {};
+  creditLabel: string | null = null;
+  creditLookup$ = new Subject<string>();
+  creditLookupSubscription: Subscription;
 
   tooltipPosition: Position = { x: 0, y: 0 };
 
@@ -40,7 +53,29 @@ export class BlockOverviewTooltipComponent implements OnChanges {
 
   constructor(
     private cd: ChangeDetectorRef,
-  ) {}
+    private cacheService: CacheService,
+    private electrsApiService: ElectrsApiService,
+  ) {
+    this.creditLookupSubscription = this.creditLookup$.pipe(
+      debounceTime(100),
+      switchMap((txid) => this.electrsApiService.getTransactionHex$(txid).pipe(
+        map((hex) => {
+          const version = parseInt(hex.slice(0, 8).match(/../g).reverse().join(''), 16);
+          return { txid, label: getCreditTxLabel({ version }) ?? null };
+        }),
+        catchError(() => of(null)),
+      )),
+    ).subscribe((result) => {
+      if (!result) {
+        return;
+      }
+      creditLabelByTxid.set(result.txid, result.label);
+      if (result.txid === this.txid) {
+        this.creditLabel = result.label;
+        this.cd.markForCheck();
+      }
+    });
+  }
 
   ngOnChanges(changes): void {
     if (changes.cursorPosition && changes.cursorPosition.currentValue) {
@@ -60,6 +95,9 @@ export class BlockOverviewTooltipComponent implements OnChanges {
     }
 
     if (this.tx && (changes.tx || changes.filterFlags || changes.filterMode)) {
+      if (changes.tx && this.tx.txid !== this.txid) {
+        this.creditLabel = this.getCreditLabel(this.tx.txid);
+      }
       this.txid = this.tx.txid || '';
       this.time = this.tx.time || 0;
       this.fee = this.tx.fee || 0;
@@ -100,5 +138,24 @@ export class BlockOverviewTooltipComponent implements OnChanges {
 
   getTooltipLeftPosition(): string {
     return window.innerWidth < 392 ? '-50px' : this.tooltipPosition.x + 'px';
+  }
+
+  getCreditLabel(txid: string): string | null {
+    if (!txid) {
+      return null;
+    }
+    if (creditLabelByTxid.has(txid)) {
+      return creditLabelByTxid.get(txid);
+    }
+    const cachedTx = this.cacheService.getTxFromCache(txid);
+    if (cachedTx) {
+      return getCreditTxLabel(cachedTx) ?? null;
+    }
+    this.creditLookup$.next(txid);
+    return null;
+  }
+
+  ngOnDestroy(): void {
+    this.creditLookupSubscription?.unsubscribe();
   }
 }

@@ -9,7 +9,7 @@ import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pip
 import { AssetsService } from '@app/services/assets.service';
 import { environment } from '@environments/environment';
 import { ElectrsApiService } from '@app/services/electrs-api.service';
-import { getFreebankOutputLabel } from '@app/shared/transaction.utils';
+import { getFreebankOutputLabels } from '@app/shared/transaction.utils';
 
 interface SvgLine {
   path: string;
@@ -29,6 +29,7 @@ interface Xput {
   vin?: number;
   vout?: number;
   address?: string;
+  label?: string; // FreeBank: protocol label of an output that also has an address
   rest?: number;
   coinbase?: boolean;
   pegin?: boolean;
@@ -172,14 +173,15 @@ export class TxBowtieGraphComponent implements OnInit, OnChanges {
     this.zeroValueWidth = Math.max(20, Math.min((this.txWidth / 2) - this.midWidth - 110, 60));
 
     const totalValue = this.calcTotalValue(this.tx);
-    // FreeBank: name protocol outputs (deposits, withdrawals, commitments) as the tx list does
-    const isCoinbase = !!this.tx.vin[0]?.is_coinbase;
+    // FreeBank: name protocol outputs (deposits, withdrawals, commitments, credit custody) as the tx list does
+    const freebankLabels = getFreebankOutputLabels(this.tx);
     let voutWithFee = this.tx.vout.map((v, i) => {
       return {
         type: v.scriptpubkey_type === 'fee' ? 'fee' : 'output',
         value: this.getOutputValue(v),
         displayValue: v?.value,
-        address: v?.scriptpubkey_address || getFreebankOutputLabel(v?.scriptpubkey, isCoinbase) || v?.scriptpubkey_type?.toUpperCase(),
+        address: v?.scriptpubkey_address || freebankLabels[i]?.label || v?.scriptpubkey_type?.toUpperCase(),
+        label: v?.scriptpubkey_address ? freebankLabels[i]?.label : undefined,
         index: i,
         pegout: v?.pegout?.scriptpubkey_address,
         confidential: (this.isLiquid && v?.value === undefined),

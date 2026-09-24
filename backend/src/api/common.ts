@@ -767,7 +767,8 @@ export class Common {
       flags |= TransactionFlags.consolidation;
     }
     // less than 1:5 input:output ratio
-    if (tx.vin.length / tx.vout.length <= 0.2) {
+    // (FreeBank: not a coinbase, whose extra outputs are commitments and deposit payouts)
+    if (!tx.vin[0]?.is_coinbase && tx.vin.length / tx.vout.length <= 0.2) {
       flags |= TransactionFlags.batch_payout;
     }
 

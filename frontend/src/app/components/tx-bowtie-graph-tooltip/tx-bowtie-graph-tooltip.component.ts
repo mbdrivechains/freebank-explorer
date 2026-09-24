@@ -14,6 +14,7 @@ interface Xput {
   vin?: number;
   vout?: number;
   address?: string;
+  label?: string; // FreeBank: protocol label of an output that also has an address
   rest?: number;
   coinbase?: boolean;
   pegin?: boolean;
