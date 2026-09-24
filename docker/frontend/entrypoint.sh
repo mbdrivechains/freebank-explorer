@@ -61,6 +61,9 @@ __PUBLIC_ACCELERATIONS__=${PUBLIC_ACCELERATIONS:=false}
 __HISTORICAL_PRICE__=${HISTORICAL_PRICE:=false}
 __ADDITIONAL_CURRENCIES__=${ADDITIONAL_CURRENCIES:=false}
 __STRATUM_ENABLED__=${STRATUM_ENABLED:=false}
+# FreeBank: the public URL of this fork's source, for the AGPL "Source" link in the footer and
+# on /about (plain text while empty)
+__SOURCE_URL__=${SOURCE_URL:=}
 
 # Export as environment variables to be used by envsubst
 export __MAINNET_ENABLED__
@@ -101,6 +104,7 @@ export __PUBLIC_ACCELERATIONS__
 export __HISTORICAL_PRICE__
 export __ADDITIONAL_CURRENCIES__
 export __STRATUM_ENABLED__
+export __SOURCE_URL__
 
 folder=$(find /var/www/mempool -name "config.js" | xargs dirname)
 echo ${folder}
