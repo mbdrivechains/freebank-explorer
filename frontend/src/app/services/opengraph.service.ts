@@ -4,7 +4,9 @@ import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { filter, map, switchMap } from 'rxjs/operators';
 import { combineLatest } from 'rxjs';
 import { StateService } from '@app/services/state.service';
-import { LanguageService } from '@app/services/language.service';
+
+// FreeBank: the one social-card image, served by the explorer itself
+const DEFAULT_PREVIEW_IMAGE = '/resources/previews/freebank-preview.png';
 
 @Injectable({
   providedIn: 'root'
@@ -20,13 +22,12 @@ export class OpenGraphService {
     private ngZone: NgZone,
     private metaService: Meta,
     private stateService: StateService,
-    private LanguageService: LanguageService,
     private router: Router,
     private activatedRoute: ActivatedRoute,
   ) {
-    // save og:image tag from original template
+    // save og:image tag from original template, as an absolute URL on this host
     const initialOgImageTag = metaService.getTag('property=\'og:image\'');
-    this.defaultImageUrl = initialOgImageTag?.content || 'https://mempool.space/resources/previews/mempool-space-preview.jpg';
+    this.defaultImageUrl = this.absoluteUrl(initialOgImageTag?.content || DEFAULT_PREVIEW_IMAGE);
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       map(() => this.activatedRoute),
@@ -50,28 +51,31 @@ export class OpenGraphService {
     };
   }
 
+  // FreeBank: no unfurler runs behind /render/..., so pages that asked for a
+  // rendered preview get the default FreeBank card instead
   setOgImage() {
-    const lang = this.LanguageService.getLanguage();
-    const ogImageUrl = `${window.location.protocol}//${window.location.host}/render/${lang}/preview${this.router.url}`;
-    this.metaService.updateTag({ property: 'og:image', content: ogImageUrl });
-    this.metaService.updateTag({ name: 'twitter:image', content: ogImageUrl });
-    this.metaService.updateTag({ property: 'og:image:width', content: '1200' });
-    this.metaService.updateTag({ property: 'og:image:height', content: '600' });
+    this.clearOgImage();
   }
 
   clearOgImage() {
     this.metaService.updateTag({ property: 'og:image', content: this.defaultImageUrl });
     this.metaService.updateTag({ name: 'twitter:image', content: this.defaultImageUrl });
-    this.metaService.updateTag({ property: 'og:image:width', content: '1000' });
-    this.metaService.updateTag({ property: 'og:image:height', content: '500' });
+    this.metaService.updateTag({ property: 'og:image:width', content: '1200' });
+    this.metaService.updateTag({ property: 'og:image:height', content: '630' });
   }
 
-  setManualOgImage(imageFilename) {
-    const ogImage = `${window.location.protocol}//${window.location.host}/resources/previews/${imageFilename}`;
-    this.metaService.updateTag({ property: 'og:image', content: ogImage });
-    this.metaService.updateTag({ property: 'og:image:width', content: '2000' });
-    this.metaService.updateTag({ property: 'og:image:height', content: '1000' });
-    this.metaService.updateTag({ name: 'twitter:image', content: ogImage });
+  // FreeBank: the per-page upstream artwork (mining.jpg, about.jpg, ...) is mempool's;
+  // every page uses the one FreeBank card, whatever file the caller names
+  setManualOgImage(imageFilename: string) {
+    this.clearOgImage();
+  }
+
+  private absoluteUrl(url: string): string {
+    try {
+      return new URL(url, `${window.location.protocol}//${window.location.host}`).href;
+    } catch (e) {
+      return url;
+    }
   }
 
   /// register an event that needs to resolve before we can take a screenshot
