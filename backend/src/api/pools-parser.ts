@@ -15,7 +15,7 @@ class PoolsParser {
   unknownPool: any = {
     'id': 0,
     'name': 'Unknown',
-    'link': 'https://learnmeabitcoin.com/technical/coinbase-transaction',
+    'link': '', // FreeBank: no outside explainer link
     'regexes': '[]',
     'addresses': '[]',
     'slug': 'unknown'
@@ -195,12 +195,9 @@ class PoolsParser {
    * @asyncUnsafe
    */
   private async $reindexBlocksForPool(poolId: number): Promise<void> {
-    let firstKnownBlockPool = 130635; // https://mempool.space/block/0000000000000a067d94ff753eec72830f1205ad3a4c216a08a80c832e551a52
-    if (config.MEMPOOL.NETWORK === 'testnet') {
-      firstKnownBlockPool = 21106; // https://mempool.space/testnet/block/0000000070b701a5b6a1b965f6a38e0472e70b2bb31b973e4638dec400877581
-    } else if (['signet', 'testnet4', 'regtest'].includes(config.MEMPOOL.NETWORK)) {
-      firstKnownBlockPool = 0;
-    }
+    // FreeBank: re-attribute from genesis on every network. Upstream skips Bitcoin mainnet/testnet
+    // heights below the first block with a known pool (130635 / 21106), which would be every FreeBank block.
+    const firstKnownBlockPool = 0;
 
     const [blocks]: any[] = await DB.query(`
       SELECT height, hash, coinbase_raw, coinbase_addresses
