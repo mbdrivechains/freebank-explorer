@@ -1,13 +1,96 @@
 <div class="container-xl credit-page">
-  <h1>Bills</h1>
-  <ng-container *ngIf="state$ | async as state">
-    <ul *ngIf="state.data">
-      <li *ngFor="let bill of state.data.bills">
-        <a [routerLink]="['/bill/' | relativeUrl, bill.id]">Bill {{ bill.id }}</a>:
-        <app-credit-amount [ecx]="bill.amount" [grams]="bill.amount_grams"></app-credit-amount>,
-        {{ bill | billStatus }}, due at block <app-credit-height [height]="bill.maturity_height" [tipHeight]="state.data.tip_height"></app-credit-height>
-      </li>
-    </ul>
-    <app-credit-raw-json [state]="state" errorText="Could not load the bills"></app-credit-raw-json>
+  <div class="title-block">
+    <h1>Bills of exchange</h1>
+  </div>
+
+  <p class="credit-intro">
+    A bill of exchange is a written order to pay a fixed sum of ECX at a set block. The drawer writes it, the acceptor signs
+    to pay it and locks an escrow bond behind it, and whoever holds the bill at maturity is paid. Holders pass bills on by
+    endorsement, and a house can buy one before it falls due, paying in its own notes: that is discounting, and the bill
+    then sits on the house's loan book.
+  </p>
+
+  <ng-container *ngIf="view$ | async as view">
+    <app-http-error *ngIf="view.error && !view.rows; else billTable" [error]="view.error">Could not load the bills.</app-http-error>
+
+    <ng-template #billTable>
+      <div class="btn-group btn-group-toggle credit-filters" role="group" aria-label="Filter bills by status" *ngIf="view.rows?.length">
+        <a *ngFor="let f of view.filters" class="btn btn-primary btn-sm" [class.active]="view.filter === f.key"
+          [attr.aria-pressed]="view.filter === f.key" [routerLink]="['/bills' | relativeUrl]" [queryParams]="filterParams(f.key)"
+          [replaceUrl]="true">{{ f.label }} <span class="filter-count">{{ f.count }}</span></a>
+      </div>
+
+      <div class="box">
+        <table class="table table-borderless table-striped credit-table" [class.reloading]="view.loading && !!view.rows">
+          <thead>
+            <tr>
+              <th class="col-id">Bill</th>
+              <th><span class="help" ngbTooltip="The sum the acceptor must pay the holder when the bill falls due. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Face</span></th>
+              <th class="d-none d-md-table-cell"><span class="help" ngbTooltip="The bond the acceptor locked when the bill was issued. If the bill is still unpaid after maturity and the grace period, the holder can claim it." placement="bottom" container="body">Escrow</span></th>
+              <th><span class="help" ngbTooltip="Active: outstanding, held privately. Discounted: outstanding, bought by a house. Retired: paid. Defaulted: unpaid, escrow claimed." placement="bottom" container="body">Status</span></th>
+              <th><span class="help" ngbTooltip="The block the bill falls due at (maturity). The grace period follows it; only after that can the escrow be claimed." placement="bottom" container="body">Due at block</span></th>
+              <th class="d-none d-xl-table-cell"><span class="help" ngbTooltip="Blocks after maturity during which the acceptor can still pay before the escrow can be claimed." placement="bottom" container="body">Grace</span></th>
+              <th class="d-none d-lg-table-cell"><span class="help" ngbTooltip="Drawer: wrote the bill. Acceptor: owes the face value. Holder: owns the bill now and is paid at maturity. Each is shown by public key." placement="bottom" container="body">Parties</span></th>
+              <th class="d-none d-md-table-cell text-right">Issued</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="view.rows; else skeleton">
+            <tr *ngFor="let row of view.visible; trackBy: trackByBill">
+              <td class="col-id"><a [routerLink]="['/bill/' | relativeUrl, row.bill.id]">{{ row.bill.id }}</a></td>
+              <td>
+                <app-credit-amount [ecx]="row.bill.amount" [hideGrams]="true"></app-credit-amount>
+                <div class="sub">{{ row.bill.amount_grams | grams }}</div>
+              </td>
+              <td class="d-none d-md-table-cell">
+                <app-credit-amount [ecx]="row.bill.escrow" [hideGrams]="true"></app-credit-amount>
+                <div class="sub" *ngIf="row.escrowPercent !== null">{{ row.escrowPercent | number: '1.0-1' }}% of face</div>
+              </td>
+              <td>
+                <span class="badge bill-status" [ngClass]="'bill-status-' + row.key" [ngbTooltip]="row.statusHelp" placement="bottom" container="body">{{ row.statusLabel }}</span>
+                <div class="sub owner" *ngIf="row.bill.owner_house_id">
+                  <a [routerLink]="['/house/' | relativeUrl, row.bill.owner_house_id]">House {{ row.bill.owner_house_id }}</a>
+                  <app-house-health-badge *ngIf="row.ownerHouse" [house]="row.ownerHouse" [tipHeight]="view.tipHeight"></app-house-health-badge>
+                </div>
+              </td>
+              <td>
+                <app-credit-height [height]="row.bill.maturity_height" [tipHeight]="view.tipHeight" [showRelative]="false"></app-credit-height>
+                <div class="sub" *ngIf="row.maturity.short" [class.overdue]="row.maturity.phase === 'claimable'">{{ row.maturity.short }}</div>
+              </td>
+              <td class="d-none d-xl-table-cell">{{ row.bill.grace_blocks | blockCount }}</td>
+              <td class="d-none d-lg-table-cell parties">
+                <div class="party"><span class="party-role">Drawer</span><app-truncate [text]="row.bill.drawer_pubkey" [lastChars]="6" [maxWidth]="130" [inline]="true"></app-truncate></div>
+                <div class="party"><span class="party-role">Acceptor</span><app-truncate [text]="row.bill.acceptor_pubkey" [lastChars]="6" [maxWidth]="130" [inline]="true"></app-truncate></div>
+                <div class="party"><span class="party-role">Holder</span><app-truncate [text]="row.bill.holder_pubkey" [lastChars]="6" [maxWidth]="130" [inline]="true"></app-truncate></div>
+              </td>
+              <td class="d-none d-md-table-cell text-right">
+                <app-credit-height [height]="row.bill.issued_height" [tipHeight]="view.tipHeight" [showRelative]="false"></app-credit-height>
+              </td>
+            </tr>
+            <tr *ngIf="!view.visible.length">
+              <td colspan="8" class="empty-row">
+                <ng-container *ngIf="view.rows.length; else noBills">No {{ view.filterLabel }} bills right now.</ng-container>
+                <ng-template #noBills>No bills of exchange have been issued on this chain yet.</ng-template>
+              </td>
+            </tr>
+          </tbody>
+          <ng-template #skeleton>
+            <tbody>
+              <tr *ngFor="let i of skeletonRows">
+                <td class="col-id"><span class="skeleton-loader"></span></td>
+                <td><span class="skeleton-loader"></span></td>
+                <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+                <td><span class="skeleton-loader"></span></td>
+                <td><span class="skeleton-loader"></span></td>
+                <td class="d-none d-xl-table-cell"><span class="skeleton-loader"></span></td>
+                <td class="d-none d-lg-table-cell"><span class="skeleton-loader"></span></td>
+                <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+              </tr>
+            </tbody>
+          </ng-template>
+        </table>
+      </div>
+
+      <p class="credit-footnote" *ngIf="view.error && view.rows">Could not refresh the bills; showing the list as of block {{ view.tipHeight }}.</p>
+    </ng-template>
   </ng-container>
 </div>
