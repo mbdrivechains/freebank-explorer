@@ -1085,7 +1085,7 @@ class Blocks {
               priceId: lastestPriceId,
             }]);
             this.updateTimerProgress(timer, `saved prices for ${this.currentBlockHeight}`);
-          } else {
+          } else if (config.FIAT_PRICE.ENABLED) { // FreeBank: with fiat prices off there is no price to link, so no retry
             logger.debug(`Cannot save block price for ${blockExtended.height} because the price updater hasnt completed yet. Trying again in 10 seconds.`, logger.tags.mining);
             indexer.scheduleSingleTask('blocksPrices', 10000);
           }
