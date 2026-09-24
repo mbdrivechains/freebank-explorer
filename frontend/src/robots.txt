@@ -1,2 +1,17 @@
+# FreeBank Explorer: the home page may be crawled. The deep pages (every block, transaction
+# and address, the API, graphs, previews) are built per request and are not for crawlers.
 User-agent: *
-Allow: /
+Allow: /$
+Disallow: /api/
+Disallow: /tx/
+Disallow: /block/
+Disallow: /blocks/
+Disallow: /address/
+Disallow: /mempool-block/
+Disallow: /graphs/
+Disallow: /mining/
+Disallow: /preview/
+Disallow: /view/
+Disallow: /clock/
+Disallow: /status
+Disallow: /rbf
