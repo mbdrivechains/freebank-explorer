@@ -104,8 +104,10 @@ export class SeoService {
     return (text || '')
       .replace(/The Mempool Open Source Project(®|&reg;)?/g, 'FreeBank Explorer')
       .replace(/mempool\.space/g, 'FreeBank Explorer')
+      .replace(/\bMempool's\b/g, 'FreeBank Explorer\'s')
       .replace(/\bBitcoin\b(?! Core)/g, 'FreeBank')
-      .replace(/\bBTC\b/g, 'ECX');
+      .replace(/\bBTC\b/g, 'ECX')
+      .replace(/ (?:and|in) USD\b/g, ''); // no fiat
   }
 
   clearSoft404() {
