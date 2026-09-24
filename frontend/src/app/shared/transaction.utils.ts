@@ -635,6 +635,32 @@ export function getCreditTxLabel(tx: { version: number }): string | undefined {
   return CREDIT_TX_LABELS[tx?.version];
 }
 
+// FreeBank coinbase commitments and sidechain objects: OP_RETURN followed by a raw 4-byte tag
+// (not a push, so the node reports the type as 'nonstandard'). See freebank validation.cpp
+// Generate*Commit and sidechain.cpp SidechainObj::GetScript.
+const FREEBANK_OUTPUT_TAGS: { [tag: string]: string } = {
+  'fd7ad1ef': 'Previous block commitment',
+  'a7e67e1f': 'Block version commitment',
+  'ef5d1dfe': 'Withdrawal bundle commitment',
+};
+// sidechain objects (tag acdcf66f): the byte after the tag is the object type
+const FREEBANK_SIDECHAIN_OBJECTS: { [op: string]: string } = {
+  '44': 'Mainchain deposit', // 'D'
+  '57': 'Withdrawal', // 'W'
+  '50': 'Withdrawal bundle', // 'P'
+};
+
+export function getFreebankOutputLabel(scriptpubkey: string): string | undefined {
+  if (!scriptpubkey?.startsWith('6a') || scriptpubkey.length < 10) {
+    return undefined;
+  }
+  const tag = scriptpubkey.slice(2, 10);
+  if (tag === 'acdcf66f') {
+    return FREEBANK_SIDECHAIN_OBJECTS[scriptpubkey.slice(10, 12)];
+  }
+  return FREEBANK_OUTPUT_TAGS[tag];
+}
+
 const ANCHOR_STANDARDNESS_ACTIVATION_HEIGHT = {
   'testnet4': 42_000,
   'testnet': 2_900_000,

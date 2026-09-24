@@ -109,6 +109,8 @@ export interface Vout {
   pegout?: Pegout;
   // Ord
   isRunestone?: boolean;
+  // FreeBank: label for coinbase commitments and sidechain objects
+  freebankLabel?: string;
 }
 
 interface Pegout {

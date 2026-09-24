@@ -15,7 +15,7 @@ import { OrdApiService } from '@app/services/ord-api.service';
 import { Inscription } from '@app/shared/ord/inscription.utils';
 import { Etching, Runestone } from '@app/shared/ord/rune.utils';
 import { ADDRESS_SIMILARITY_THRESHOLD, AddressMatch, AddressSimilarity, AddressType, AddressTypeInfo, checkedCompareAddressStrings, detectAddressType } from '@app/shared/address-utils';
-import { processInputSignatures, Sighash, SigInfo, SighashLabels, parseTaproot } from '@app/shared/transaction.utils';
+import { processInputSignatures, Sighash, SigInfo, SighashLabels, parseTaproot, getFreebankOutputLabel } from '@app/shared/transaction.utils';
 import { ActivatedRoute } from '@angular/router';
 import { SighashFlag } from '@app/shared/transaction.utils';
 
@@ -350,6 +350,11 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
 
         tx.largeInput = tx.largeInput || tx.vin.some(vin => (vin?.prevout?.value > 1000000000));
         tx.largeOutput = tx.vout.some(vout => (vout?.value > 1000000000));
+
+        // FreeBank: name the coinbase commitments and sidechain objects (deposits, withdrawals)
+        for (const vout of tx.vout) {
+          vout.freebankLabel = getFreebankOutputLabel(vout.scriptpubkey);
+        }
       });
 
       if (this.blockTime && this.transactions?.length && this.currency) {
