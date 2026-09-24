@@ -7,6 +7,7 @@ import mempool from '../mempool';
 import { TransactionExtended } from '../../mempool.interfaces';
 import transactionUtils from '../transaction-utils';
 import { Common } from '../common';
+import { merkleBranch, merkleRootFromBranch } from './merkle';
 
 class BitcoinApi implements AbstractBitcoinApi {
   private rawMempoolCache: IBitcoinApi.RawMempool | null = null;
@@ -98,8 +99,40 @@ class BitcoinApi implements AbstractBitcoinApi {
       });
   }
 
-  $getTransactionMerkleProof(txId: string): Promise<IEsploraApi.MerkleProof> {
-    throw new Error('Method getTransactionMerkleProof not supported by the Bitcoin RPC API.');
+  /**
+   * FreeBank: esplora's merkle proof, computed from the block's txids and checked against the header's merkle root.
+   * @asyncUnsafe
+   */
+  async $getTransactionMerkleProof(txId: string): Promise<IEsploraApi.MerkleProof> {
+    const tx: IBitcoinApi.Transaction = await this.bitcoindClient.getRawTransaction(txId, true);
+    if (!tx.blockhash) {
+      throw new Error('Transaction not confirmed');
+    }
+    const block: IBitcoinApi.Block = await this.bitcoindClient.getBlock(tx.blockhash, 1);
+    const txids = block.tx as unknown as string[];   // verbosity 1: the txids
+    const pos = txids.indexOf(tx.txid);
+    const merkle = merkleBranch(txids, pos);
+    if (merkleRootFromBranch(tx.txid, merkle, pos) !== block.merkleroot) {
+      throw new Error('Merkle proof does not match the block header');
+    }
+    return { block_height: block.height, merkle, pos };
+  }
+
+  /** FreeBank: the node's merkleblock proof (gettxoutproof), as hex. */
+  $getTransactionMerkleBlockProof(txId: string): Promise<string> {
+    return this.bitcoindClient.getTxOutProof([txId]);
+  }
+
+  /**
+   * FreeBank: esplora's block status from the node's header (confirmations is -1 for a block off the best chain).
+   * @asyncUnsafe
+   */
+  async $getBlockStatus(hash: string): Promise<IEsploraApi.BlockStatus> {
+    const header = await this.bitcoindClient.getBlockHeader(hash, true);
+    if (header.confirmations === -1) {
+      return { in_best_chain: false };
+    }
+    return { in_best_chain: true, height: header.height, next_best: header.nextblockhash || null };
   }
 
   $getBlockHeightTip(): Promise<number> {

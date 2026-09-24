@@ -187,6 +187,13 @@ export namespace IEsploraApi {
     tx_position?: number;
   }
 
+  // FreeBank: GET /block/:hash/status, as esplora answers it (height and next_best only in the best chain)
+  export interface BlockStatus {
+    in_best_chain: boolean;
+    height?: number;
+    next_best?: string | null;
+  }
+
   export interface MerkleProof {
     merkle: string[];
     block_height: number;

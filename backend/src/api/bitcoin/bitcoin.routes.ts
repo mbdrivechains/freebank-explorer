@@ -38,6 +38,16 @@ function blockErrorStatus(e: any): number {
   return e?.response?.status === 404 || nodeBlockNotFound ? 404 : 500;
 }
 
+// FreeBank: the node answers -5 'No such mempool or blockchain transaction' for an unknown txid, and a proof asked for
+// an unconfirmed transaction fails with 'Transaction not confirmed' (and gettxoutproof with 'not yet in block'):
+// esplora answers 404 for both.
+function txErrorStatus(e: any): number {
+  const message = e?.message ?? '';
+  const notFound = (e?.code === -5 || /No such mempool or blockchain transaction/i.test(message))
+    || /not confirmed|not yet in block/i.test(message);
+  return notFound || e?.response?.status === 404 ? 404 : 500;
+}
+
 // The same for a block height: getblockhash answers -8 'Block height out of range' above the
 // tip (and below 0), esplora answers 404.
 function blockHeightErrorStatus(e: any): number {
@@ -97,6 +107,12 @@ class BitcoinRoutes {
           .get(config.MEMPOOL.API_URL_PREFIX + 'tx/:txId/status', this.getTransactionStatus)
           .get(config.MEMPOOL.API_URL_PREFIX + 'tx/:txId/outspends', this.getTransactionOutspends)
           .get(config.MEMPOOL.API_URL_PREFIX + 'tx/:txId/merkle-proof', this.getTransactionMerkleProof)
+          // FreeBank: esplora endpoints the RPC backend lacked, served from the node (docs: /docs/api/rest)
+          .get(config.MEMPOOL.API_URL_PREFIX + 'tx/:txId/merkleblock-proof', this.getTransactionMerkleBlockProof)
+          .get(config.MEMPOOL.API_URL_PREFIX + 'tx/:txId/raw', this.getRawTransactionBinary)
+          .get(config.MEMPOOL.API_URL_PREFIX + 'tx/:txId/outspend/:vout', this.getTransactionOutspend)
+          .get(config.MEMPOOL.API_URL_PREFIX + 'block/:hash/status', this.getBlockStatus)
+          .get(config.MEMPOOL.API_URL_PREFIX + 'block/:hash/txid/:index', this.getBlockTxId)
           .get(config.MEMPOOL.API_URL_PREFIX + 'txs/outspends', this.$getBatchedOutspends)
           .get(config.MEMPOOL.API_URL_PREFIX + 'block/:hash/header', this.getBlockHeader)
           .get(config.MEMPOOL.API_URL_PREFIX + 'blocks/tip/hash', this.getBlockTipHash)
@@ -1054,9 +1070,99 @@ class BitcoinRoutes {
       const result = await bitcoinApi.$getTransactionMerkleProof(req.params.txId);
       res.json(result);
     } catch (e) {
-      handleError(req, res, 500, e instanceof Error ? e.message : 'Failed to get transaction merkle proof');
+      handleError(req, res, txErrorStatus(e), e instanceof Error ? e.message : 'Failed to get transaction merkle proof');
     }
   }
+  // FreeBank: GET /tx/:txId/merkleblock-proof, the node's gettxoutproof as hex
+  private async getTransactionMerkleBlockProof(req: Request, res: Response): Promise<void> {
+    if (!TXID_REGEX.test(req.params.txId)) {
+      handleError(req, res, 501, `Invalid transaction ID`);
+      return;
+    }
+    try {
+      const result = await bitcoinApi.$getTransactionMerkleBlockProof(req.params.txId);
+      res.setHeader('content-type', 'text/plain');
+      res.send(result);
+    } catch (e) {
+      handleError(req, res, txErrorStatus(e), e instanceof Error ? e.message : 'Failed to get transaction merkleblock proof');
+    }
+  }
+
+  // FreeBank: GET /tx/:txId/raw, the transaction as bytes
+  private async getRawTransactionBinary(req: Request, res: Response): Promise<void> {
+    if (!TXID_REGEX.test(req.params.txId)) {
+      handleError(req, res, 501, `Invalid transaction ID`);
+      return;
+    }
+    try {
+      const hex = await bitcoinApi.$getTransactionHex(req.params.txId);
+      res.setHeader('content-type', 'application/octet-stream');
+      res.send(Buffer.from(hex, 'hex'));
+    } catch (e) {
+      handleError(req, res, txErrorStatus(e), 'Failed to get raw transaction');
+    }
+  }
+
+  // FreeBank: GET /tx/:txId/outspend/:vout, one entry of /tx/:txId/outspends
+  private async getTransactionOutspend(req: Request, res: Response): Promise<void> {
+    if (!TXID_REGEX.test(req.params.txId)) {
+      handleError(req, res, 501, `Invalid transaction ID`);
+      return;
+    }
+    const vout = /^[0-9]{1,6}$/.test(req.params.vout) ? parseInt(req.params.vout, 10) : -1;
+    if (vout < 0) {
+      handleError(req, res, 400, 'Invalid output index');
+      return;
+    }
+    try {
+      const outspends = await bitcoinApi.$getOutspends(req.params.txId);
+      if (vout >= outspends.length) {
+        handleError(req, res, 404, 'No such output');
+        return;
+      }
+      res.json(outspends[vout]);
+    } catch (e) {
+      handleError(req, res, txErrorStatus(e), 'Failed to get transaction outspend');
+    }
+  }
+
+  // FreeBank: GET /block/:hash/status
+  private async getBlockStatus(req: Request, res: Response): Promise<void> {
+    if (!BLOCK_HASH_REGEX.test(req.params.hash)) {
+      handleError(req, res, 501, `Invalid block hash`);
+      return;
+    }
+    try {
+      res.json(await bitcoinApi.$getBlockStatus(req.params.hash));
+    } catch (e) {
+      handleError(req, res, blockErrorStatus(e), 'Failed to get block status');
+    }
+  }
+
+  // FreeBank: GET /block/:hash/txid/:index, the txid at a position in the block
+  private async getBlockTxId(req: Request, res: Response): Promise<void> {
+    if (!BLOCK_HASH_REGEX.test(req.params.hash)) {
+      handleError(req, res, 501, `Invalid block hash`);
+      return;
+    }
+    const index = /^[0-9]{1,7}$/.test(req.params.index) ? parseInt(req.params.index, 10) : -1;
+    if (index < 0) {
+      handleError(req, res, 400, 'Invalid transaction index');
+      return;
+    }
+    try {
+      const txids = await bitcoinApi.$getTxIdsForBlock(req.params.hash);
+      if (index >= txids.length) {
+        handleError(req, res, 404, 'Transaction index out of range');
+        return;
+      }
+      res.setHeader('content-type', 'text/plain');
+      res.send(txids[index]);
+    } catch (e) {
+      handleError(req, res, blockErrorStatus(e), 'Failed to get block txid');
+    }
+  }
+
 
   private getDifficultyChange(req: Request, res: Response) {
     try {
