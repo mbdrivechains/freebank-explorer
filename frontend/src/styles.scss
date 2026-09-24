@@ -1300,6 +1300,25 @@ a {
   border-color: var(--primary);
 }
 
+// Green fills (confirmations, Mined, Match): white on Bootstrap's #0aab2f is 3.05:1; on #0b7a2b 5.48:1.
+.btn-success, .badge-success {
+  background-color: #0b7a2b;
+  border-color: #0b7a2b;
+}
+
+.btn-success:hover {
+  background-color: #096523;
+  border-color: #096523;
+}
+
+// A unit ('ECX', 'sats') inside a filled button takes the button's text colour: the dimmed .symbol
+// colour is 3.94:1 on $primary and 3.07:1 on the green above.
+.btn-primary, .btn-success, .btn-danger {
+  .symbol {
+    color: inherit;
+  }
+}
+
 .btn-small-height {
 	line-height: 1;
 }

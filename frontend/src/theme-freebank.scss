@@ -9,6 +9,7 @@
  * Palette: gold #d8b45a, light gold #e8c877; backgrounds #0e0f13 #14161d #171922 #2a2d3a;
  * text #e8e6df, muted #9a9788. #8a6b25 / #7a5f22 / #6b5420 / #5c4a1e are darker shades
  * of the gold, used where light text sits on a gold fill (buttons, badges, pagination).
+ * $primary is #6b5420 so that #e8e6df text on it passes WCAG AA (5.77:1; #8a6b25 was 3.99:1).
  */
 
 /* Theme */
@@ -32,7 +33,7 @@ $text-muted: #9a9788;
 
 $nav-tabs-link-active-bg: $active-bg;
 
-$primary: #8a6b25;
+$primary: #6b5420;
 $secondary: #2a2d3a;
 $tertiary: #7a5f22;
 $success: #0aab2f;
