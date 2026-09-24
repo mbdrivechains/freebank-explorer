@@ -65,6 +65,8 @@ class PoolsUpdater {
       const localPools = this.isLocalPoolsFile() ? this.readLocalPools() : null;
       const githubSha = localPools ? localPools.sha : await this.fetchPoolsSha(); // Fetch pools-v2.json sha from github
       if (githubSha === null) {
+        // FreeBank: the backend no longer exits without a sha, so try again in 10 minutes, not in POOLS_UPDATE_DELAY
+        this.lastRun = now - Math.max(config.MEMPOOL.POOLS_UPDATE_DELAY - 600, 600);
         return;
       }
 
@@ -92,6 +94,7 @@ class PoolsUpdater {
       }
       const poolsJson = localPools ? localPools.pools : await this.query(this.poolsUrl);
       if (poolsJson === undefined) {
+        this.lastRun = now - Math.max(config.MEMPOOL.POOLS_UPDATE_DELAY - 600, 600); // FreeBank: retry in 10 minutes
         return;
       }
       poolsParser.setMiningPools(poolsJson);

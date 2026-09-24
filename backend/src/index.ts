@@ -164,7 +164,7 @@ class Server {
 
     await poolsUpdater.updatePoolsJson(); // Needs to be done before loading the disk cache because we sometimes wipe it
     if (config.DATABASE.ENABLED === true && config.MEMPOOL.ENABLED && ['mainnet', 'testnet', 'signet', 'testnet4', 'regtest'].includes(config.MEMPOOL.NETWORK) && !poolsUpdater.currentSha) {
-      // FreeBank: keep running instead of exiting (blocks get pool 'Unknown'); the pools updater tries again later
+      // FreeBank: keep running instead of exiting (blocks get pool 'Unknown'); the pools updater tries again in 10 minutes
       logger.warn(`Failed to retrieve the mining pools list sha. Check mempool-config.json::MEMPOOL::POOLS_JSON_URL (empty = the bundled list) and POOLS_JSON_TREE_URL. Continuing without it.`);
     }
 
