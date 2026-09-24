@@ -1,5 +1,5 @@
 import { FreebankBmmBlock, FreebankBmmStatus } from '@interfaces/freebank-bmm.interface';
-import { formatUnits } from '@app/freebank/credit-units';
+import { formatCubeAmount, formatUnits } from '@app/freebank/credit-units';
 
 // Display helpers for the BMM view (/bmm, the block page's "Carried by eCash block" row and the
 // bid on the block cubes).
@@ -120,7 +120,7 @@ export function bmmRow(item: FreebankBmmBlock, explorerUrl: string): BmmRow {
 
 /** What a block cube in the header strip shows from the BMM view (BmmCubesService). */
 export interface BmmCube {
-  bidText: string;                // the cube's big line: '2,000 szats', or 'bid …' while pending
+  bidText: string;                // the small line under the block's fees: 'bid 2,000 szats', or 'bid …' while pending
   poolName: string;               // the badge under the cube; '' for none
   poolUrl: string | null;         // the pool's page on the eCash explorer
 }
@@ -138,7 +138,7 @@ export function bmmCube(item: FreebankBmmBlock, explorerUrl: string): BmmCube | 
     return null;
   }
   return {
-    bidText: formatBidSats(item.bid_sats) + ' szats',
+    bidText: 'bid ' + formatCubeAmount(item.bid_sats),
     poolName: item.pool?.name || item.pool?.slug || '',
     poolUrl: item.pool?.slug ? ecashExplorerUrl(explorerUrl, 'mining/pool', item.pool.slug) : null,
   };

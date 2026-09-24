@@ -55,19 +55,11 @@
               </div>
             </ng-template>
             <ng-container *ngIf="blockDisplayMode === 'fees'; else noMiningInfo">
-              <!-- FreeBank: with the BMM view on, the big line is the bid the eCash miner was paid for this
-                   block ('bid …' until the backend has found it) and the fees go on a small line under it -->
-              <ng-container *ngIf="bmmCubes[block.id] as bmmCube; else feesOnly">
-                <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bid'" class="block-size bmm-bid">{{ bmmCube.bidText }}</div>
-                <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" class="bmm-fees">
-                  fees <app-amount [satoshis]="block.extras?.totalFees ?? 0" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
-                </div>
-              </ng-container>
-              <ng-template #feesOnly>
-                <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" class="block-size">
-                  <app-amount [satoshis]="block.extras?.totalFees ?? 0" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
-                </div>
-              </ng-template>
+              <!-- FreeBank: the big line is the block's fees (what its producer earns), in szats. With the BMM view
+                   on, the bid the eCash miner was paid for the block goes in small print under it ('bid …' until
+                   the backend has found it) -->
+              <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" class="block-size" [class.bmm-big]="!!bmmCubes[block.id]">{{ cubeAmount(block.extras?.totalFees ?? 0) }}</div>
+              <div *ngIf="bmmCubes[block.id] as bmmCube" [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bid'" class="bmm-small">{{ bmmCube.bidText }}</div>
             </ng-container>
             <ng-template #noMiningInfo>
             <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + 'block-size'"

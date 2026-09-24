@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { delay, filter, map, switchMap, tap } from 'rxjs/operators';
 import { feeLevels } from '@app/app.constants';
 import { specialBlocks } from '@app/app.constants';
+import { formatCubeAmount } from '@app/freebank/credit-units';
 import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pipe';
 import { Location } from '@angular/common';
 import { DifficultyAdjustment, MempoolPosition } from '@interfaces/node-api.interface';
@@ -40,6 +41,7 @@ export class MempoolBlocksComponent implements OnInit, OnChanges, OnDestroy {
   @Output() widthChange: EventEmitter<number> = new EventEmitter();
 
   specialBlocks = specialBlocks;
+  readonly cubeAmount = formatCubeAmount;   // FreeBank: the fees on the cube's big line, in szats (ECX from 0.01)
   mempoolBlocks: MempoolBlock[] = [];
   mempoolEmptyBlocks: MempoolBlock[] = this.mountEmptyBlocks();
   mempoolBlocks$: Observable<MempoolBlock[]>;

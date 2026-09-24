@@ -7,6 +7,7 @@ import { Location } from '@angular/common';
 import { CacheService } from '@app/services/cache.service';
 import { BmmCubesService } from '@app/freebank/bmm-cubes.service';
 import { BmmCube } from '@app/freebank/bmm-view';
+import { formatCubeAmount } from '@app/freebank/credit-units';
 
 interface BlockchainBlock extends BlockExtended {
   placeholder?: boolean;
@@ -65,6 +66,7 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
   timeLtr: boolean;
   bmmSubscription: Subscription;
   bmmCubes: Record<string, BmmCube> = {};   // FreeBank: the bid and the eCash pool on each cube, by block hash
+  readonly cubeAmount = formatCubeAmount;   // FreeBank: the fees on the cube's big line, in szats (ECX from 0.01)
 
   blockOffset: number = 155;
   dividerBlockOffset: number = 205;

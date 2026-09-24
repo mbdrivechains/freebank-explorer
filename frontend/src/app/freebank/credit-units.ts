@@ -2,9 +2,12 @@
 // Units are documented in interfaces/freebank-credit.interface.ts. Pure TypeScript (no Angular),
 // English formatting only. The pipes and <app-credit-amount> in this folder wrap these.
 
+import { UNIT } from '@app/app.constants';
+
 export const SATS_PER_ECX = 100000000;
 
 const ecxFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+const cubeEcxFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 const integerFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 const grams2Format = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const mg1Format = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -34,6 +37,21 @@ export function formatSatsAsEcx(sats: number): string {
 /** Note units (or any integer count): 5040000 -> '5,040,000'. No unit suffix. */
 export function formatUnits(units: number): string {
   return isNumber(units) ? integerFormat.format(units) : '';
+}
+
+/**
+ * A sats amount on a block cube (fees, the BMM bid), with its unit: szats below 0.01 ECX, ECX from
+ * there, so it fits the 125px cube: 0 -> '0 szats', 1 -> '1 szat', 125000 -> '125,000 szats',
+ * 1955035 -> '0.02 ECX', 123456789 -> '1.235 ECX'.
+ */
+export function formatCubeAmount(sats: number): string {
+  if (!isNumber(sats)) {
+    return '';
+  }
+  if (sats < SATS_PER_ECX / 100) {
+    return integerFormat.format(sats) + (sats === 1 ? ' szat' : ' szats');
+  }
+  return cubeEcxFormat.format(satsToEcx(sats)) + ' ' + UNIT;
 }
 
 /**
