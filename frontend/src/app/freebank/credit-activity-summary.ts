@@ -212,7 +212,7 @@ function noteSummary(op: string | null, d: FreebankDecodedPayload): string {
       // coins and re-issues the same total), so it is what passed through the tx, not what the
       // new holder received.
       const outputs = num(d, 'outputs');
-      const spread = outputs !== null && outputs > 1 ? ` across ${formatUnits(outputs)} outputs, change included` : '';
+      const spread = outputs !== null && outputs > 1 ? ` across ${formatUnits(outputs)} outputs, any change included` : '';
       return `${capitalize(houseNotes(id))} transferred` + (count !== null ? `: ${units(count)}${spread}` : '');
     }
     case 'redeem':
