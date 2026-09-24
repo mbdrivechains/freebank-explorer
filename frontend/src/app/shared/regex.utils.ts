@@ -240,8 +240,10 @@ export function getRegex(type: RegexType, network?: Network): RegExp {
       }
       let leadingZeroes: number;
       switch (network) {
-        case `mainnet`:
-          leadingZeroes = 8; // Assumes at least 32 bits of difficulty
+        case `mainnet`: // FreeBank mainnet
+          // No proof of work (BMM), so a block hash has no leading zeros and looks like a txid.
+          // 64 zeros means this never matches a real hash; search asks the API for a block, then a tx.
+          leadingZeroes = 64;
           break;
         case `testnet`:
           leadingZeroes = 8; // Assumes at least 32 bits of difficulty
@@ -252,8 +254,8 @@ export function getRegex(type: RegexType, network?: Network): RegExp {
         case `signet`:
           leadingZeroes = 5;
           break;
-        case `regtest`:
-          leadingZeroes = 1; // Regtest has very low difficulty
+        case `regtest`: // FreeBank regtest
+          leadingZeroes = 64; // Same as FreeBank mainnet (1 zero here sent txids starting with 0 to /block/)
           break;
         case `liquid`:
           leadingZeroes = 8; // We are not interested in Liquid block hashes
