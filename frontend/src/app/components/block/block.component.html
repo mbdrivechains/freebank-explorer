@@ -182,6 +182,23 @@
           <td style="width: 75%;"><span class="skeleton-loader"></span></td>
         </tr>
       </ng-template>
+      <!-- FreeBank: the eCash block that carried this block, its pool and the bid (the BMM view, /bmm) -->
+      <tr *ngIf="bmmCarried && bmmCarried.item.freebank_hash === block.id">
+        <td class="bmm-carried-label">Carried by eCash block</td>
+        <!-- &ngsp; is a space Angular keeps: a narrow cell breaks the line there, between the parts -->
+        <td class="bmm-carried">
+          <span class="bmm-carried-part">
+            <a *ngIf="bmmCarried.ecashBlockUrl; else bmmEcashHeight" [href]="bmmCarried.ecashBlockUrl" target="_blank" rel="noopener">{{ bmmCarried.item.ecash_height }}</a>
+            <ng-template #bmmEcashHeight>{{ bmmCarried.item.ecash_height }}</ng-template>
+          </span>&ngsp;<span class="bmm-carried-part" *ngIf="bmmCarried.item.pool">&middot;
+            <a *ngIf="bmmCarried.poolUrl; else bmmPoolName" [href]="bmmCarried.poolUrl" target="_blank" rel="noopener">{{ bmmCarried.item.pool.name }}</a>
+            <ng-template #bmmPoolName>{{ bmmCarried.item.pool.name }}</ng-template>
+          </span>&ngsp;<span class="bmm-carried-part" *ngIf="bmmCarried.bidText">&middot; bid
+            <a *ngIf="bmmCarried.bidTxUrl; else bmmBid" [href]="bmmCarried.bidTxUrl" target="_blank" rel="noopener">{{ bmmCarried.bidText }} sats</a>
+            <ng-template #bmmBid>{{ bmmCarried.bidText }} sats</ng-template>
+          </span>
+        </td>
+      </tr>
       <!-- FreeBank: no mining pools (blocks come from blind merged mining), so no Miner row without the mining dashboard -->
       <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet' && stateService.env.MINING_DASHBOARD">
         <td i18n="block.miner">Miner</td>

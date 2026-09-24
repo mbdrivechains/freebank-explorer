@@ -11,6 +11,7 @@ import { WebsocketResponse } from '@interfaces/websocket.interface';
 import { TxAuditStatus } from '@components/transaction/transaction.component';
 import { FreebankActivityResponse, FreebankBillResponse, FreebankBillsResponse, FreebankGoldResponse, FreebankHouseResponse,
   FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
+import { FreebankBmmBlock, FreebankBmmConfig, FreebankBmmListResponse, FreebankBmmSummaryResponse } from '@interfaces/freebank-bmm.interface';
 
 @Injectable({
   providedIn: 'root'
@@ -20,6 +21,7 @@ export class ApiService {
   private apiBasePath: string; // network path is /testnet, etc. or '' for mainnet
 
   private requestCache = new Map<string, { subject: BehaviorSubject<any>, expiry: number }>;
+  private freebankBmmConfig$: Observable<FreebankBmmConfig | null> | null = null; // FreeBank: see getFreebankBmmConfig$
   public blockSummaryLoaded: { [hash: string]: boolean } = {};
   public blockAuditLoaded: { [hash: string]: boolean } = {};
 
@@ -634,6 +636,51 @@ export class ApiService {
       params = params.set('limit', String(limit));
     }
     return this.httpClient.get<FreebankActivityResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/activity', { params });
+  }
+
+  // FreeBank BMM view: which eCash block carried each FreeBank block, its pool and the bid.
+  // The backend looks these up on the eCash explorer; the browser only reads our API.
+  // Response shapes: interfaces/freebank-bmm.interface.ts
+
+  /** Newest first over the active chain. limit 1..100; before: only heights below it (older pages). */
+  getFreebankBmm$(limit?: number, before?: number): Observable<FreebankBmmListResponse> {
+    let params = new HttpParams();
+    if (limit) {
+      params = params.set('limit', String(limit));
+    }
+    if (typeof before === 'number') {
+      params = params.set('before', String(before));
+    }
+    return this.httpClient.get<FreebankBmmListResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/bmm', { params });
+  }
+
+  /** One FreeBank block by hash; 'pending' until the backend has looked it up (asking moves it to the front of its queue). */
+  getFreebankBmmBlock$(hash: string): Observable<FreebankBmmBlock> {
+    return this.httpClient.get<FreebankBmmBlock>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/bmm/block/' + encodeURIComponent(hash));
+  }
+
+  /** Totals and pool shares. For `enabled` and `explorer_url` alone, use getFreebankBmmConfig$. */
+  getFreebankBmmSummary$(): Observable<FreebankBmmSummaryResponse> {
+    return this.httpClient.get<FreebankBmmSummaryResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/bmm/summary');
+  }
+
+  /**
+   * Whether the BMM view is on, and the eCash explorer's URL for links. Both are fixed while the
+   * backend runs, so bmm/summary is asked once per session and every caller shares the answer.
+   * A failed ask gives null to the callers waiting on it and is not kept: the next caller asks again.
+   */
+  getFreebankBmmConfig$(): Observable<FreebankBmmConfig | null> {
+    if (!this.freebankBmmConfig$) {
+      this.freebankBmmConfig$ = this.getFreebankBmmSummary$().pipe(
+        map((summary): FreebankBmmConfig => ({ enabled: !!summary?.enabled, explorer_url: summary?.explorer_url || '' })),
+        catchError(() => {
+          this.freebankBmmConfig$ = null;
+          return of(null);
+        }),
+        shareReplay(1),
+      );
+    }
+    return this.freebankBmmConfig$;
   }
 
   // Cache methods

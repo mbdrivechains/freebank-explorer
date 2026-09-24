@@ -5,6 +5,8 @@ import { specialBlocks } from '@app/app.constants';
 import { BlockExtended } from '@interfaces/node-api.interface';
 import { Location } from '@angular/common';
 import { CacheService } from '@app/services/cache.service';
+import { BmmCubesService } from '@app/freebank/bmm-cubes.service';
+import { BmmCube } from '@app/freebank/bmm-view';
 
 interface BlockchainBlock extends BlockExtended {
   placeholder?: boolean;
@@ -61,6 +63,8 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
   arrowTransition = '1s';
   timeLtrSubscription: Subscription;
   timeLtr: boolean;
+  bmmSubscription: Subscription;
+  bmmCubes: Record<string, BmmCube> = {};   // FreeBank: the bid and the eCash pool on each cube, by block hash
 
   blockOffset: number = 155;
   dividerBlockOffset: number = 205;
@@ -81,6 +85,7 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
     public cacheService: CacheService,
     private cd: ChangeDetectorRef,
     private location: Location,
+    private bmmCubesService: BmmCubesService,
   ) {
   }
 
@@ -122,6 +127,12 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
       this.cd.markForCheck();
     });
 
+    // FreeBank: the bid and the eCash pool on each cube, from the BMM view (one request for all strips)
+    this.bmmSubscription = this.bmmCubesService.cubes$.subscribe((cubes) => {
+      this.bmmCubes = cubes;
+      this.cd.markForCheck();
+    });
+
     if (this.stateService.network === 'liquid' || this.stateService.network === 'liquidtestnet') {
       this.feeRounding = '1.0-1';
     }
@@ -146,6 +157,7 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
           }
 
           this.blocks = blocks;
+          this.showBmmHeights();
 
           this.blockStyles = [];
           if (animate) {
@@ -228,6 +240,8 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
     this.markBlockSubscription.unsubscribe();
     this.blockDisplayModeSubscription.unsubscribe();
     this.timeLtrSubscription.unsubscribe();
+    this.bmmSubscription?.unsubscribe();
+    this.bmmCubesService.hide(this);
     clearInterval(this.interval);
   }
 
@@ -303,6 +317,7 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
       });
     }
     this.blocks = this.blocks.slice(0, this.count);
+    this.showBmmHeights();
     this.blockStyles = [];
     this.blocks.forEach((b, i) => this.blockStyles.push(this.getStyleForBlock(b, i, animateSlide ? -this.blockOffset : 0)));
     this.cd.markForCheck();
@@ -330,6 +345,16 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
       this.blockStyles[blockIndex] = this.getStyleForBlock(block, blockIndex);
     }
     this.cd.markForCheck();
+  }
+
+  // FreeBank: tell the BMM view which heights this strip shows (the live strip keeps some blocks
+  // offscreen: count). The minimal strips (the clock) have no bid line and no badge, so no request.
+  showBmmHeights(): void {
+    if (this.minimal) {
+      return;
+    }
+    const shown = this.blocks.filter((block, i) => block && !block.placeholder && (this.static || !this.count || i < this.count));
+    this.bmmCubesService.show(this, shown.map((block) => block.height), this.static ? '' : (shown[0]?.id || ''));
   }
 
   isSpecial(height: number): boolean {

@@ -52,6 +52,7 @@ import { handleError } from './utils/api';
 import freebankRoutes from './api/freebank/freebank.routes';
 import freebankApi from './api/freebank/freebank-api';
 import creditActivity from './api/freebank/credit-activity';
+import bmm from './api/freebank/bmm';
 
 class Server {
   private wss: WebSocket.Server | undefined;
@@ -212,6 +213,9 @@ class Server {
     this.setUpHttpApiRoutes();
     // FreeBank: backfill the credit-activity index in the background (/api/v1/freebank/activity)
     creditActivity.kick();
+    // FreeBank: the BMM view's eCash lookups, in the background (/api/v1/freebank/bmm*); off
+    // unless FREEBANK.BMM_ENABLED. With cluster workers only the first makes requests (bmm.ts)
+    bmm.start();
 
     if (config.MEMPOOL.ENABLED) {
       void this.runMainUpdateLoop();
@@ -338,10 +342,12 @@ class Server {
         }
       });
     }
-    // FreeBank: a new block ends the credit API's per-tip cache and extends the activity index
-    blocks.setNewBlockCallback(() => {
+    // FreeBank: a new block ends the credit API's per-tip cache, extends the activity index and
+    // queues the block's eCash lookup for the BMM view
+    blocks.setNewBlockCallback((block) => {
       freebankApi.onNewBlock();
       creditActivity.kick();
+      bmm.onNewBlock(block.id);
     });
     websocketHandler.setupConnectionHandling();
     if (config.MEMPOOL.ENABLED) {

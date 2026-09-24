@@ -156,5 +156,14 @@
   "STRATUM": {
     "ENABLED": false,
     "API": "http://localhost:1234"
+  },
+  "FREEBANK": {
+    "ACTIVITY_BACKFILL_BLOCKS": 500,
+    "BMM_ENABLED": true,
+    "BMM_API": "https://ecash-explorer.example/api",
+    "BMM_EXPLORER_URL": "https://ecash-explorer.example",
+    "BMM_SLOT": 131,
+    "BMM_BACKFILL_BLOCKS": 100,
+    "BMM_MIN_INTERVAL_MS": 2500
   }
 }

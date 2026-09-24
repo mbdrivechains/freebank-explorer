@@ -79,6 +79,11 @@ const routes: Routes = [
         data: { preload: true, networkSpecific: true },
         loadChildren: () => import('@components/block/block.module').then(m => m.BlockModule),
       },
+      // FreeBank: the BMM view (which eCash block carried each FreeBank block), lazy like the credit pages
+      {
+        path: 'bmm',
+        loadChildren: () => import('@app/freebank/bmm.module').then(m => m.BmmModule),
+      },
       // FreeBank: the credit pages (/credit, /houses, /house/:id, /bills, /bill/:id, /pools,
       // /pool/:id, /gold). canMatch runs before the lazy module loads, so other pages never fetch it.
       {

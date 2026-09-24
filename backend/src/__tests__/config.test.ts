@@ -165,6 +165,16 @@ describe('Mempool Backend Config', () => {
         ENABLED: false,
         API: 'http://localhost:1234',
       });
+
+      expect(config.FREEBANK).toStrictEqual({
+        ACTIVITY_BACKFILL_BLOCKS: 2016,
+        BMM_ENABLED: false,
+        BMM_API: 'https://explorer.beta.ecash.ninja/api',
+        BMM_EXPLORER_URL: 'https://explorer.beta.ecash.ninja',
+        BMM_SLOT: 130,
+        BMM_BACKFILL_BLOCKS: 2000,
+        BMM_MIN_INTERVAL_MS: 1000,
+      });
     });
   });
 
@@ -198,6 +208,8 @@ describe('Mempool Backend Config', () => {
       expect(config.MEMPOOL_SERVICES).toStrictEqual(fixture.MEMPOOL_SERVICES);
 
       expect(config.REDIS).toStrictEqual(fixture.REDIS);
+
+      expect(config.FREEBANK).toStrictEqual(fixture.FREEBANK);
     });
   });
 

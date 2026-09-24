@@ -174,6 +174,12 @@ interface IConfig {
   },
   FREEBANK: {
     ACTIVITY_BACKFILL_BLOCKS: number;
+    BMM_ENABLED: boolean;
+    BMM_API: string;
+    BMM_EXPLORER_URL: string;
+    BMM_SLOT: number;
+    BMM_BACKFILL_BLOCKS: number;
+    BMM_MIN_INTERVAL_MS: number;
   }
 }
 
@@ -351,6 +357,14 @@ const defaults: IConfig = {
     // FreeBank: blocks scanned for credit txs at startup, for /api/v1/freebank/activity
     // (the environment variable FREEBANK_ACTIVITY_BACKFILL_BLOCKS overrides it)
     'ACTIVITY_BACKFILL_BLOCKS': 2016,
+    // FreeBank: the BMM view (/api/v1/freebank/bmm*): the eCash block, pool and bid behind each
+    // FreeBank block, from an eCash mempool explorer's API. Off = no outbound request at all.
+    'BMM_ENABLED': false,
+    'BMM_API': 'https://explorer.beta.ecash.ninja/api',
+    'BMM_EXPLORER_URL': 'https://explorer.beta.ecash.ninja', // for links only
+    'BMM_SLOT': 130, // FreeBank's sidechain slot on eCash
+    'BMM_BACKFILL_BLOCKS': 2000, // newest FreeBank blocks looked up at startup (0 or 1: the tip only)
+    'BMM_MIN_INTERVAL_MS': 1000, // between two requests to BMM_API
   }
 };
 

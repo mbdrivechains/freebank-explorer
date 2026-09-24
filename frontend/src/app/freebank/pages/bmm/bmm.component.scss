@@ -1,0 +1,152 @@
+// /bmm - listed after ../bills-pools.scss (page frame, intro, section titles, .credit-table).
+// Theme variables only (theme-freebank.scss).
+
+.bmm-disabled {
+  color: var(--transparent-fg);
+  margin: 1rem 0 2rem;
+}
+
+// ---- summary cards: the /credit tiles (credit-overview.component.scss), kept in step by hand;
+// 2 columns on phones, 4 from 992px ----
+
+.credit-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  @media (min-width: 992px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+.credit-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  @media (max-width: 575.98px) {
+    padding: 1rem;
+  }
+}
+
+.credit-tile-title {
+  color: var(--title-fg);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.credit-tile-value {
+  color: var(--fg);
+  font-size: 1.25rem;
+  line-height: 1.25;
+  margin: 0.35rem 0 0.4rem;
+  overflow-wrap: anywhere;
+  @media (min-width: 992px) {
+    font-size: 1.5rem;
+  }
+}
+
+.credit-tile-unit {
+  color: var(--transparent-fg);
+  font-size: 0.8rem;
+}
+
+.credit-tile-line {
+  color: var(--transparent-fg);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.bmm-skeleton-title {
+  max-width: 90px;
+}
+
+.bmm-skeleton-value {
+  max-width: 120px;
+  height: 22px;
+  margin: 0.5rem 0;
+}
+
+// ---- pool shares: a gold bar per pool, as wide as its share of the carried blocks ----
+
+.bmm-pools {
+  margin-bottom: 0;
+}
+
+.bmm-pool-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bmm-pool + .bmm-pool {
+  margin-top: 0.85rem;
+}
+
+.bmm-pool-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 1rem;
+}
+
+.bmm-pool-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bmm-pool-count {
+  color: var(--transparent-fg);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.bmm-bar {
+  height: 8px;
+  margin-top: 0.35rem;
+  border-radius: 4px;
+  background-color: var(--secondary);
+  overflow: hidden;
+}
+
+.bmm-bar-fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--primary), var(--mainnet-alt));
+}
+
+// ---- blocks table ----
+
+.bmm-table {
+  // bills-pools.scss lets every credit-table cell wrap; these stay on one line
+  td.nowrap {
+    white-space: nowrap;
+  }
+
+  .bmm-note {
+    color: var(--transparent-fg);
+    font-size: 0.85rem;
+    cursor: help;
+  }
+
+  .bmm-waiting {
+    font-style: italic;
+  }
+
+  .bmm-txid {
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+}
+
+.bmm-paging {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}

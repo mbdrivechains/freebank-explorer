@@ -320,3 +320,18 @@ h1 {
     }
   }
 }
+
+// FreeBank: the "Carried by eCash block" row wraps its label, and breaks between its parts
+// (height, pool, bid), on a narrow screen instead of widening the table (mempool sets
+// tr { white-space: nowrap })
+.bmm-carried-label {
+  white-space: normal;
+}
+
+.bmm-carried {
+  white-space: normal;
+
+  .bmm-carried-part {
+    white-space: nowrap;
+  }
+}

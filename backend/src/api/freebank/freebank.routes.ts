@@ -4,6 +4,7 @@ import logger from '../../logger';
 import { handleError } from '../../utils/api';
 import freebankApi, { FreebankResult, parseCreditId } from './freebank-api';
 import creditActivity from './credit-activity';
+import bmm from './bmm';
 import { CREDIT_FAMILIES, CreditFamily } from './freebank-tx-parser';
 
 // /api/v1/freebank/* - the FreeBank credit pages' API: read-only JSON, cached until the next
@@ -26,12 +27,22 @@ import { CREDIT_FAMILIES, CreditFamily } from './freebank-tx-parser';
 //                       minted_grams_total, bills_active, loanbook_face_total,
 //                       loanbook_face_total_grams, pools, gold_fix }
 //
+// The BMM view (bmm.ts): the eCash block, pool and bid behind each FreeBank block.
+//   GET bmm?limit=&before=
+//                     { enabled, explorer_url, tip_height, items: BmmBlock[] }, newest first,
+//                     heights below `before` (default: from the tip); limit 1-100, default 25
+//   GET bmm/block/:hash BmmBlock ('pending' if not looked up yet)             404 unknown
+//   GET bmm/summary   { enabled, explorer_url, indexed, pending, carried, total_bid_sats,
+//                       avg_bid_sats, median_bid_sats, last, pools, latest_ecash_height }
+//
 // A malformed id is a 400; an id the node does not know is a 404; a node failure is a 500
 // with a short message. Nothing here throws past the handler.
 
 const ACTIVITY_DEFAULT_LIMIT = 50;
 const ACTIVITY_MAX_LIMIT = 200;
 const ACTIVITY_WAIT_MS = 1500;
+const BMM_DEFAULT_LIMIT = 25;
+const BMM_MAX_LIMIT = 100;
 
 function nodeError(req: Request, res: Response, what: string, e: unknown): void {
   const message = (e instanceof Error ? e.message : String(e)).slice(0, 200);
@@ -56,6 +67,9 @@ class FreebankRoutes {
       .get(prefix + 'gold', this.$getGold)
       .get(prefix + 'activity', this.$getActivity)
       .get(prefix + 'summary', this.$getSummary)
+      .get(prefix + 'bmm', this.$getBmm)
+      .get(prefix + 'bmm/block/:hash', this.$getBmmBlock)
+      .get(prefix + 'bmm/summary', this.$getBmmSummary)
       ;
   }
 
@@ -170,6 +184,48 @@ class FreebankRoutes {
     } catch (e) {
       nodeError(req, res, 'activity', e);
     }
+  };
+
+  private $getBmm = async (req: Request, res: Response): Promise<void> => {
+    const limitParam = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : NaN;
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(BMM_MAX_LIMIT, Math.max(1, limitParam))
+      : BMM_DEFAULT_LIMIT;
+    let before: number | null = null;
+    if (typeof req.query.before === 'string' && req.query.before !== '') {
+      if (!/^[0-9]{1,10}$/.test(req.query.before)) {
+        handleError(req, res, 400, 'Invalid before: expected a block height');
+        return;
+      }
+      before = parseInt(req.query.before, 10);
+    }
+    try {
+      res.json(await bmm.$getList(limit, before));
+    } catch (e) {
+      nodeError(req, res, 'bmm', e);
+    }
+  };
+
+  private $getBmmBlock = async (req: Request, res: Response): Promise<void> => {
+    const hash = String(req.params.hash).toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(hash)) {
+      handleError(req, res, 400, 'Invalid block hash');
+      return;
+    }
+    try {
+      const item = await bmm.$getBlock(hash);
+      if (item === null) {
+        handleError(req, res, 404, 'Block not found');
+        return;
+      }
+      res.json(item);
+    } catch (e) {
+      nodeError(req, res, 'bmm block', e);
+    }
+  };
+
+  private $getBmmSummary = (req: Request, res: Response): void => {
+    res.json(bmm.getSummary());
   };
 }
 

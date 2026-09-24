@@ -2,8 +2,8 @@ import { Component, OnInit, OnDestroy, ViewChildren, QueryList, ChangeDetectorRe
 import { Location } from '@angular/common';
 import { ActivatedRoute, ParamMap, Params, Router } from '@angular/router';
 import { ElectrsApiService } from '@app/services/electrs-api.service';
-import { switchMap, tap, throttleTime, catchError, map, shareReplay, startWith, filter, take } from 'rxjs/operators';
-import { Observable, of, Subscription, asyncScheduler, EMPTY, combineLatest, forkJoin } from 'rxjs';
+import { switchMap, tap, throttleTime, catchError, map, shareReplay, startWith, filter, take, expand } from 'rxjs/operators';
+import { Observable, of, Subscription, asyncScheduler, EMPTY, combineLatest, forkJoin, timer } from 'rxjs';
 import { StateService } from '@app/services/state.service';
 import { SeoService } from '@app/services/seo.service';
 import { WebsocketService } from '@app/services/websocket.service';
@@ -18,6 +18,20 @@ import { CacheService } from '@app/services/cache.service';
 import { ServicesApiServices } from '@app/services/services-api.service';
 import { PreloadService } from '@app/services/preload.service';
 import { identifyPrioritizedTransactions } from '@app/shared/transaction.utils';
+import { BmmRow, bmmRow, bmmWaiting } from '@app/freebank/bmm-view';
+
+// FreeBank: how often, and how far apart, the block page asks again for a block the BMM view has
+// not looked up yet (asking moves it to the front of the backend's queue)
+const BMM_RETRIES = 3;
+const BMM_RETRY_MS = 5000;
+
+// FreeBank: the tile map is drawn to the scale of a full block (stateService.blockVSize), so a
+// block holding only its coinbase was a dot in a corner. A block under a quarter full is drawn
+// to the scale of TILE_MAP_HEADROOM times its own size instead (at least TILE_MAP_MIN_VBYTES): each
+// tx is a visible tile (a 388 vB coinbase is a third of the width), and the biggest tx still leaves
+// room beside it for the rest. A block a quarter full or more keeps the full-block scale.
+const TILE_MAP_HEADROOM = 4;
+const TILE_MAP_MIN_VBYTES = 4000;
 
 interface ComparisonStats {
   totalFees: number;
@@ -97,6 +111,8 @@ export class BlockComponent implements OnInit, OnDestroy {
   isAuditEnabledSubscription: Subscription;
   oobSubscription: Subscription;
   priceSubscription: Subscription;
+  bmmSubscription: Subscription;
+  bmmCarried: BmmRow | null = null;     // FreeBank: the "Carried by eCash block" row; null hides it
   blockConversion: Price;
   canonicalBlock: BlockExtended;
   canonicalTransactions: TransactionStripped[];
@@ -428,6 +444,27 @@ export class BlockComponent implements OnInit, OnDestroy {
       this.isLoadingOverview = false;
     });
 
+    // FreeBank: the eCash block that carried this block, its pool and the bid, from the BMM view.
+    // Shown only once the backend has found all three. Whether the view is on, and the
+    // explorer_url for the links, come from the BMM config (asked once per session), so a block
+    // view costs one bmm/block/:hash request, or none when the view is off.
+    this.bmmSubscription = this.block$.pipe(
+      switchMap((block: BlockExtended) => {
+        this.bmmCarried = null;
+        const ask = () => this.apiService.getFreebankBmmBlock$(block.id).pipe(catchError(() => of(null)));
+        let retries = 0;
+        return this.apiService.getFreebankBmmConfig$().pipe(
+          filter((config) => !!config?.enabled),
+          switchMap((config) => ask().pipe(
+            expand((bmm) => bmm && bmmWaiting(bmm.status) && retries++ < BMM_RETRIES ? timer(BMM_RETRY_MS).pipe(switchMap(ask)) : EMPTY),
+            filter((bmm) => bmm?.status === 'ok'),
+            take(1),
+            map((bmm) => bmmRow(bmm, config.explorer_url)),
+          )),
+        );
+      }),
+    ).subscribe((carried) => this.bmmCarried = carried);
+
     this.networkChangedSubscription = this.stateService.networkChanged$
       .subscribe((network) => this.network = network);
 
@@ -503,6 +540,7 @@ export class BlockComponent implements OnInit, OnDestroy {
     this.isAuditEnabledSubscription?.unsubscribe();
     this.oobSubscription?.unsubscribe();
     this.priceSubscription?.unsubscribe();
+    this.bmmSubscription?.unsubscribe();
     this.blockGraphProjected.forEach(graph => {
       graph.destroy();
     });
@@ -884,8 +922,10 @@ export class BlockComponent implements OnInit, OnDestroy {
 
   setupBlockGraphs(): void {
     if (this.block?.stale && !this.showAudit && this.staleTransactions && this.canonicalTransactions) {
+      const blockLimit = this.tileMapBlockLimit(this.staleTransactions, this.canonicalTransactions); // FreeBank
       this.blockGraphProjected.forEach(graph => {
         graph.destroy();
+        graph.setBlockLimit(blockLimit);
         if (this.isMobile && this.mode === 'actual') {
           graph.setup(this.canonicalTransactions || []);
         } else {
@@ -894,11 +934,14 @@ export class BlockComponent implements OnInit, OnDestroy {
       });
       this.blockGraphActual.forEach(graph => {
         graph.destroy();
+        graph.setBlockLimit(blockLimit);
         graph.setup(this.canonicalTransactions || []);
       });
     } else if (this.blockAudit || this.strippedTransactions) {
+      const blockLimit = this.tileMapBlockLimit(this.blockAudit?.transactions || this.strippedTransactions, this.blockAudit?.template); // FreeBank
       this.blockGraphProjected.forEach(graph => {
         graph.destroy();
+        graph.setBlockLimit(blockLimit);
         if (this.isMobile && this.mode === 'actual') {
           graph.setup(this.blockAudit?.transactions || this.strippedTransactions ||  []);
         } else {
@@ -907,9 +950,17 @@ export class BlockComponent implements OnInit, OnDestroy {
       });
       this.blockGraphActual.forEach(graph => {
         graph.destroy();
+        graph.setBlockLimit(blockLimit);
         graph.setup(this.blockAudit?.transactions || this.strippedTransactions || []);
       });
     }
+  }
+
+  // FreeBank: the scale of this page's tile maps, from the largest tx list they show (the graphs
+  // side by side share one scale); see TILE_MAP_HEADROOM
+  tileMapBlockLimit(...lists: TransactionStripped[][]): number {
+    const vsize = Math.max(0, ...lists.map((txs) => (txs || []).reduce((sum, tx) => sum + (tx.vsize || 0), 0)));
+    return Math.min(this.stateService.blockVSize, Math.max(TILE_MAP_MIN_VBYTES, TILE_MAP_HEADROOM * vsize));
   }
 
   onResize(event: Event): void {

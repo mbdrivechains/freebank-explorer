@@ -1,0 +1,175 @@
+<div class="container-xl credit-page bmm-page">
+  <div class="title-block">
+    <h1>BMM</h1>
+  </div>
+
+  <ng-container *ngIf="view$ | async as view">
+    <p class="credit-intro" *ngIf="!view.disabled">Every FreeBank block is blind-merged-mined: an eCash miner commits it in an eCash block, paid by a bid.</p>
+
+    <p class="bmm-disabled" *ngIf="view.disabled; else enabledPage">The BMM view is not enabled on this explorer.</p>
+
+    <ng-template #enabledPage>
+      <!-- SUMMARY CARDS -->
+      <ng-container *ngIf="view.summary as s">
+        <app-http-error *ngIf="s.load.error && !s.summary" [error]="s.load.error">Could not load the BMM summary</app-http-error>
+
+        <div class="credit-tiles" *ngIf="s.summary as summary">
+          <div class="box credit-tile">
+            <div class="credit-tile-title">Blocks carried</div>
+            <div class="credit-tile-value">{{ summary.carried | number }}</div>
+            <div class="credit-tile-line">
+              FreeBank blocks found committed in an eCash block, of {{ summary.indexed | number }} looked up.
+              <ng-container *ngIf="summary.pending > 0">{{ summary.pending | number }} still waiting for the eCash explorer.</ng-container>
+            </div>
+          </div>
+
+          <div class="box credit-tile">
+            <div class="credit-tile-title">Total bids</div>
+            <div class="credit-tile-value">{{ s.totalBidText || '0' }} <span class="credit-tile-unit">sats</span></div>
+            <div class="credit-tile-line">What the winning bids paid eCash miners to carry those blocks.</div>
+          </div>
+
+          <div class="box credit-tile">
+            <div class="credit-tile-title">Average bid</div>
+            <ng-container *ngIf="s.avgBidText; else noBids">
+              <div class="credit-tile-value">{{ s.avgBidText }} <span class="credit-tile-unit">sats</span></div>
+              <div class="credit-tile-line" *ngIf="s.medianBidText">Median {{ s.medianBidText }} sats.</div>
+            </ng-container>
+            <ng-template #noBids>
+              <div class="credit-tile-value">None yet</div>
+              <div class="credit-tile-line">No winning bid has been found yet.</div>
+            </ng-template>
+          </div>
+
+          <div class="box credit-tile">
+            <div class="credit-tile-title">Latest eCash block</div>
+            <ng-container *ngIf="summary.latest_ecash_height !== null && summary.latest_ecash_height !== undefined; else noEcashBlock">
+              <div class="credit-tile-value">
+                <a *ngIf="s.lastEcashUrl; else plainEcashHeight" [href]="s.lastEcashUrl" target="_blank" rel="noopener">{{ summary.latest_ecash_height }}</a>
+                <ng-template #plainEcashHeight>{{ summary.latest_ecash_height }}</ng-template>
+              </div>
+              <div class="credit-tile-line" *ngIf="s.lastEcashUrl && summary.last?.status === 'ok'">
+                It carried FreeBank block <a [routerLink]="['/block/' | relativeUrl, summary.last.freebank_hash]">{{ summary.last.freebank_height }}</a>.
+              </div>
+            </ng-container>
+            <ng-template #noEcashBlock>
+              <div class="credit-tile-value">None yet</div>
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="credit-tiles" *ngIf="!s.summary && !s.load.error" aria-busy="true">
+          <div class="box credit-tile" *ngFor="let i of skeletonTiles">
+            <span class="skeleton-loader bmm-skeleton-title"></span>
+            <span class="skeleton-loader bmm-skeleton-value"></span>
+            <span class="skeleton-loader"></span>
+          </div>
+        </div>
+
+        <!-- POOL SHARES -->
+        <ng-container *ngIf="s.pools.length">
+          <div class="credit-section-title">
+            <h2>Mining pools</h2>
+          </div>
+          <div class="box bmm-pools">
+            <ul class="bmm-pool-list">
+              <li *ngFor="let pool of s.pools" class="bmm-pool">
+                <div class="bmm-pool-head">
+                  <a *ngIf="pool.url; else plainPoolName" class="bmm-pool-name" [href]="pool.url" target="_blank" rel="noopener">{{ pool.name }}</a>
+                  <ng-template #plainPoolName><span class="bmm-pool-name">{{ pool.name }}</span></ng-template>
+                  <span class="bmm-pool-count">{{ pool.blocks | number }} {{ pool.blocks === 1 ? 'block' : 'blocks' }}, {{ pool.shareText }}</span>
+                </div>
+                <div class="bmm-bar" role="presentation">
+                  <div class="bmm-bar-fill" [style.width.%]="pool.share * 100"></div>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <p class="credit-footnote">The eCash pools that mined the eCash blocks carrying FreeBank, by their share of the carried blocks.</p>
+        </ng-container>
+      </ng-container>
+
+      <!-- BLOCKS, newest first -->
+      <ng-container *ngIf="view.blocks as blocks">
+        <div class="credit-section-title">
+          <h2 id="blocks">Blocks</h2>
+        </div>
+
+        <app-http-error *ngIf="blocks.load.error && !blocks.load.data" [error]="blocks.load.error">Could not load the BMM blocks</app-http-error>
+
+        <div class="box" *ngIf="!blocks.load.error || blocks.load.data">
+          <table class="table table-borderless table-striped credit-table bmm-table" [class.reloading]="blocks.load.loading && !!blocks.load.data">
+            <thead>
+              <tr>
+                <th>FreeBank block</th>
+                <th>eCash block</th>
+                <th><span class="help" ngbTooltip="The eCash mining pool that mined the eCash block" placement="bottom" container="body">Pool</span></th>
+                <th class="text-right"><span class="help" ngbTooltip="The winning bid: the fee of the eCash transaction that asked miners to carry this FreeBank block" placement="bottom" container="body">Bid (sats)</span></th>
+                <th class="text-right d-none d-md-table-cell">Rate (sat/vB)</th>
+                <th class="d-none d-lg-table-cell">Bid tx</th>
+                <th class="text-right d-none d-sm-table-cell">Age</th>
+              </tr>
+            </thead>
+            <tbody *ngIf="blocks.load.data; else blocksSkeleton">
+              <tr *ngFor="let row of blocks.rows; trackBy: trackByHash">
+                <td class="nowrap">
+                  <a [routerLink]="['/block/' | relativeUrl, row.item.freebank_hash]">{{ row.item.freebank_height }}</a>
+                </td>
+                <td>
+                  <a *ngIf="row.ecashBlockUrl; else ecashNoLink" class="nowrap" [href]="row.ecashBlockUrl" target="_blank" rel="noopener">{{ row.item.ecash_height }}</a>
+                  <ng-template #ecashNoLink>
+                    <span *ngIf="row.ecashNote; else ecashHeightOnly" class="bmm-note" [class.bmm-waiting]="row.waiting" [ngbTooltip]="row.statusHelp" placement="bottom" container="body">{{ row.ecashNote }}</span>
+                    <ng-template #ecashHeightOnly>{{ row.item.ecash_height }}</ng-template>
+                  </ng-template>
+                </td>
+                <td>
+                  <a *ngIf="row.poolUrl; else poolNoLink" [href]="row.poolUrl" target="_blank" rel="noopener">{{ row.item.pool.name }}</a>
+                  <ng-template #poolNoLink>{{ row.item.pool?.name }}</ng-template>
+                </td>
+                <td class="text-right">
+                  <span *ngIf="row.bidText; else bidNote" class="nowrap">{{ row.bidText }}</span>
+                  <ng-template #bidNote>
+                    <span *ngIf="row.bidNote" class="bmm-note" [class.bmm-waiting]="row.waiting" [ngbTooltip]="row.statusHelp" placement="bottom" container="body">{{ row.bidNote }}</span>
+                  </ng-template>
+                </td>
+                <td class="text-right d-none d-md-table-cell nowrap">{{ row.rateText }}</td>
+                <td class="d-none d-lg-table-cell nowrap">
+                  <a *ngIf="row.bidTxUrl" class="bmm-txid" [href]="row.bidTxUrl" target="_blank" rel="noopener" [title]="row.item.bid_txid">{{ row.bidTxShort }}</a>
+                </td>
+                <td class="text-right d-none d-sm-table-cell nowrap">
+                  <app-time kind="since" [time]="row.item.time" [fastRender]="true" [showTooltip]="true"></app-time>
+                </td>
+              </tr>
+              <tr *ngIf="!blocks.rows.length">
+                <td colspan="7" class="empty-row">
+                  <ng-container *ngIf="blocks.before !== null; else noBlocksAtAll">No older blocks.</ng-container>
+                  <ng-template #noBlocksAtAll>No blocks yet.</ng-template>
+                </td>
+              </tr>
+            </tbody>
+            <ng-template #blocksSkeleton>
+              <tbody aria-busy="true">
+                <tr *ngFor="let i of skeletonRows">
+                  <td><span class="skeleton-loader"></span></td>
+                  <td><span class="skeleton-loader"></span></td>
+                  <td><span class="skeleton-loader"></span></td>
+                  <td><span class="skeleton-loader"></span></td>
+                  <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+                  <td class="d-none d-lg-table-cell"><span class="skeleton-loader"></span></td>
+                  <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+                </tr>
+              </tbody>
+            </ng-template>
+          </table>
+        </div>
+
+        <nav class="bmm-paging" *ngIf="blocks.paging && (blocks.paging.newer || blocks.paging.older)" aria-label="Older and newer blocks">
+          <button type="button" class="btn btn-sm btn-outline-info" [disabled]="!blocks.paging.newer" (click)="goToPage(blocks.paging.newerBefore)">&lsaquo; Newer</button>
+          <button type="button" class="btn btn-sm btn-outline-info" [disabled]="!blocks.paging.older" (click)="goToPage(blocks.paging.olderBefore)">Older &rsaquo;</button>
+        </nav>
+
+        <p class="credit-footnote" *ngIf="view.explorerHost">eCash blocks, pools and bid transactions link to {{ view.explorerHost }} and open in a new tab.</p>
+      </ng-container>
+    </ng-template>
+  </ng-container>
+</div>
