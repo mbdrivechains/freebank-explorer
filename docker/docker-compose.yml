@@ -4,7 +4,7 @@ services:
   web:
     environment:
       # FreeBank: bridge networking, so listen on every container interface; the host port
-      # below is published on 127.0.0.1 only (put a front nginx in front of it)
+      # below is published on 127.0.0.1:8080 only, leaving 80/443 free for the front nginx
       FRONTEND_HTTP_HOST: "0.0.0.0"
       FRONTEND_HTTP_PORT: "8080"
       BACKEND_MAINNET_HTTP_HOST: "api"
@@ -14,7 +14,7 @@ services:
     stop_grace_period: 1m
     command: "./wait-for db:3306 --timeout=720 -- nginx -g 'daemon off;'"
     ports:
-      - 127.0.0.1:80:8080
+      - 127.0.0.1:8080:8080
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ | grep -q '<html' || exit 1"]
       interval: 30s

@@ -68,7 +68,7 @@ Now, run:
 docker-compose up
 ```
 
-Your Mempool instance should be running at http://localhost. The graphs will be populated as new transactions are detected.
+Your Mempool instance should be running at http://127.0.0.1:8080 (FreeBank: published on localhost only; put the front nginx on 80/443). The graphs will be populated as new transactions are detected.
 
 ## Configure with Bitcoin Core + Electrum Server
 
