@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
 import { CanMatchFn, Route, Router, UrlSegment } from '@angular/router';
-import { NavigationService } from '@app/services/navigation.service';
 
 @Injectable({
   providedIn: 'root'
@@ -8,13 +7,14 @@ import { NavigationService } from '@app/services/navigation.service';
 class GuardService {
   constructor(
     private router: Router,
-    private navigationService: NavigationService,
   ) {}
 
   trackerGuard(route: Route, segments: UrlSegment[]): boolean {
     const preferredRoute = this.router.getCurrentNavigation()?.extractedUrl.queryParams?.mode;
     const path = this.router.getCurrentNavigation()?.extractedUrl.root.children.primary.segments;
-    return (preferredRoute === 'status' || (preferredRoute !== 'details' && this.navigationService.isInitialLoad())) && window.innerWidth <= 767.98 && !(path.length === 2 && ['push', 'test', 'preview'].includes(path[1].path));
+    // FreeBank: phones get the full tx page (credit badge, outputs, labels) by default; the
+    // tracker view has no ETA without a difficulty adjustment, so only an explicit ?mode=status opens it
+    return preferredRoute === 'status' && window.innerWidth <= 767.98 && !(path.length === 2 && ['push', 'test', 'preview'].includes(path[1].path));
   }
 }
 
