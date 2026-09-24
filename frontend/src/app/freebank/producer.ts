@@ -100,6 +100,12 @@ export function coinbaseTag(scriptSigHex: string): string {
   return text.length > MAX_TAG ? text.slice(0, MAX_TAG - 1) + '…' : text;
 }
 
+/** The tooltip for a block whose coinbase names no producer; poolName is the eCash pool that carried it, if known. */
+export function unknownProducerHelp(poolName?: string | null): string {
+  return 'This block\'s coinbase names no producer: producers tag their blocks since freebankd v0.2.14.'
+    + (poolName ? ` The eCash block carrying it was mined by ${poolName}.` : '');
+}
+
 /** The block's producer, or null when the block names none. */
 export function blockProducer(block: BlockExtended): BlockProducer | null {
   const pool = block?.extras?.pool;

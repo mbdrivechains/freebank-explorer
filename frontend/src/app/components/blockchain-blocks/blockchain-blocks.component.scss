@@ -294,6 +294,11 @@
   border: 1px dashed var(--transparent-fg, rgba(255, 255, 255, 0.5));
 }
 
+.badge.producer.unknown {
+  opacity: 0.55;
+  font-weight: normal;
+}
+
 .pool-logo.faded {
   filter: grayscale(100%) brightness(1.5);
 }

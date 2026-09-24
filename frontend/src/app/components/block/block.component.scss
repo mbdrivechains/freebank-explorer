@@ -332,6 +332,10 @@ h1 {
   font-style: italic;
 }
 
+.producer.unknown {
+  color: var(--transparent-fg, rgba(255, 255, 255, 0.5));
+}
+
 .producer-logo {
   width: 18px;
   height: 18px;

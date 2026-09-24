@@ -19,7 +19,7 @@ import { ServicesApiServices } from '@app/services/services-api.service';
 import { PreloadService } from '@app/services/preload.service';
 import { identifyPrioritizedTransactions } from '@app/shared/transaction.utils';
 import { BmmRow, bmmRow, bmmWaiting } from '@app/freebank/bmm-view';
-import { blockProducer } from '@app/freebank/producer';
+import { blockProducer, unknownProducerHelp } from '@app/freebank/producer';
 
 // FreeBank: how often, and how far apart, the block page asks again for a block the BMM view has
 // not looked up yet (asking moves it to the front of the backend's queue)
@@ -115,6 +115,7 @@ export class BlockComponent implements OnInit, OnDestroy {
   bmmSubscription: Subscription;
   bmmCarried: BmmRow | null = null;     // FreeBank: the "Carried by eCash block" row; null hides it
   readonly producerOf = blockProducer;  // FreeBank: the "Produced by" row (the block's coinbase tag)
+  readonly unknownHelp = unknownProducerHelp;
   blockConversion: Price;
   canonicalBlock: BlockExtended;
   canonicalTransactions: TransactionStripped[];

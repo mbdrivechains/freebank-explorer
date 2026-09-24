@@ -77,24 +77,19 @@
           </ng-container>
         </div>
         <!-- FreeBank: under the cube, the block's producer (who won the BMM and earns the fees), named by its coinbase
-             tag (freebankd v0.2.14). A block without a tag keeps the eCash pool that carried it (the BMM view), as text;
-             a plain link to the eCash explorer -->
-        @if (!minimal && showPools && producerOf(block); as producer) {
+             tag (freebankd v0.2.14); "unknown producer" when the coinbase names none (operator, 2026-09-25: option 1),
+             with the eCash pool that carried it in the tooltip. None for the genesis block. -->
+        @if (!minimal && showPools && block.height > 0) {
           <div class="animated">
-            <span [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-producer'" class="badge producer" [class.unlisted]="!producer.listed"
-              [ngbTooltip]="producer.help" placement="bottom" container="body">
-              @if (producer.logo) {
-                <img class="pool-logo" [src]="producer.logo" alt="" onError="this.style.display = 'none'">
-              }{{ producer.name }}</span>
-          </div>
-        } @else if (!minimal && showPools && bmmCubes[block.id]?.poolName) {
-          <div class="animated">
-            @if (bmmCubes[block.id].poolUrl) {
-              <a [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge" [href]="bmmCubes[block.id].poolUrl" target="_blank" rel="noopener"
-                ngbTooltip="The eCash pool that mined the eCash block carrying this block" placement="bottom" container="body">{{ bmmCubes[block.id].poolName }}</a>
+            @if (producerOf(block); as producer) {
+              <span [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-producer'" class="badge producer" [class.unlisted]="!producer.listed"
+                [ngbTooltip]="producer.help" placement="bottom" container="body">
+                @if (producer.logo) {
+                  <img class="pool-logo" [src]="producer.logo" alt="" onError="this.style.display = 'none'">
+                }{{ producer.name }}</span>
             } @else {
-              <span [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bmm-pool'" class="badge"
-                ngbTooltip="The eCash pool that mined the eCash block carrying this block" placement="bottom" container="body">{{ bmmCubes[block.id].poolName }}</span>
+              <span [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-producer'" class="badge producer unknown"
+                [ngbTooltip]="unknownHelp(bmmCubes[block.id]?.poolName)" placement="bottom" container="body">unknown producer</span>
             }
           </div>
         }
