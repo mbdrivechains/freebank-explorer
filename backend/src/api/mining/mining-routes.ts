@@ -11,6 +11,7 @@ import PricesRepository from '../../repositories/PricesRepository';
 import AccelerationRepository from '../../repositories/AccelerationRepository';
 import accelerationApi from '../services/acceleration';
 import { handleError } from '../../utils/api';
+import { HAS_DIFFICULTY_RETARGET } from '../difficulty-adjustment';
 
 class MiningRoutes {
   public initRoutes(app: Application) {
@@ -178,7 +179,8 @@ class MiningRoutes {
   private async $getHistoricalHashrate(req: Request, res: Response) {
     let currentHashrate = 0, currentDifficulty = 0;
     try {
-      currentHashrate = await bitcoinClient.getNetworkHashPs(1008);
+      // FreeBank: no proof of work (and no getnetworkhashps), so no network hashrate
+      currentHashrate = HAS_DIFFICULTY_RETARGET ? await bitcoinClient.getNetworkHashPs(1008) : 0;
       currentDifficulty = await bitcoinClient.getDifficulty();
     } catch (e) {
       logger.debug('Bitcoin Core is not available, using zeroed value for current hashrate and difficulty');

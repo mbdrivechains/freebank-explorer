@@ -14,6 +14,7 @@ import PricesRepository from '../../repositories/PricesRepository';
 import bitcoinApi from '../bitcoin/bitcoin-api-factory';
 import { IEsploraApi } from '../bitcoin/esplora-api.interface';
 import database from '../../database';
+import { HAS_DIFFICULTY_RETARGET } from '../difficulty-adjustment';
 
 interface DifficultyBlock {
   timestamp: number,
@@ -146,9 +147,10 @@ class Mining {
     const totalBlock1w: number = await BlocksRepository.$blockCount(null, '1w');
 
     try {
-      poolsStatistics['lastEstimatedHashrate'] = await bitcoinClient.getNetworkHashPs(totalBlock24h);
-      poolsStatistics['lastEstimatedHashrate3d'] = await bitcoinClient.getNetworkHashPs(totalBlock3d);
-      poolsStatistics['lastEstimatedHashrate1w'] = await bitcoinClient.getNetworkHashPs(totalBlock1w);
+      // FreeBank: no proof of work (and no getnetworkhashps), so no network hashrate
+      poolsStatistics['lastEstimatedHashrate'] = HAS_DIFFICULTY_RETARGET ? await bitcoinClient.getNetworkHashPs(totalBlock24h) : 0;
+      poolsStatistics['lastEstimatedHashrate3d'] = HAS_DIFFICULTY_RETARGET ? await bitcoinClient.getNetworkHashPs(totalBlock3d) : 0;
+      poolsStatistics['lastEstimatedHashrate1w'] = HAS_DIFFICULTY_RETARGET ? await bitcoinClient.getNetworkHashPs(totalBlock1w) : 0;
     } catch (e) {
       poolsStatistics['lastEstimatedHashrate'] = 0;
       logger.debug('Bitcoin Core is not available, using zeroed value for current hashrate', logger.tags.mining);
@@ -180,7 +182,7 @@ class Mining {
 
     let currentEstimatedHashrate = 0;
     try {
-      currentEstimatedHashrate = await bitcoinClient.getNetworkHashPs(totalBlock24h);
+      currentEstimatedHashrate = HAS_DIFFICULTY_RETARGET ? await bitcoinClient.getNetworkHashPs(totalBlock24h) : 0;
     } catch (e) {
       logger.debug('Bitcoin Core is not available, using zeroed value for current hashrate', logger.tags.mining);
     }
@@ -215,6 +217,9 @@ class Mining {
    * Generate weekly mining pool hashrate history
    */
   public async $generatePoolHashrateHistory(): Promise<void> {
+    if (!HAS_DIFFICULTY_RETARGET) {
+      return; // FreeBank: no proof of work, so no pool hashrate to index
+    }
     const now = new Date();
 
     // Run only if:
@@ -329,6 +334,9 @@ class Mining {
    * @asyncUnsafe
    */
   public async $generateNetworkHashrateHistory(): Promise<void> {
+    if (!HAS_DIFFICULTY_RETARGET) {
+      return; // FreeBank: no proof of work, so no network hashrate to index
+    }
     // If a re-index was requested, truncate first
     if (this.reindexHashrateRequested === true) {
       logger.notice(`hashrates will now be re-indexed`);
@@ -444,6 +452,9 @@ class Mining {
    * @asyncUnsafe
    */
   public async $indexDifficultyAdjustments(): Promise<void> {
+    if (!HAS_DIFFICULTY_RETARGET) {
+      return; // FreeBank: no difficulty retarget, so no adjustments to index
+    }
     // If a re-index was requested, truncate first
     if (this.reindexDifficultyAdjustmentRequested === true) {
       logger.notice(`difficulty_adjustments will now be re-indexed`);
