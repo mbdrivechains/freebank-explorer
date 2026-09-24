@@ -383,9 +383,8 @@ export class WebsocketService {
       }
     }
 
-    if (response.conversions) {
-      this.stateService.conversions$.next(response.conversions);
-    }
+    // FreeBank: no fiat prices. 'conversions' from the backend is not forwarded,
+    // so <app-fiat> stays blank instead of showing $0.00.
 
     if (response.rbfTransaction) {
       this.stateService.txReplaced$.next(response.rbfTransaction);
