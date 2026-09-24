@@ -1,0 +1,198 @@
+// /gold - the fix panel (the block page's two-column striped tables), the submitters and the
+// recent oracle txs. Theme variables only.
+
+.credit-page {
+  padding-bottom: 2rem;
+}
+
+.title-block {
+  flex-wrap: wrap;
+  align-items: baseline;
+  h1 {
+    margin: 0;
+    line-height: 1;
+  }
+}
+
+.credit-intro {
+  color: var(--transparent-fg);
+  margin: 0.75rem 0 1rem;
+  max-width: 60rem;
+}
+
+.td-width {
+  width: 45%;
+  @media (min-width: 768px) {
+    width: 190px;
+  }
+}
+
+.gold-price {
+  color: var(--title-fg);
+  font-size: 1.15rem;
+}
+
+.gold-empty {
+  margin: 0;
+}
+
+.gold-note {
+  border-left: 3px solid var(--title-fg);
+  color: var(--transparent-fg);
+  font-size: 0.9rem;
+  margin: 1rem 0 2rem;
+  padding: 0.1rem 0 0.1rem 0.9rem;
+  max-width: 60rem;
+  p {
+    margin: 0 0 0.35rem;
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  b {
+    color: var(--fg);
+  }
+}
+
+.credit-subtitle h2 {
+  line-height: 1;
+  margin: 0 0 0.75rem;
+}
+
+.credit-empty {
+  color: var(--transparent-fg);
+  text-align: center;
+}
+
+.credit-footnote {
+  color: var(--transparent-fg);
+  font-size: 0.8rem;
+  margin: 0.5rem 0 2rem;
+}
+
+.gold-submitters,
+.gold-activity {
+  th {
+    color: var(--transparent-fg);
+    font-weight: 500;
+  }
+  td {
+    vertical-align: top;
+  }
+}
+
+.gold-since {
+  display: block;
+}
+
+// Submitters: every column from 992px; the key goes first, then the bond coin and height on phones.
+.gold-submitters {
+  .col-id {
+    width: 7%;
+  }
+  .col-pubkey {
+    width: 22%;
+  }
+  .col-bond {
+    width: 20%;
+  }
+  .col-bonded {
+    width: 12%;
+  }
+  .col-last {
+    width: 21%;
+  }
+  .col-unbond {
+    width: 18%;
+  }
+  @media (max-width: 991.98px) {
+    .col-pubkey {
+      display: none;
+    }
+    .col-id {
+      width: 9%;
+    }
+    .col-bond {
+      width: 27%;
+    }
+    .col-bonded {
+      width: 16%;
+    }
+    .col-last {
+      width: 27%;
+    }
+    .col-unbond {
+      width: 21%;
+    }
+  }
+  @media (max-width: 575.98px) {
+    .col-bond,
+    .col-bonded {
+      display: none;
+    }
+    .col-id {
+      width: 16%;
+    }
+    .col-last {
+      width: 50%;
+    }
+    .col-unbond {
+      width: 34%;
+    }
+  }
+}
+
+// Recent oracle activity: the txid, then the time, drop out as the page narrows.
+.gold-activity {
+  .col-height {
+    width: 10%;
+  }
+  .col-submitter {
+    width: 13%;
+  }
+  .col-report {
+    width: 37%;
+  }
+  .col-time {
+    width: 18%;
+  }
+  .col-txid {
+    width: 22%;
+  }
+  @media (max-width: 991.98px) {
+    .col-txid {
+      display: none;
+    }
+    .col-height {
+      width: 14%;
+    }
+    .col-submitter {
+      width: 17%;
+    }
+    .col-report {
+      width: 44%;
+    }
+    .col-time {
+      width: 25%;
+    }
+  }
+  @media (max-width: 575.98px) {
+    .col-time {
+      display: none;
+    }
+    .col-height {
+      width: 20%;
+    }
+    .col-submitter {
+      width: 25%;
+    }
+    .col-report {
+      width: 55%;
+    }
+  }
+}
+
+.gold-in-fix {
+  margin-left: 0.4rem;
+  cursor: help;
+}

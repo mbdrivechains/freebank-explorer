@@ -1,7 +1,227 @@
 <div class="container-xl credit-page">
-  <h1>Gold fix</h1>
-  <ng-container *ngIf="state$ | async as state">
-    <p *ngIf="state.data && !state.data.fix">No gold fix has formed yet.</p>
-    <app-credit-raw-json [state]="state" errorText="Could not load the gold fix"></app-credit-raw-json>
+
+  <div class="title-block">
+    <h1>Gold fix</h1>
+  </div>
+
+  <p class="credit-intro">
+    FreeBank's on-chain gold price, in grams of gold per ECX. Bonded submitters each report a price, and the fix is the
+    middle of the prices reported in one block, formed only when enough different submitters report in the same block.
+  </p>
+
+  <ng-container *ngIf="gold$ | async as view">
+    <app-http-error *ngIf="view.load.error && !view.load.data" [error]="view.load.error">Could not load the gold fix</app-http-error>
+
+    <!-- loading -->
+    <div class="box" *ngIf="!view.load.data && !view.load.error" aria-busy="true">
+      <div class="row">
+        <div class="col-md" *ngFor="let column of [1, 2]">
+          <table class="table table-borderless table-striped">
+            <tbody>
+              <tr *ngFor="let i of skeletonRows">
+                <td class="td-width"><span class="skeleton-loader"></span></td>
+                <td><span class="skeleton-loader"></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <ng-container *ngIf="view.load.data as data">
+
+      <!-- THE FIX -->
+      <div class="box" *ngIf="view.fix as fix; else noFix">
+        <div class="row">
+          <div class="col-md">
+            <table class="table table-borderless table-striped">
+              <tbody>
+                <tr>
+                  <td class="td-width">Gold fix</td>
+                  <td>
+                    <span class="gold-price" placement="bottom" container="body"
+                      ngbTooltip="Grams of gold that one ECX buys: the middle of the prices bonded submitters reported in block {{ fix.fixheight }} (the lower of the two middle ones when there is an even number of reports).">{{ view.raw.price }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Braked view</td>
+                  <td>
+                    <span placement="bottom" container="body"
+                      ngbTooltip="A damped copy of the fix. It follows a rise at once, but falls only a small step per block, so a sudden drop in the reported price reaches it slowly.">{{ view.braked.price }}</span>
+                    <span class="symbol" *ngIf="view.brakedBelowRaw"> still coming down</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>One gram of gold</td>
+                  <td>
+                    <span placement="bottom" container="body" ngbTooltip="The fix turned around: what one gram of gold costs in ECX at the fix.">{{ view.satsPerGram }}</span>
+                    <span class="symbol"> ({{ view.ecxPerGram }})</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Stored on chain</td>
+                  <td>
+                    <span placement="bottom" container="body"
+                      ngbTooltip="The numbers the chain keeps, in milligrams of gold per 1000 ECX. Divide by 1,000,000 for grams per ECX.">{{ view.raw.stored }}<ng-container *ngIf="view.braked.stored !== view.raw.stored"> / {{ view.braked.stored }}</ng-container></span>
+                    <span class="symbol"> mg per 1000 ECX</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="col-md">
+            <table class="table table-borderless table-striped">
+              <tbody>
+                <tr>
+                  <td class="td-width">Formed at block</td>
+                  <td><app-credit-height [height]="fix.fixheight" [tipHeight]="data.tip_height" [showRelative]="false"></app-credit-height></td>
+                </tr>
+                <tr>
+                  <td>Age</td>
+                  <td>
+                    <span placement="bottom" container="body"
+                      ngbTooltip="Blocks since this fix formed. A fix does not expire: it stands until enough submitters report together again.">{{ view.fixAge | blockCount }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Submitters</td>
+                  <td>{{ data.submitters.length | number }} bonded</td>
+                </tr>
+                <tr>
+                  <td>Used by the credit rules</td>
+                  <td>
+                    <span placement="bottom" container="body"
+                      ngbTooltip="The chain forms and keeps the fix, but no credit rule reads it in this phase. Wiring it in would be a separate, later upgrade.">Not yet</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <ng-template #noFix>
+        <div class="box">
+          <p class="gold-empty">No gold fix has formed yet. One forms when enough bonded submitters report a price in the same block.</p>
+        </div>
+      </ng-template>
+
+      <div class="gold-note">
+        <p>
+          <b>For information only.</b> Nothing in the credit rules reads the gold fix yet: notes redeem for a fixed amount of
+          ECX (one unit for 1 sat) whatever it says.
+        </p>
+        <p *ngIf="presentationScale$ | async as scale">
+          The gram amounts elsewhere in this explorer use the node's fixed presentation scale ({{ scale }}), not the gold fix.
+        </p>
+      </div>
+
+      <!-- SUBMITTERS -->
+      <div class="credit-subtitle">
+        <h2 id="submitters">Submitters</h2>
+      </div>
+      <div class="box">
+        <table class="table table-borderless table-striped table-fixed gold-submitters">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-pubkey">Public key</th>
+              <th class="col-bond"><span ngbTooltip="The coin the submitter locked as its bond" placement="bottom">Bond</span></th>
+              <th class="col-bonded">Bonded at</th>
+              <th class="col-last"><span ngbTooltip="The last block that carried a price from this submitter" placement="bottom">Last report</span></th>
+              <th class="col-unbond"><span ngbTooltip="The block at which the submitter asked for its bond back. It can take the bond after a waiting period." placement="bottom">Unbond asked</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let submitter of data.submitters; trackBy: trackBySubmitter">
+              <td class="col-id">{{ submitter.id }}</td>
+              <td class="col-pubkey">
+                <app-truncate [text]="submitter.pubkey" [lastChars]="6">
+                  <app-clipboard [text]="submitter.pubkey"></app-clipboard>
+                </app-truncate>
+              </td>
+              <td class="col-bond">
+                <app-truncate [text]="submitter.bondtxid" [lastChars]="5" [link]="['/tx/' | relativeUrl, submitter.bondtxid]"></app-truncate>
+              </td>
+              <td class="col-bonded">
+                <app-credit-height [height]="submitter.bondheight" [tipHeight]="data.tip_height" [showRelative]="false"></app-credit-height>
+              </td>
+              <td class="col-last">
+                <app-credit-height [height]="submitter.lastsubmitheight" [tipHeight]="data.tip_height" [showRelative]="false" [zeroText]="'never'"></app-credit-height>
+                <span class="symbol gold-since" *ngIf="submitter.lastsubmitheight && submitter.blockssincesubmit !== undefined && submitter.blockssincesubmit !== null">{{ submitter.blockssincesubmit | blockCount }} ago</span>
+              </td>
+              <td class="col-unbond">
+                <app-credit-height [height]="submitter.unbondrequestheight" [tipHeight]="data.tip_height" [showRelative]="false" [zeroText]="'no'"></app-credit-height>
+              </td>
+            </tr>
+            <tr *ngIf="!data.submitters.length">
+              <td colspan="6" class="credit-empty">No submitter has bonded yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="credit-footnote">
+        A gap since a submitter's last report does not prove it was away: the block producer decides which reports go
+        into a block. This is not a reliability score, and there is no penalty for missing reports in this phase.
+      </p>
+
+      <!-- RECENT ORACLE ACTIVITY -->
+      <ng-container *ngIf="oracleActivity$ | async as activity">
+        <div class="credit-subtitle">
+          <h2 id="activity">Recent oracle activity</h2>
+        </div>
+
+        <app-http-error *ngIf="activity.load.error && !activity.load.data" [error]="activity.load.error">Could not load recent oracle activity</app-http-error>
+
+        <div class="box" *ngIf="!activity.load.error || activity.load.data">
+          <table class="table table-borderless table-striped table-fixed gold-activity">
+            <thead>
+              <tr>
+                <th class="col-height">Block</th>
+                <th class="col-submitter">Submitter</th>
+                <th class="col-report">Report</th>
+                <th class="col-time">Time</th>
+                <th class="col-txid">Transaction</th>
+              </tr>
+            </thead>
+            <tbody *ngIf="activity.load.data; else activitySkeleton" [style.opacity]="activity.load.loading ? 0.75 : null">
+              <tr *ngFor="let row of activity.rows; trackBy: trackByTxid">
+                <td class="col-height"><a [routerLink]="['/block/' | relativeUrl, row.item.height]">{{ row.item.height }}</a></td>
+                <td class="col-submitter">{{ row.submitter }}</td>
+                <td class="col-report">
+                  <a [routerLink]="['/tx/' | relativeUrl, row.item.txid]" [attr.title]="row.opLabel">{{ row.report || row.opLabel }}</a>
+                  <span *ngIf="row.inCurrentFix" class="badge badge-info gold-in-fix" placement="bottom" container="body"
+                    ngbTooltip="Reported in block {{ row.item.height }}, where the current fix formed: the fix is the middle of these reports.">in the fix</span>
+                </td>
+                <td class="col-time"><app-time kind="since" [time]="row.item.time" [fastRender]="true" [showTooltip]="true"></app-time></td>
+                <td class="col-txid">
+                  <app-truncate [text]="row.item.txid" [lastChars]="5" [link]="['/tx/' | relativeUrl, row.item.txid]"></app-truncate>
+                </td>
+              </tr>
+              <tr *ngIf="!activity.rows.length">
+                <td colspan="5" class="credit-empty">No oracle transactions yet.</td>
+              </tr>
+            </tbody>
+            <ng-template #activitySkeleton>
+              <tbody aria-busy="true">
+                <tr *ngFor="let i of skeletonRows">
+                  <td class="col-height"><span class="skeleton-loader"></span></td>
+                  <td class="col-submitter"><span class="skeleton-loader"></span></td>
+                  <td class="col-report"><span class="skeleton-loader"></span></td>
+                  <td class="col-time"><span class="skeleton-loader"></span></td>
+                  <td class="col-txid"><span class="skeleton-loader"></span></td>
+                </tr>
+              </tbody>
+            </ng-template>
+          </table>
+        </div>
+        <p class="credit-footnote" *ngIf="activity.load.data as recent">
+          Newest first. Prices are in grams of gold per ECX.
+          <ng-container *ngIf="recent.scanned_from_height > 0">Blocks before {{ recent.scanned_from_height }} have not been scanned.</ng-container>
+          <a [routerLink]="['/credit' | relativeUrl]" [queryParams]="{ family: 'oracle' }">All credit activity</a>
+        </p>
+      </ng-container>
+
+    </ng-container>
   </ng-container>
+
 </div>
