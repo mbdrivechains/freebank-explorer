@@ -234,10 +234,6 @@
       <td i18n="transaction.fee-rate|Transaction fee rate">Fee rate</td>
       <td>
         <app-fee-rate [fee]="tx.feePerVsize"></app-fee-rate>
-        @if (tx?.status?.confirmed && tx.fee && !hasEffectiveFeeRate && !accelerationInfo) {
-          &nbsp;
-          <app-tx-fee-rating [tx]="tx"></app-tx-fee-rating>
-        }
       </td>
     </tr>
   } @else {
@@ -260,10 +256,6 @@
               <app-fee-rate [class.oobFees]="isAcceleration" [fee]="accelerationInfo.acceleratedFeeRate"></app-fee-rate>
             } @else {
               <app-fee-rate [class.oobFees]="isAcceleration" [fee]="tx.effectiveFeePerVsize"></app-fee-rate>
-            }
-
-            @if (tx?.status?.confirmed && !tx.acceleration && !accelerationInfo && tx.fee && tx.effectiveFeePerVsize) {
-              <app-tx-fee-rating class="ml-2 mr-2 effective-fee-rating" [tx]="tx"></app-tx-fee-rating>
             }
           </div>
           @if (hasCpfp) {
