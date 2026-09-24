@@ -10,8 +10,9 @@ mempool.space, liquid.network or GitHub:
   `MINING_DASHBOARD`, `ACCELERATOR_BUTTON` and `HISTORICAL_PRICE` default to `false`; `EXTERNAL_DATA_SERVER_*`,
   `MEMPOOL_SERVICES_API`, `SERVICES_API`, `MEMPOOL_WEBSITE_URL` and `LIQUID_WEBSITE_URL` default to empty;
   `MEMPOOL_USER_AGENT` is `freebank-explorer`.
-- `/api/v1/services` and `/render/` answer 404 in the frontend's nginx. `PROXIED_SERVICES` and
-  `PROXIED_SERVICES_HOST` are gone.
+- `/api/v1/services` and `/render/` answer 404 in the frontend's nginx, and `/api/v1/internal/` 403.
+  `PROXIED_SERVICES` and `PROXIED_SERVICES_HOST` are gone. The site is English only: every browser language gets
+  the en-US build, and old language-prefixed links (`/fr/...`) redirect to the same path without the prefix.
 - Listen addresses: the backend uses `MEMPOOL_HTTP_HOST` and the frontend's nginx `FRONTEND_HTTP_HOST`. Both default
   to `127.0.0.1`, which is right with `--network host`. With bridge networking (as in `docker-compose.yml`) set both
   to `0.0.0.0`, publish the frontend port on `127.0.0.1` only, never publish 8999, and put a front nginx (rate
