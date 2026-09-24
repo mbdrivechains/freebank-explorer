@@ -459,3 +459,99 @@
   padding-bottom: 3px;
   font-weight: 500;
 }
+
+// FreeBank: the Credit card beside the fees card (houses by health badge, notes outstanding,
+// gold fix); the whole card links to /credit.
+.credit-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  &:hover,
+  &:focus {
+    color: inherit;
+    text-decoration: none;
+    .card-title {
+      text-decoration: underline;
+    }
+  }
+}
+
+.credit-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  row-gap: 12px;
+  .item {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 5px;
+  }
+  .credit-card-houses {
+    @media (max-width: 575.98px) {
+      flex-basis: 100%;
+    }
+  }
+  .card-title {
+    margin-bottom: 10px;
+  }
+  .card-text {
+    font-size: 18px;
+    margin-bottom: 0;
+  }
+  .skeleton-loader {
+    display: block;
+    max-width: 100px;
+    margin: 8px auto 0;
+  }
+}
+
+.credit-card-unit {
+  color: var(--transparent-fg);
+  font-size: 12px;
+}
+
+.credit-card-unavailable {
+  color: var(--transparent-fg);
+  padding: 12px 0;
+}
+
+// House health chips: the palette of freebank/components/house-health-badge (kept in step by hand)
+.credit-card-stats .house-health {
+  border: 1px solid transparent;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  margin: 2px;
+  vertical-align: middle;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.credit-card-stats .house-health-sound {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--fg);
+}
+
+.credit-card-stats .house-health-attestation_due {
+  background-color: transparent;
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.credit-card-stats .house-health-stressed {
+  background-color: var(--info);
+  border-color: var(--info);
+  color: var(--active-bg);
+}
+
+.credit-card-stats .house-health-insolvent {
+  background-color: #b02a00;
+  border-color: var(--red);
+  color: var(--fg);
+}
+
+.credit-card-stats .house-health-wound_down {
+  background-color: var(--secondary);
+  border-color: var(--secondary);
+  color: var(--grey);
+}

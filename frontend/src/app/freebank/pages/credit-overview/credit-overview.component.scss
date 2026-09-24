@@ -1,0 +1,250 @@
+// /credit - summary tiles and the recent credit activity feed. Built on the site's .box panels,
+// .title-block and table styles; colours are the theme variables only.
+
+.credit-page {
+  padding-bottom: 2rem;
+}
+
+.title-block {
+  flex-wrap: wrap;
+  align-items: baseline;
+  h1 {
+    margin: 0;
+    line-height: 1;
+  }
+}
+
+.credit-intro {
+  color: var(--transparent-fg);
+  margin: 0.75rem 0;
+  max-width: 60rem;
+}
+
+.credit-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+// ---- summary tiles: 2 columns on phones (houses and gold fix full width), 3 from 768px ----
+
+.credit-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+.credit-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  @media (max-width: 575.98px) {
+    padding: 1rem;              // the .box 1.25rem leaves a half-width tile ~130px of text at 390px
+  }
+  @media (max-width: 767.98px) {
+    &.credit-tile-houses,
+    &:last-child {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+.credit-tile-title {
+  color: var(--title-fg);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.credit-tile-value {
+  color: var(--fg);
+  font-size: 1.25rem;
+  line-height: 1.25;
+  margin: 0.35rem 0 0.4rem;
+  @media (min-width: 992px) {
+    font-size: 1.5rem;
+  }
+}
+
+.credit-tile-unit {
+  color: var(--transparent-fg);
+  font-size: 0.8rem;
+}
+
+.credit-tile-line {
+  color: var(--transparent-fg);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.credit-grams {
+  color: var(--fg);
+  cursor: help;
+  white-space: nowrap;
+}
+
+.credit-tile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.credit-skeleton-title {
+  max-width: 90px;
+}
+
+.credit-skeleton-value {
+  max-width: 120px;
+  height: 22px;
+  margin: 0.5rem 0;
+}
+
+// House health chips: the palette of components/house-health-badge/house-health-badge.component.scss
+// (kept in step by hand; that component needs a whole house record, these are counts).
+.house-health {
+  border: 1px solid transparent;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.house-health-sound {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--fg);
+}
+
+.house-health-attestation_due {
+  background-color: transparent;
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.house-health-stressed {
+  background-color: var(--info);
+  border-color: var(--info);
+  color: var(--active-bg);
+}
+
+.house-health-insolvent {
+  background-color: #b02a00;
+  border-color: var(--red);
+  color: var(--fg);
+}
+
+.house-health-wound_down {
+  background-color: var(--secondary);
+  border-color: var(--secondary);
+  color: var(--grey);
+}
+
+.house-health:focus-visible {
+  outline: 2px solid var(--title-fg);
+  outline-offset: 1px;
+}
+
+// ---- recent credit activity ----
+
+.credit-subtitle h2 {
+  line-height: 1;
+  margin: 0 0 0.75rem;
+}
+
+.credit-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.credit-activity {
+  margin-bottom: 0.5rem;
+}
+
+.credit-activity-table {
+  th {
+    color: var(--transparent-fg);
+    font-weight: 500;
+  }
+  td {
+    vertical-align: top;
+  }
+  .col-what {
+    width: 56%;
+  }
+  .col-height {
+    width: 10%;
+  }
+  .col-time {
+    width: 16%;
+  }
+  .col-txid {
+    width: 18%;
+  }
+  @media (max-width: 991.98px) {
+    .col-what {
+      width: 64%;
+    }
+    .col-height {
+      width: 14%;
+    }
+    .col-time {
+      width: 22%;
+    }
+    .col-txid {
+      display: none;
+    }
+  }
+  @media (max-width: 575.98px) {
+    .col-what {
+      width: 76%;
+    }
+    .col-height {
+      width: 24%;
+      text-align: right;
+    }
+    .col-time {
+      display: none;
+    }
+  }
+}
+
+.credit-family {
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.credit-op {
+  vertical-align: middle;
+}
+
+.credit-summary {
+  color: var(--transparent-fg);
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.credit-skeleton-summary {
+  display: block;
+  max-width: 70%;
+  margin-top: 0.4rem;
+}
+
+.credit-empty {
+  color: var(--transparent-fg);
+  text-align: center;
+}
+
+.credit-footnote {
+  color: var(--transparent-fg);
+  font-size: 0.8rem;
+}

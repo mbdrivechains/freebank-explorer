@@ -9,6 +9,11 @@ import { WebsocketService } from '@app/services/websocket.service';
 import { SeoService } from '@app/services/seo.service';
 import { ActiveFilter, FilterMode, GradientMode, toFlags } from '@app/shared/filters.utils';
 import { detectWebGL } from '@app/shared/graphs.utils';
+import { loadOnEachBlock } from '@app/freebank/credit-load';
+import { CreditBadgeCount, creditBadgeCounts } from '@app/freebank/credit-summary-view';
+import { formatBlockCount, formatGrams, formatUnits } from '@app/freebank/credit-units';
+import { formatGoldFixGrams } from '@app/freebank/gold-fix-format';
+import { FreebankSummaryResponse } from '@interfaces/freebank-credit.interface';
 
 interface MempoolBlocksData {
   blocks: number;
@@ -27,6 +32,17 @@ interface MempoolStatsData {
   weightPerSecond: any;
 }
 
+// FreeBank: the Credit card (GET /api/v1/freebank/summary, reloaded once per new block)
+interface CreditCardData {
+  loading: boolean;               // nothing loaded yet
+  error: boolean;                 // the summary failed and there is nothing to show
+  badges: CreditBadgeCount[];     // houses per health badge, healthiest first
+  notesUnits: string;             // '95,076,000'
+  notesTooltip: string;
+  goldFixGrams: string;           // '800 g' (per ECX); '' before the first fix
+  goldFixTooltip: string;
+}
+
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.component.html',
@@ -43,6 +59,7 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   transactions$: Observable<TransactionStripped[]>;
   blocks$: Observable<BlockExtended[]>;
   replacements$: Observable<ReplacementInfo[]>;
+  creditCard$: Observable<CreditCardData>;
   latestBlockHeight: number;
   mempoolTransactionsWeightPerSecondData: any;
   mempoolStats$: Observable<MempoolStatsData>;
@@ -218,6 +235,10 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       );
 
     this.replacements$ = this.stateService.rbfLatestSummary$;
+
+    this.creditCard$ = loadOnEachBlock(this.stateService, () => this.apiService.getFreebankSummary$()).pipe(
+      map((load) => this.creditCard(load.data, !!load.error)),
+    );
 
     this.mempoolStats$ = this.stateService.connectionState$
       .pipe(
@@ -419,6 +440,27 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     this.currencySubscription = this.stateService.fiatCurrency$.subscribe((fiat) => {
       this.currency = fiat;
     });
+  }
+
+  creditCard(summary: FreebankSummaryResponse | undefined, failed: boolean): CreditCardData {
+    if (!summary) {
+      return { loading: !failed, error: failed, badges: [], notesUnits: '', notesTooltip: '', goldFixGrams: '', goldFixTooltip: '' };
+    }
+    const fix = summary.gold_fix;
+    const age = fix ? (typeof fix.ageblocks === 'number' ? fix.ageblocks : Math.max(0, summary.tip_height - fix.fixheight)) : 0;
+    return {
+      loading: false,
+      error: false,
+      badges: creditBadgeCounts(summary.houses_by_badge),
+      notesUnits: formatUnits(summary.minted_units_total),
+      notesTooltip: `Notes of every house in circulation (${formatGrams(summary.minted_grams_total)} at the node's presentation scale). ` +
+        'Each unit is a claim on 1 sat of ECX at the house that issued it.',
+      goldFixGrams: fix ? formatGoldFixGrams(fix.raw) : '',
+      goldFixTooltip: fix
+        ? `Grams of gold one ECX buys at the gold fix, formed at block ${fix.fixheight} (${formatBlockCount(age)} ago). ` +
+          'For information only: the credit rules do not use it yet.'
+        : 'No gold fix has formed yet.',
+    };
   }
 
   handleNewMempoolData(mempoolStats: OptimizedMempoolStats[]) {
