@@ -31,8 +31,11 @@ const SCRIPT_HASH_REGEX = /^([a-f0-9]{2})+$/i;
 
 // An unknown block hash is a 404, not a server failure: esplora answers 404, the node's RPC
 // answers error -5 'Block not found' (the frontend search asks for a block before a tx).
+// Only the block lookup counts: -5 also means a missing tx (e.g. a prevout while building a
+// summary of a block that exists), and that stays a 500.
 function blockErrorStatus(e: any): number {
-  return e?.response?.status === 404 || e?.code === -5 ? 404 : 500;
+  const nodeBlockNotFound = e?.code === -5 && /block not found/i.test(e?.message ?? '');
+  return e?.response?.status === 404 || nodeBlockNotFound ? 404 : 500;
 }
 
 class BitcoinRoutes {
