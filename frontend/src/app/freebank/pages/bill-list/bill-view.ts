@@ -67,6 +67,7 @@ export interface BillMaturity {
   claimableFrom: number;          // first block a claim on the escrow can be mined in (grace end + 1)
   termBlocks: number;             // issued -> maturity
   short: string;                  // short line for the list ('' once closed)
+  phaseText: string;              // the phase in a few words ('' once closed)
   sentence: string;               // one sentence for the bill page
 }
 
@@ -107,7 +108,13 @@ export function billMaturity(bill: FreebankBill, tipHeight: number): BillMaturit
     short = `matured ${formatBlockCount(tipHeight - maturityHeight)} ago, escrow claimable`;
     sentence = `Fell due ${formatBlockCount(tipHeight - maturityHeight)} ago and is still unpaid. The grace period ended at block ${graceEndHeight}, so ${claimant} can now claim the escrow.`;
   }
-  return { phase, maturityHeight, graceEndHeight, claimableFrom, termBlocks, short, sentence };
+  const phaseText = {
+    running: 'Not yet due.',
+    grace: 'Due, in its grace period.',
+    claimable: 'Overdue: the grace period is over.',
+    closed: '',
+  }[phase];
+  return { phase, maturityHeight, graceEndHeight, claimableFrom, termBlocks, short, phaseText, sentence };
 }
 
 /** The escrow as a share of face, e.g. 75 for 0.75 ECX against 1.00 ECX; null without a face. */
