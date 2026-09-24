@@ -2,7 +2,8 @@
 <div class="container-xl dashboard-container" *ngIf="(network$ | async) !== 'liquid'; else liquidDashboard">
   <div class="row row-cols-1 row-cols-md-2" *ngIf="{ value: (mempoolInfoData$ | async) } as mempoolInfoData">
     <ng-container>
-      <div class="col card-wrapper">
+      <!-- FreeBank: full width until the BMM card takes the difficulty card's old slot (then drop col-md-12) -->
+      <div class="col col-md-12 card-wrapper">
         <div class="main-title" i18n="fees-box.transaction-fees">Transaction Fees</div>
         <div class="card">
           <div class="card-body less-padding">
