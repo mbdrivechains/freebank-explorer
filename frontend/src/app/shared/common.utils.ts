@@ -1,6 +1,7 @@
 import { MempoolBlockDelta, MempoolBlockDeltaCompressed, MempoolDeltaChange, TransactionCompressed } from '../interfaces/websocket.interface';
 import { TransactionStripped } from '@interfaces/node-api.interface';
 import { AmountShortenerPipe } from '@app/shared/pipes/amount-shortener.pipe';
+import { UNIT } from '@app/app.constants';
 import { Router, ActivatedRoute } from '@angular/router';
 const amountShortenerPipe = new AmountShortenerPipe();
 
@@ -205,7 +206,7 @@ export function renderSats(value: number, network: string, mode: 'sats' | 'btc' 
       break;
   }
   if (mode === 'btc' || (mode === 'auto' && value >= 1000000)) {
-    return `${amountShortenerPipe.transform(value / 100000000, 2)} ${prefix}BTC`;
+    return `${amountShortenerPipe.transform(value / 100000000, 2)} ${prefix}${UNIT}`;
   } else {
     if (prefix.length) {
       prefix += '-';

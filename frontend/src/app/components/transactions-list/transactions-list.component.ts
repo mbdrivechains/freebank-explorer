@@ -496,7 +496,7 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
     if (this.network === 'liquid' || this.network === 'liquidtestnet') {
       return;
     }
-    const modes = ['btc', 'sats', 'fiat'];
+    const modes = ['btc', 'sats']; // FreeBank: no fiat prices, so no 'fiat' mode
     const oldIndex = modes.indexOf(this.stateService.viewAmountMode$.value);
     const newIndex = (oldIndex + 1) % modes.length;
     this.stateService.viewAmountMode$.next(modes[newIndex] as 'btc' | 'sats' | 'fiat');

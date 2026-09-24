@@ -175,11 +175,7 @@
                 </td>
               </tr>
               <tr *ngIf="adjustedVsize">
-                <td><ng-container i18n="transaction.adjusted-vsize|Transaction Adjusted VSize">Adjusted vsize</ng-container>
-                  <a class="info-link" [routerLink]="['/docs/faq/' | relativeUrl]" fragment="what-is-adjusted-vsize">
-                    <fa-icon [icon]="['fas', 'info-circle']" [fixedWidth]="true"></fa-icon>
-                  </a>
-                </td>
+                <td><ng-container i18n="transaction.adjusted-vsize|Transaction Adjusted VSize">Adjusted vsize</ng-container></td>
                 <td [innerHTML]="'&lrm;' + (adjustedVsize | vbytes: 2)"></td>
               </tr>
               <tr>
@@ -204,11 +200,7 @@
                 <td [innerHTML]="'&lrm;' + (transaction.locktime | number)"></td>
               </tr>
               <tr *ngIf="transaction.sigops >= 0">
-                <td><ng-container i18n="transaction.sigops|Transaction Sigops">Sigops</ng-container>
-                  <a class="info-link" [routerLink]="['/docs/faq/' | relativeUrl]" fragment="what-are-sigops">
-                    <fa-icon [icon]="['fas', 'info-circle']" [fixedWidth]="true"></fa-icon>
-                  </a>
-                </td>
+                <td><ng-container i18n="transaction.sigops|Transaction Sigops">Sigops</ng-container></td>
                 <td [innerHTML]="'&lrm;' + (transaction.sigops | number)"></td>
               </tr>
               <tr>

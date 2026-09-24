@@ -14,7 +14,7 @@ import loadingIndicators from './loading-indicators';
 import config from '../config';
 import transactionUtils from './transaction-utils';
 import rbfCache, { ReplacementInfo } from './rbf-cache';
-import difficultyAdjustment from './difficulty-adjustment';
+import difficultyAdjustment, { HAS_DIFFICULTY_RETARGET } from './difficulty-adjustment';
 import feeApi from './fee-api';
 import BlocksAuditsRepository from '../repositories/BlocksAuditsRepository';
 import BlocksSummariesRepository from '../repositories/BlocksSummariesRepository';
@@ -373,7 +373,8 @@ class WebsocketHandler {
           }
 
           if (parsedMessage.action === 'init') {
-            if (!this.socketData['blocks']?.length || !this.socketData['da'] || !this.socketData['backendInfo'] || !this.socketData['conversions']) {
+            // FreeBank: with no difficulty retarget there is never a 'da', so do not wait for one
+            if (!this.socketData['blocks']?.length || (HAS_DIFFICULTY_RETARGET && !this.socketData['da']) || !this.socketData['backendInfo'] || !this.socketData['conversions']) {
               this.updateSocketData();
             }
             if (!this.socketData['blocks']?.length) {

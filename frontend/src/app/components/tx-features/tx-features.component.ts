@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, OnChanges, Input } from '@angular/c
 import { calcSegwitFeeGains } from '@app/bitcoin.utils';
 import { Transaction } from '@interfaces/electrs.interface';
 import { StateService } from '@app/services/state.service';
+import { txSignalsRbf, txUsesSegwit } from '@app/shared/transaction.utils';
 
 @Component({
   selector: 'app-tx-features',
@@ -22,6 +23,7 @@ export class TxFeaturesComponent implements OnChanges {
   };
   isRbfTransaction: boolean;
   isTaproot: boolean;
+  isSegwit: boolean;
 
   segwitEnabled: boolean;
   rbfEnabled: boolean;
@@ -41,7 +43,8 @@ export class TxFeaturesComponent implements OnChanges {
     this.taprootEnabled = false;
     this.rbfEnabled = true;
     this.segwitGains = calcSegwitFeeGains(this.tx);
-    this.isRbfTransaction = this.tx.vin.some((v) => v.sequence < 0xfffffffe);
+    this.isRbfTransaction = txSignalsRbf(this.tx);
+    this.isSegwit = txUsesSegwit(this.tx);
     this.isTaproot = this.tx.vin.some((v) => v.prevout && v.prevout.scriptpubkey_type === 'v1_p2tr');
   }
 }

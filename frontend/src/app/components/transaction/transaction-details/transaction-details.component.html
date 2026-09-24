@@ -101,7 +101,7 @@
 <ng-template #featuresRow>
   @if (network !== 'liquid' && network !== 'liquidtestnet') {
     @if (!isLoadingTx) {
-      @if (featuresEnabled) {
+      @if (featuresEnabled && usesFeatures) {
         <tr>
           <td class="td-width" i18n="transaction.features|Transaction features" id="acceleratePreviewAnchor">Features</td>
           <td>
@@ -153,7 +153,7 @@
 
 <ng-template #etaRow>
   @if (!isLoadingTx) {
-    @if (!replaced && !isCached && !unbroadcasted) {
+    @if (!replaced && !isCached && !unbroadcasted && hasEta) {
       <tr>
         <td class="td-width align-items-center align-middle" i18n="transaction.eta|Transaction ETA">ETA</td>
         <td>
