@@ -7,6 +7,7 @@ import { WebsocketService } from '@app/services/websocket.service';
 import { SeoService } from '@app/services/seo.service';
 import { loadOnEachBlock } from '@app/freebank/credit-load';
 import { FreebankHouse, FreebankPool } from '@interfaces/freebank-credit.interface';
+import { houseHealth } from '@app/freebank/house-health';
 import { PoolPrice, poolPrice } from '@app/freebank/pages/pool-list/pool-view';
 
 /** GET /pools plus GET /houses (for each pool's house badge and note class). */
@@ -21,6 +22,7 @@ interface PoolRow {
   house: FreebankHouse | null;
   noteLabel: string;              // 'hone notes', or 'note units' before the house is known
   price: PoolPrice;
+  parCaveat: string;              // why par does not apply to this house's notes right now; '' if it does
 }
 
 interface PoolListView {
@@ -82,11 +84,19 @@ export class PoolListComponent implements OnInit {
       .sort((a, b) => a.pool_id - b.pool_id)
       .map((pool) => {
         const house = houses.get(pool.house_id) || null;
+        const health = house ? houseHealth(house, data.tip_height) : null;
+        let parCaveat = '';
+        if (health?.notesImpaired) {
+          parCaveat = 'house insolvent: notes are claims, not par';
+        } else if (health && !health.notesAtPar) {
+          parCaveat = 'house not redeeming at par now';
+        }
         return {
           pool,
           house,
           noteLabel: house?.classid ? `${house.classid} notes` : 'note units',
           price: poolPrice(pool),
+          parCaveat,
         };
       });
   }

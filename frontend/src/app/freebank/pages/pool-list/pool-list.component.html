@@ -49,6 +49,7 @@
                 <ng-container *ngIf="row.price.spot !== null; else noPrice">
                   <span class="nowrap">{{ row.price.spot | number: '1.4-4' }} <span class="symbol">sats</span></span>
                   <span class="sub" [class.below-par]="row.price.belowPar">{{ row.price.vsParText }}</span>
+                  <span class="sub" *ngIf="row.parCaveat">{{ row.parCaveat }}</span>
                 </ng-container>
                 <ng-template #noPrice><span class="sub">no notes in the pool</span></ng-template>
               </td>

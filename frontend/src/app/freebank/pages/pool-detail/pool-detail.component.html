@@ -76,8 +76,16 @@
                 <td><span class="help" ngbTooltip="Par is 1 sat per note unit, what the house redeems a unit for. Below par, the market prices the house's notes at a discount; above par, at a premium." placement="bottom" container="body">Against par</span></td>
                 <td>
                   <span [class.below-par]="view.price.belowPar">{{ view.price.vsParText }}</span>
-                  <span class="explain" *ngIf="view.price.belowPar">Buyers pay less than the house redeems the notes for.</span>
-                  <span class="explain" *ngIf="view.price.vsParPercent >= 0.005">Buyers pay more than the house redeems the notes for.</span>
+                  <ng-container *ngIf="view.notesImpaired; else parCheck">
+                    <span class="explain">The house is insolvent: its notes are claims on its pot, paid pro rata, not redeemable at par.</span>
+                  </ng-container>
+                  <ng-template #parCheck>
+                    <span class="explain" *ngIf="!view.notesAtPar">The house is not redeeming at par right now, so par is only a reference.</span>
+                    <ng-container *ngIf="view.notesAtPar">
+                      <span class="explain" *ngIf="view.price.belowPar">Buyers pay less than the house redeems the notes for.</span>
+                      <span class="explain" *ngIf="view.price.vsParPercent >= 0.005">Buyers pay more than the house redeems the notes for.</span>
+                    </ng-container>
+                  </ng-template>
                 </td>
               </tr>
               <tr *ngIf="view.price.unitsPerSat !== null">

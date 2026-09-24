@@ -8,6 +8,7 @@ import { WebsocketService } from '@app/services/websocket.service';
 import { SeoService } from '@app/services/seo.service';
 import { CreditLoad, loadOnEachBlock } from '@app/freebank/credit-load';
 import { FreebankActivityResponse, FreebankHouse, FreebankPool, FreebankPoolResponse } from '@interfaces/freebank-credit.interface';
+import { houseHealth } from '@app/freebank/house-health';
 import { PoolActivityRow, PoolPrice, activityNamesPool, poolActivityRow, poolPrice } from '@app/freebank/pages/pool-list/pool-view';
 
 /** How many pool txs the page asks /activity for (the backend's maximum). */
@@ -27,6 +28,8 @@ interface PoolDetailView {
   house: FreebankHouse | null;
   noteLabel: string;                  // 'hone notes', or 'note units' without the house
   price: PoolPrice | null;
+  notesAtPar: boolean;                // the house redeems its notes at par right now (true until the house loads)
+  notesImpaired: boolean;             // the house is insolvent: its notes are claims on its pot
   providerLp: number | null;          // shares held by providers: lp_supply - locked_lp
   lockedPercent: number | null;       // locked_lp as a percent of lp_supply
   unitsPerShare: number | null;       // note units behind one share
@@ -99,6 +102,7 @@ export class PoolDetailComponent implements OnInit {
     const oldest = items.length ? Math.min(...items.map((item) => item.height)) : null;
     const truncated = items.length >= POOL_ACTIVITY_LIMIT && oldest !== null && pool !== null && oldest > pool.createheight;
 
+    const health = house ? houseHealth(house, tipHeight) : null;
     const lpSupply = isNumber(pool?.lp_supply) ? pool.lp_supply : null;
     const lockedLp = isNumber(pool?.locked_lp) ? pool.locked_lp : null;
 
@@ -111,6 +115,8 @@ export class PoolDetailComponent implements OnInit {
       house,
       noteLabel: house?.classid ? `${house.classid} notes` : 'note units',
       price: pool ? poolPrice(pool) : null,
+      notesAtPar: health ? health.notesAtPar : true,
+      notesImpaired: health ? health.notesImpaired : false,
       providerLp: lpSupply !== null && lockedLp !== null ? Math.max(0, lpSupply - lockedLp) : null,
       lockedPercent: lpSupply && lockedLp !== null ? lockedLp / lpSupply * 100 : null,
       unitsPerShare: pool && lpSupply ? pool.note_reserve / lpSupply : null,
