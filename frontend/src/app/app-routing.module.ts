@@ -194,14 +194,6 @@ let routes: Routes = [
     data: { preload: true },
   },
   {
-    path: 'widget/wallet',
-    children: [],
-    component: AddressGroupComponent,
-    data: {
-      networkSpecific: true,
-    }
-  },
-  {
     path: 'preview',
     children: [
       {
@@ -261,6 +253,17 @@ let routes: Routes = [
     data: { preload: true },
   },
 ];
+
+// FreeBank Explorer: only keep the /testnet, /testnet4, /signet and /regtest route
+// trees (and their /preview/<network> twins) when that network is enabled, so the
+// disabled ones fall through to the '**' redirect instead of an offline dashboard.
+const disabledNetworks: string[] = ['testnet', 'testnet4', 'signet', 'regtest']
+  .filter(network => !browserWindowEnv[network.toUpperCase() + '_ENABLED']);
+routes = routes.filter(route => !disabledNetworks.includes(route.path));
+const previewRoute = routes.find(route => route.path === 'preview');
+if (previewRoute?.children) {
+  previewRoute.children = previewRoute.children.filter(route => !disabledNetworks.includes(route.path));
+}
 
 if (browserWindowEnv && browserWindowEnv.BASE_MODULE === 'liquid') {
   routes = [
