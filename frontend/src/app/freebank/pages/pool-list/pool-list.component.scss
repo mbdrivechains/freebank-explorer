@@ -1,0 +1,11 @@
+.house-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+// a note price under par: light gold, the explorer's caution colour
+.below-par {
+  color: var(--info) !important;
+}
