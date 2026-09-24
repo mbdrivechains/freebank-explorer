@@ -1,9 +1,621 @@
-<div class="container-xl credit-page">
-  <h1>House {{ houseId }}</h1>
-  <ng-container *ngIf="state$ | async as state">
-    <p *ngIf="state.data">
-      <app-house-health-badge [house]="state.data.house" [tipHeight]="state.data.tip_height" [showSummary]="true"></app-house-health-badge>
+<div class="container-xl credit-page house-detail" *ngIf="view$ | async as view">
+
+  <!-- HEADER: note name, house number, health badge -->
+  <div class="title-block house-title">
+    <h1>
+      House
+      <span class="house-classid" *ngIf="view.data; else titleNumber">{{ view.data.house.classid }}</span>
+      <ng-template #titleNumber><span class="house-classid">{{ houseId }}</span></ng-template>
+    </h1>
+    <span class="house-number" *ngIf="view.data">#{{ view.data.house.id }}</span>
+    <div class="spinner-border" role="status" *ngIf="view.refreshing"><span class="sr-only">Loading</span></div>
+    <div class="grow"></div>
+    <app-house-health-badge *ngIf="view.data" class="house-title-badge" [house]="view.data.house" [tipHeight]="view.data.tip" placement="bottom-right"></app-house-health-badge>
+  </div>
+  <div class="clearfix"></div>
+
+  <!-- NOT FOUND / ERROR -->
+  <ng-container *ngIf="view.error && !view.data">
+    <app-http-error [error]="view.error">
+      <ng-container *ngIf="view.notFound; else loadError">There is no house {{ houseId }} on this chain.</ng-container>
+      <ng-template #loadError>Could not load this house</ng-template>
+    </app-http-error>
+    <p class="credit-footnote"><a [routerLink]="['/houses' | relativeUrl]">See every house</a></p>
+  </ng-container>
+
+  <!-- LOADING -->
+  <ng-container *ngIf="view.loading">
+    <div class="box house-health-box"><span class="skeleton-loader" style="max-width: 420px"></span></div>
+    <div class="title"><h2>Status and attestation</h2></div>
+    <div class="box">
+      <div class="row">
+        <div class="col-md" *ngFor="let col of [1, 2]">
+          <table class="table table-borderless table-striped">
+            <tbody>
+              <tr *ngFor="let line of skeletonLines"><td colspan="2"><span class="skeleton-loader"></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="view.data as d">
+    <p class="credit-stale" *ngIf="view.error">Could not refresh: showing this house as it was at block {{ d.tip }}.</p>
+
+    <!-- HEALTH: the badge's reasons, spelled out -->
+    <div class="box house-health-box" [ngClass]="'house-health-box-' + d.health.badge">
+      <p class="house-health-summary">{{ d.health.summary }}</p>
+      <ul class="house-health-reasons">
+        <li *ngFor="let reason of d.health.reasons">{{ reason }}</li>
+      </ul>
+    </div>
+
+    <!-- STATUS AND ATTESTATION -->
+    <div class="title"><h2>Status and attestation</h2></div>
+    <div class="box">
+      <div class="row">
+        <div class="col-md">
+          <table class="table table-borderless table-striped house-facts">
+            <tbody>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The status in force at the latest block. The chain works it out from the house's attestations, any open protest and the option clause.">Status</span></td>
+                <td>
+                  {{ d.statusLabel }}
+                  <span class="muted" *ngIf="d.house.stress_since"> since block <app-credit-height [height]="d.house.stress_since" [tipHeight]="d.tip"></app-credit-height></span>
+                </td>
+              </tr>
+              <tr *ngIf="d.storedStatusLabel">
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The status last written on chain. Stressed, deferred and insolvent are worked out from block heights without a write, so this can still read Open.">Recorded status</span></td>
+                <td>{{ d.storedStatusLabel }}</td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Reserves the house proved at its last attestation, divided by its notes outstanding. Shown up to 100%. Below the 10% reserve floor the house is stressed.">Attested reserve ratio</span></td>
+                <td>{{ d.ratioText }}</td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The ECX the house proved it held at its last attestation. Grams of gold in brackets, for reading only.">Reserves last attested</span></td>
+                <td>
+                  <app-credit-amount *ngIf="!d.neverAttested; else noReserves" [ecx]="d.house.lastattestreserves" [grams]="d.house.lastattestreserves_grams"></app-credit-amount>
+                  <ng-template #noReserves><span class="muted">none yet</span></ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The block of the house's last reserve attestation. A new house's clock starts at registration.">Last attestation</span></td>
+                <td>
+                  <ng-container *ngIf="!d.neverAttested; else neverAttested">
+                    <app-credit-height [height]="d.house.lastattestheight" [tipHeight]="d.tip"></app-credit-height>
+                    <div class="sub" *ngIf="view.activity.lastAttest as attest">
+                      <app-time kind="since" [time]="attest.time" [fastRender]="true"></app-time>,
+                      <a [routerLink]="['/tx/' | relativeUrl, attest.txid]">see the transaction</a>
+                    </div>
+                  </ng-container>
+                  <ng-template #neverAttested>
+                    <span class="muted">never</span>
+                    <div class="sub">clock started at registration, block {{ d.house.registeredheight }}</div>
+                  </ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Brassage: a spread taken on redemptions only while the attested ratio is below the 10% floor. It goes into the pot for the holders who stay.">Redemption spread</span></td>
+                <td>
+                  <ng-container *ngIf="d.house.brassagebps; else noSpread">{{ d.house.brassagebps | bps }}</ng-container>
+                  <ng-template #noSpread>none: notes redeem at par</ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Only a house that is open, attested at or above the 10% floor and attested within one cadence can exchange notes with other houses at par in settlement.">Settles at par</span></td>
+                <td>
+                  <span *ngIf="d.house.pareligible; else notPar">Yes</span>
+                  <ng-template #notPar><span class="overdue">No</span></ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col-md">
+          <table class="table table-borderless table-striped house-facts">
+            <tbody>
+              <tr *ngIf="d.health.attestationCadence">
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="How often the house must prove its reserves. Read from the chain's deadline, which allows two cadences.">Attestation cadence</span></td>
+                <td>every {{ d.health.attestationCadence | blockCount }}</td>
+              </tr>
+              <tr *ngIf="d.attests && d.health.nextAttestationDue">
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="One cadence after the last attestation. Past this block the house can neither mint nor settle at par until it attests again; its notes still redeem at par.">Next attestation due</span></td>
+                <td><app-credit-height [height]="d.health.nextAttestationDue" [tipHeight]="d.tip"></app-credit-height></td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Two cadences after the last attestation. With no attestation by this block, the house is stressed from the next one.">Attest by</span></td>
+                <td>
+                  <ng-container *ngIf="d.attests; else noClock">
+                    <span [class.overdue]="d.clock.overdue">{{ d.clock.text }}</span>
+                    <div class="sub">block <app-credit-height [height]="d.clock.deadline" [tipHeight]="d.tip" [showRelative]="false"></app-credit-height>;
+                      stressed from block {{ d.clock.deadline + 1 }} without one</div>
+                  </ng-container>
+                  <ng-template #noClock><span class="muted">no longer attests</span></ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The option clause lets a stressed house defer redemptions for a limited window. Holders who lodge a demand earn 5% a year from the date of demand. A house that used it too recently or for too long cannot invoke it again.">Option clause</span></td>
+                <td>
+                  <ng-container *ngIf="!d.house.confidence_dead; else clauseSpent">available</ng-container>
+                  <ng-template #clauseSpent><span class="overdue">not available</span>
+                    <div class="sub">used too recently or for too long</div></ng-template>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Whether the option clause is in force now, and its history.">Deferral</span></td>
+                <td [class.overdue]="d.deferral.state === 'active'">{{ d.deferral.text }}</td>
+              </tr>
+              <tr *ngIf="d.house.protest_open !== undefined && d.house.protest_open !== null">
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="A note holder protests when the house does not pay a lodged demand for redemption. An open protest makes the house stressed.">Open protests</span></td>
+                <td>
+                  <span [class.overdue]="d.house.protest_open > 0">{{ d.house.protest_open }}</span>
+                  <div class="sub" *ngIf="d.house.protest_height">latest at block <app-credit-height [height]="d.house.protest_height" [tipHeight]="d.tip"></app-credit-height></div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The last note exchange with another house, where each side's notes come home at par and the difference is paid in ECX.">Last settlement</span></td>
+                <td><app-credit-height [height]="d.house.lastsettleheight" [tipHeight]="d.tip" zeroText="never"></app-credit-height></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSOLVENCY -->
+    <ng-container *ngIf="d.insolvent">
+      <div class="title"><h2>Insolvency</h2></div>
+      <div class="box house-insolvency">
+        <p>This house's notes are no longer paid at par. Each holder claims a pro-rata share of the pot, so its notes are
+          impaired claims, shown apart from par balances.</p>
+        <table class="table table-borderless table-striped house-facts">
+          <tbody>
+            <tr *ngIf="d.house.insolventheight">
+              <td>Insolvent since</td>
+              <td><app-credit-height [height]="d.house.insolventheight" [tipHeight]="d.tip"></app-credit-height></td>
+            </tr>
+            <tr *ngIf="d.house.insolventunits !== undefined">
+              <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                ngbTooltip="Note units outstanding when insolvency took effect: the claims on the pot.">Notes outstanding at insolvency</span></td>
+              <td>{{ d.house.insolventunits | noteUnits }} <span class="symbol">units</span></td>
+            </tr>
+            <tr *ngIf="d.house.insolventdepositprincipal">
+              <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                ngbTooltip="Term-deposit principal outstanding when insolvency took effect, also claimed from the pot.">Term deposits at insolvency</span></td>
+              <td>{{ d.house.insolventdepositprincipal | noteUnits }} <span class="symbol">units</span></td>
+            </tr>
+            <tr *ngIf="d.house.insolventpot !== undefined">
+              <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                ngbTooltip="The ECX the holders share pro rata.">Pot</span></td>
+              <td><app-credit-amount [ecx]="d.house.insolventpot"></app-credit-amount></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+
+    <!-- CAPACITY -->
+    <div class="title"><h2>Capacity</h2></div>
+    <div class="box">
+      <div class="row">
+        <div class="col-md">
+          <table class="table table-borderless table-striped house-facts">
+            <tbody>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Notes outstanding. One unit redeems for 1 sat at the house. The bar shows how much of the mint cap they use.">Notes issued</span></td>
+                <td>
+                  <app-credit-amount [units]="d.house.mintedunits" [grams]="d.house.mintedunits_grams"
+                    [unitLabel]="d.house.classid + ' units'"></app-credit-amount>
+                  <div class="credit-meter" [class.full]="(d.capacity.mint.percent || 0) >= 90" [class.over]="d.capacity.mint.over">
+                    <div class="credit-meter-fill" [style.width.%]="d.capacity.mint.barPercent"></div>
+                  </div>
+                  <div class="sub">{{ d.mintCapLine }}</div>
+                  <div class="sub overdue" *ngIf="d.health.notesImpaired">impaired: claims on the pot, not par</div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The most notes the house may have outstanding: the lower of the capital cap and the reserve cap.">Mint cap</span></td>
+                <td>
+                  <app-credit-amount [units]="d.house.mintcapunits" [grams]="d.house.mintcapunits_grams"></app-credit-amount>
+                  <div class="sub">set by the {{ d.capacity.mintCapSource }} cap</div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="How many more units the caps allow, the lower of the room under each. Minting also needs an attestation within one cadence and reserves proven live in the same transaction, so the real room can be lower.">Room to issue</span></td>
+                <td>
+                  <app-credit-amount [units]="d.capacity.roomToIssue" [grams]="d.roomGrams"></app-credit-amount>
+                  <div class="sub">limited by the {{ d.capacity.binding }} cap</div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Principal of the term deposits the house has taken and not yet repaid, in note units. Deposits count against the capital cap alongside notes.">Term deposits</span></td>
+                <td>
+                  <app-credit-amount [units]="d.capacity.deposits" [grams]="d.depositGrams"></app-credit-amount>
+                  <div class="sub" *ngIf="d.capacity.deposits && d.house.depositwam">average remaining term {{ d.house.depositwam | blockCount }}</div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The chain's match-funding check: whether term money covers the part of the loan book that deposits fund.">Match funding</span></td>
+                <td>
+                  <ng-container *ngIf="d.house.matchfundingok; else notMatched">covered</ng-container>
+                  <ng-template #notMatched><span class="overdue">not covered</span></ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col-md">
+          <table class="table table-borderless table-striped house-facts">
+            <tbody>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Notes plus term deposits, against the capital cap. A discounted bill is paid for in the house's own notes, so the loan book is already inside the notes figure.">Capital cap used</span></td>
+                <td>
+                  {{ d.capacity.capital.text }}
+                  <div class="credit-meter" [class.full]="(d.capacity.capital.percent || 0) >= 90" [class.over]="d.capacity.capital.over">
+                    <div class="credit-meter-fill" [style.width.%]="d.capacity.capital.barPercent"></div>
+                  </div>
+                  <div class="sub">
+                    <ng-container *ngIf="d.capacity.deposits">notes {{ d.capacity.notes | noteUnits }} + deposits {{ d.capacity.deposits | noteUnits }} = </ng-container>{{ d.capacity.capital.used | noteUnits }}
+                    of {{ d.capacity.capital.cap | noteUnits }} units
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The issuance multiplier times the partner capital locked. The multiplier is set by the house's tier.">Capital cap</span></td>
+                <td>
+                  {{ d.house.capitalcapunits | noteUnits }} <span class="symbol">units</span>
+                  <div class="sub">{{ d.capacity.lambda.toFixed(1) }} × {{ d.house.activeescrow | ecx }} ECX locked</div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The capital the partners have locked in escrow behind the house. The capital cap is a multiple of it.">Partner capital locked</span></td>
+                <td><app-credit-amount [ecx]="d.house.activeescrow" [grams]="d.house.activeescrow_grams"></app-credit-amount></td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Notes outstanding, against the reserve cap.">Reserve cap used</span></td>
+                <td>
+                  {{ d.capacity.reserve.text }}
+                  <div class="credit-meter" [class.full]="(d.capacity.reserve.percent || 0) >= 90" [class.over]="d.capacity.reserve.over">
+                    <div class="credit-meter-fill" [style.width.%]="d.capacity.reserve.barPercent"></div>
+                  </div>
+                  <div class="sub">{{ d.capacity.notes | noteUnits }} of {{ d.capacity.reserve.cap | noteUnits }} units</div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Reserves last attested divided by the 10% reserve floor: the notes those reserves can back. Zero until the house first attests, so a new house must attest before it can mint.">Reserve cap</span></td>
+                <td>
+                  {{ d.house.reservecapunits | noteUnits }} <span class="symbol">units</span>
+                  <div class="sub">{{ d.house.lastattestreserves | ecx }} ECX ÷ 10%</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARTNERS -->
+    <div class="title"><h2>Partners</h2></div>
+    <div class="box house-scroll">
+      <p class="house-box-intro">
+        The partners pledge the house's capital and sign for it. A decision needs {{ d.house.threshold }}
+        {{ d.house.threshold === 1 ? 'signature' : 'signatures' }} from {{ d.partnersActive }} active {{ d.partnersActive === 1 ? 'partner' : 'partners' }}.
+      </p>
+      <table class="table table-borderless table-striped house-rows">
+        <thead>
+          <tr>
+            <th class="col-index">#</th>
+            <th>Public key</th>
+            <th class="text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="Capital pledged by this partner: at registration plus any top-ups. It is not reduced when a partner reclaims.">Pledge</span></th>
+            <th class="col-hide-xs">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of d.partners; trackBy: trackByIndex">
+            <td class="col-index">{{ row.partner.index }}</td>
+            <td class="col-key">
+              <app-truncate [text]="row.partner.pubkey" [lastChars]="8" [maxWidth]="300">
+                <app-clipboard [text]="row.partner.pubkey"></app-clipboard>
+              </app-truncate>
+            </td>
+            <td class="text-right"><app-credit-amount [ecx]="row.partner.pledge" [grams]="row.pledgeGrams"></app-credit-amount></td>
+            <td class="col-hide-xs">{{ row.statusText }}</td>
+          </tr>
+          <tr *ngIf="!d.partners.length">
+            <td colspan="4" class="credit-empty">No partners listed.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- LOAN BOOK -->
+    <div class="title"><h2>Loan book</h2></div>
+    <div class="box house-scroll">
+      <p class="house-box-intro">
+        Bills of exchange the house has discounted: it bought each one before maturity, paying in its own notes, and
+        collects the face value from the acceptor when the bill falls due.
+      </p>
+      <div class="house-book-summary" *ngIf="d.loanbook.count">
+        <div class="house-stat">
+          <div class="house-stat-label">Bills held</div>
+          <div class="house-stat-value">{{ d.loanbook.count }}</div>
+        </div>
+        <div class="house-stat">
+          <div class="house-stat-label"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The face value of every bill on the book, added up.">Face total</span></div>
+          <div class="house-stat-value"><app-credit-amount [sats]="d.loanbook.face_total" [grams]="d.loanbook.face_total_grams"></app-credit-amount></div>
+        </div>
+        <div class="house-stat" *ngIf="d.loanbook.wtd_avg_maturity">
+          <div class="house-stat-label"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The average maturity of the bills on the book, weighted by face value.">Average maturity</span></div>
+          <div class="house-stat-value"><app-credit-height [height]="d.loanbook.wtd_avg_maturity" [tipHeight]="d.tip"></app-credit-height></div>
+        </div>
+        <div class="house-stat" *ngIf="d.loanbook.face_matches !== undefined && d.loanbook.face_matches !== null">
+          <div class="house-stat-label"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+            ngbTooltip="The chain keeps its own running total of the house's loan book. The bills listed here should add up to exactly that figure.">Face matches the house's total</span></div>
+          <div class="house-stat-value">
+            <ng-container *ngIf="d.loanbook.face_matches; else faceMismatch">yes</ng-container>
+            <ng-template #faceMismatch>
+              <span class="overdue">no</span>
+              <div class="sub" *ngIf="d.loanbook.recorded_face !== undefined">the house's total reads {{ d.loanbook.recorded_face | satsAsEcx }} ECX</div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+
+      <table class="table table-borderless table-striped house-rows" *ngIf="d.loanRows.length; else emptyBook">
+        <thead>
+          <tr>
+            <th>Bill</th>
+            <th class="text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="What the acceptor pays at maturity.">Face</span></th>
+            <th class="text-right col-hide-sm"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="What the house paid for the bill, in its own note units. The gap to face is the house's discount: its interest for waiting until maturity.">Bought for</span></th>
+            <th><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="The block the bill falls due. After it the acceptor has a few blocks' grace to pay before the escrow can be claimed.">Maturity</span></th>
+            <th class="col-hide-md"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="The key holding the bill's title. A discounted bill is held by the house's custody key.">Holder</span></th>
+            <th class="col-hide-xs">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of d.loanRows; trackBy: trackByBill">
+            <td><a [routerLink]="['/bill/' | relativeUrl, row.bill.id]">Bill {{ row.bill.id }}</a></td>
+            <td class="text-right"><app-credit-amount [ecx]="row.bill.amount" [grams]="row.bill.amount_grams"></app-credit-amount></td>
+            <td class="text-right col-hide-sm">
+              <ng-container *ngIf="view.activity.discounts[row.bill.id] as discount; else priceUnknown">
+                <ng-container *ngIf="discount.decoded.price_units !== undefined && discount.decoded.price_units !== null; else priceUnknown">
+                  {{ discount.decoded.price_units | noteUnits }} <span class="symbol">units</span>
+                  <div class="sub" *ngIf="row.bill.amount">{{ discountShare(discount.decoded.price_units, row.bill.amount) }} of face,
+                    <a [routerLink]="['/tx/' | relativeUrl, discount.txid]">block {{ discount.height }}</a></div>
+                </ng-container>
+              </ng-container>
+              <ng-template #priceUnknown>
+                <span class="skeleton-loader" style="max-width: 80px" *ngIf="view.activity.loading; else priceNotListed"></span>
+                <ng-template #priceNotListed><span class="muted">not in recent activity</span></ng-template>
+              </ng-template>
+            </td>
+            <td>
+              <app-credit-height [height]="row.bill.maturity_height" [tipHeight]="d.tip" [showRelative]="false"></app-credit-height>
+              <div class="sub" [class.overdue]="row.maturity.state === 'due' || row.maturity.state === 'past_grace'">{{ row.maturity.text }}</div>
+            </td>
+            <td class="col-hide-md col-key">
+              <ng-container *ngIf="row.holderIsHouse; else otherHolder">this house's custody key</ng-container>
+              <ng-template #otherHolder>
+                <app-truncate [text]="row.bill.holder_pubkey" [lastChars]="8" [maxWidth]="200"></app-truncate>
+              </ng-template>
+            </td>
+            <td class="col-hide-xs">{{ row.bill | billStatus }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #emptyBook><p class="credit-empty">No bills on this house's book yet.</p></ng-template>
+
+      <ng-container *ngIf="d.pastBills.length">
+        <h3 class="house-subhead">Bills this house held before</h3>
+        <table class="table table-borderless table-striped house-rows">
+          <tbody>
+            <tr *ngFor="let bill of d.pastBills">
+              <td><a [routerLink]="['/bill/' | relativeUrl, bill.id]">Bill {{ bill.id }}</a></td>
+              <td class="text-right"><app-credit-amount [ecx]="bill.amount" [grams]="bill.amount_grams"></app-credit-amount></td>
+              <td>{{ bill | billStatus }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </ng-container>
+    </div>
+
+    <!-- POOLS -->
+    <div class="title"><h2>Pool</h2></div>
+    <div class="box house-scroll">
+      <p class="house-box-intro">
+        A pool trades this house's notes against ECX at a market price. At par, one note unit is worth 1 sat.
+      </p>
+      <table class="table table-borderless table-striped house-rows" *ngIf="d.pools.length; else noPool">
+        <thead>
+          <tr>
+            <th>Pool</th>
+            <th class="text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="This house's notes held in the pool.">Notes in pool</span></th>
+            <th class="text-right col-hide-xs"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="The ECX held in the pool.">ECX in pool</span></th>
+            <th class="text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="The pool's current price for one note unit, from its reserves, before the fee. Par is 1 sat.">Price per unit</span></th>
+            <th class="text-right col-hide-sm"><span class="credit-term" tabindex="0" container="body" placement="bottom"
+              ngbTooltip="The fee a swap pays to the pool.">Fee</span></th>
+            <th class="col-hide-md">Opened</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of d.pools">
+            <td><a [routerLink]="['/pool/' | relativeUrl, row.pool.pool_id]">Pool {{ row.pool.pool_id }}</a></td>
+            <td class="text-right"><app-credit-amount [units]="row.pool.note_reserve" [grams]="row.pool.note_reserve_grams"></app-credit-amount></td>
+            <td class="text-right col-hide-xs"><app-credit-amount [sats]="row.pool.btx_reserve" [grams]="row.pool.btx_reserve_grams"></app-credit-amount></td>
+            <td class="text-right">
+              <ng-container *ngIf="row.spotSatsPerUnit !== null; else noPrice">
+                {{ row.spotSatsPerUnit | number: '1.4-4' }} <span class="symbol">sats</span>
+                <div class="sub">{{ row.parText }}</div>
+              </ng-container>
+              <ng-template #noPrice><span class="muted">no notes in the pool</span></ng-template>
+            </td>
+            <td class="text-right col-hide-sm">{{ row.pool.fee_bps | bps }}</td>
+            <td class="col-hide-md"><app-credit-height [height]="row.pool.createheight" [tipHeight]="d.tip"></app-credit-height></td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noPool><p class="credit-empty">This house has no pool yet.</p></ng-template>
+    </div>
+
+    <!-- ACTIVITY -->
+    <div class="title"><h2>Activity</h2></div>
+    <div class="box house-scroll">
+      <p class="house-box-intro">
+        Credit transactions that name this house, newest first, among the latest {{ activityLimit }} on the chain<ng-container
+          *ngIf="view.activity.scannedFrom"> (the explorer has read blocks {{ view.activity.scannedFrom }} onward)</ng-container>.
+      </p>
+      <app-http-error *ngIf="view.activity.error" [error]="view.activity.error">Could not load the activity</app-http-error>
+      <table class="table table-borderless table-striped house-rows" *ngIf="!view.activity.error">
+        <thead>
+          <tr>
+            <th class="col-block">Block</th>
+            <th>What happened</th>
+            <th class="col-tx col-hide-xs">Transaction</th>
+          </tr>
+        </thead>
+        <tbody *ngIf="!view.activity.loading; else activitySkeleton">
+          <tr *ngFor="let row of view.activity.rows; trackBy: trackByTxid">
+            <td class="col-block">
+              <a [routerLink]="['/block/' | relativeUrl, row.item.height]">{{ row.item.height }}</a>
+              <div class="sub"><app-time kind="since" [time]="row.item.time" [fastRender]="true"></app-time></div>
+            </td>
+            <td class="col-what">
+              <span class="activity-family">{{ row.familyLabel }}</span>
+              <a class="activity-op" [routerLink]="['/tx/' | relativeUrl, row.item.txid]">{{ row.item.family | creditOp: row.item.op : row.item.op_name }}</a>
+              <div class="sub" *ngIf="row.detail.text || row.detail.billId">
+                <a *ngIf="row.detail.billId" [routerLink]="['/bill/' | relativeUrl, row.detail.billId]">Bill {{ row.detail.billId }}</a>
+                {{ row.detail.text }}
+              </div>
+            </td>
+            <td class="col-tx col-hide-xs">
+              <app-truncate [text]="row.item.txid" [lastChars]="6" [maxWidth]="220" [link]="['/tx/' | relativeUrl, row.item.txid]"></app-truncate>
+            </td>
+          </tr>
+          <tr *ngIf="!view.activity.rows.length">
+            <td colspan="3" class="credit-empty">No credit transactions name this house in the blocks scanned.</td>
+          </tr>
+        </tbody>
+        <ng-template #activitySkeleton>
+          <tbody>
+            <tr *ngFor="let line of skeletonLines">
+              <td class="col-block"><span class="skeleton-loader" style="max-width: 50px"></span></td>
+              <td><span class="skeleton-loader" style="max-width: 260px"></span></td>
+              <td class="col-tx col-hide-xs"><span class="skeleton-loader" style="max-width: 160px"></span></td>
+            </tr>
+          </tbody>
+        </ng-template>
+      </table>
+    </div>
+
+    <!-- REGISTRATION -->
+    <div class="title"><h2>Registration</h2></div>
+    <div class="box">
+      <div class="row">
+        <div class="col-md">
+          <table class="table table-borderless table-striped house-facts">
+            <tbody>
+              <tr>
+                <td>Registered at</td>
+                <td><app-credit-height [height]="d.house.registeredheight" [tipHeight]="d.tip"></app-credit-height></td>
+              </tr>
+              <tr>
+                <td>Registration</td>
+                <td class="col-key">
+                  <app-truncate [text]="d.house.txidregister" [lastChars]="8" [maxWidth]="300" [link]="['/tx/' | relativeUrl, d.house.txidregister]">
+                    <app-clipboard [text]="d.house.txidregister"></app-clipboard>
+                  </app-truncate>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The house's permanent identity on chain. The number #{{ d.house.id }} is a short index to it.">House hash</span></td>
+                <td class="col-key">
+                  <app-truncate [text]="d.house.househash" [lastChars]="8" [maxWidth]="300">
+                    <app-clipboard [text]="d.house.househash"></app-clipboard>
+                  </app-truncate>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The house's own key: redemptions are paid from it and discounted bills are held under it.">Custody key</span></td>
+                <td class="col-key">
+                  <app-truncate [text]="d.house.redemptiondestpk" [lastChars]="8" [maxWidth]="300">
+                    <app-clipboard [text]="d.house.redemptiondestpk"></app-clipboard>
+                  </app-truncate>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col-md">
+          <table class="table table-borderless table-striped house-facts">
+            <tbody>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="How the house is owned and governed. The tier also sets the issuance multiplier.">Tier</span></td>
+                <td>{{ d.tierLabel }}</td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Notes and term deposits together may reach this multiple of the partner capital locked.">Issuance multiplier</span></td>
+                <td>{{ d.capacity.lambda.toFixed(1) }} ×</td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Partner signatures needed to approve the house's actions.">Signatures needed</span></td>
+                <td>{{ d.house.threshold }} of {{ d.partnersActive }} active {{ d.partnersActive === 1 ? 'partner' : 'partners' }}</td>
+              </tr>
+              <tr>
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="The gold weight the house declared for one note. It is not used by the current rules: notes redeem in ECX, one unit for 1 sat.">Declared denomination</span></td>
+                <td>{{ d.house.denominationmggold / 1000 | grams }} of gold per unit</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <p class="credit-footnote">
+      Figures are as of block <a [routerLink]="['/block/' | relativeUrl, d.tip]">{{ d.tip }}</a>. Grams of gold use the
+      chain's display rate and are for reading only: notes redeem in ECX, one unit for 1 sat.
+      <a [routerLink]="['/houses' | relativeUrl]">See every house</a>.
     </p>
-    <app-credit-raw-json [state]="state" errorText="Could not load this house"></app-credit-raw-json>
   </ng-container>
 </div>

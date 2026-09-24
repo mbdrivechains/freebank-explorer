@@ -1,0 +1,235 @@
+// The house page: block/tx page layout (title-block, h2 titles over .box panels, striped
+// two-column tables that stack below 768px).
+
+.house-title {
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 15px;
+
+  h1 {
+    margin: 0 10px 0 0;
+    line-height: 1.2;
+  }
+
+  .house-classid {
+    color: var(--title-fg);
+  }
+
+  .house-number {
+    font-size: 1.3rem;
+    margin-left: 0;
+  }
+
+  .spinner-border {
+    width: 20px;
+    height: 20px;
+    margin-left: 12px;
+  }
+
+  .house-title-badge {
+    font-size: 1.1rem;
+    @media (max-width: 575.98px) {
+      flex-basis: 100%;
+      margin-top: 8px;
+    }
+  }
+}
+
+.grow {
+  flex-grow: 1;
+}
+
+.title {
+  margin-top: 25px;
+  h2 {
+    line-height: 1;
+    margin: 0;
+    padding-bottom: 10px;
+  }
+}
+
+.row {
+  flex-direction: column;
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+}
+
+// The health box: the badge's summary and reasons, edged in the badge's colour
+.house-health-box {
+  border-left: 4px solid var(--primary);
+
+  &.house-health-box-attestation_due,
+  &.house-health-box-stressed {
+    border-left-color: var(--info);
+  }
+  &.house-health-box-insolvent {
+    border-left-color: var(--red);
+  }
+  &.house-health-box-wound_down {
+    border-left-color: var(--grey);
+  }
+
+  .house-health-summary {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .house-health-reasons {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--transparent-fg);
+    li {
+      margin-bottom: 0.25rem;
+    }
+  }
+}
+
+.house-insolvency {
+  border-left: 4px solid var(--red);
+  p {
+    margin-bottom: 0.75rem;
+  }
+}
+
+// Label / value tables
+.house-facts {
+  margin-bottom: 0;
+
+  td {
+    vertical-align: top;
+  }
+
+  td:first-child {
+    width: 45%;
+    @media (min-width: 768px) {
+      width: 40%;
+    }
+  }
+
+  // values sit on the right on narrow screens, as on the block page
+  td:last-child {
+    text-align: right;
+    @media (min-width: 768px) {
+      text-align: left;
+    }
+    .credit-meter {
+      margin-left: auto;
+      @media (min-width: 768px) {
+        margin-left: 0;
+      }
+    }
+  }
+}
+
+// Row tables (partners, loan book, pool, activity)
+.house-rows {
+  margin-bottom: 0;
+
+  th {
+    font-weight: 500;
+    white-space: nowrap;
+    border: 0;
+  }
+
+  th, td {
+    vertical-align: top;
+  }
+
+  .col-index {
+    width: 40px;
+  }
+
+  .col-block {
+    width: 90px;
+    white-space: nowrap;
+  }
+
+  .col-tx {
+    width: 240px;
+  }
+
+  .col-hide-xs {
+    @media (max-width: 575.98px) {
+      display: none;
+    }
+  }
+  .col-hide-sm {
+    @media (max-width: 767.98px) {
+      display: none;
+    }
+  }
+  .col-hide-md {
+    @media (max-width: 991.98px) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    th, td {
+      padding-left: 0.4rem;
+      padding-right: 0.4rem;
+    }
+  }
+}
+
+.col-key {
+  min-width: 0;
+  max-width: 320px;
+  @media (max-width: 575.98px) {
+    max-width: 110px;
+  }
+}
+
+// Boxes holding row tables scroll sideways on a narrow screen rather than widen the page
+.house-scroll {
+  overflow-x: auto;
+}
+
+.house-box-intro {
+  color: var(--transparent-fg);
+  font-size: 14px;
+  margin-bottom: 0.75rem;
+}
+
+.house-subhead {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--transparent-fg);
+}
+
+// Loan book headline figures
+.house-book-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  margin-bottom: 1rem;
+
+  .house-stat-label {
+    color: var(--transparent-fg);
+    font-size: 13px;
+  }
+
+  .house-stat-value {
+    font-size: 1.05rem;
+  }
+}
+
+// Activity: the family as a small tag before the op
+.activity-family {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--title-fg);
+  border: 1px solid var(--primary);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+.col-what .sub {
+  margin-top: 2px;
+  white-space: normal;
+}
