@@ -1,4 +1,4 @@
-import { FreebankActivityItem, FreebankActivityResponse, FreebankBill } from '@interfaces/freebank-credit.interface';
+import { FreebankActivityItem, FreebankActivityResponse, FreebankBill, FreebankDecodedPayload } from '@interfaces/freebank-credit.interface';
 
 // The history of one bill for /bill/:id, pieced together from the bill record (issue txid,
 // endorsement chain) and GET /activity?family=bill (the txs that name the bill by its dense id).
@@ -84,7 +84,7 @@ function emptyEvent(kind: BillEventKind): BillEvent {
 function fromItem(item: FreebankActivityItem): BillEvent {
   const kind = eventKind(item.op_name);
   const event = emptyEvent(kind);
-  const d = item.decoded || {};
+  const d: FreebankDecodedPayload = item.decoded || {};
   event.height = item.height;
   event.time = item.time;
   event.txid = item.txid;
@@ -112,7 +112,7 @@ function carriesLink(item: FreebankActivityItem, link: { from: string; to: strin
   if (item.op_name === 'discount') {
     return true;
   }
-  const d = item.decoded || {};
+  const d: FreebankDecodedPayload = item.decoded || {};
   const fromOk = typeof d.from_pubkey !== 'string' || d.from_pubkey === link.from;
   const toOk = typeof d.to_pubkey !== 'string' || d.to_pubkey === link.to;
   return fromOk && toOk;
