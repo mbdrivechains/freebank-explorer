@@ -8,15 +8,16 @@
     <code>{{ base }}</code>.
   </p>
   <p class="api-lead">
-    Amounts are integers in szats (1 ECX = 100,000,000 szats) and fee rates are in szat/vB. Please keep to a few
-    requests a second. Each example below is a real answer from this chain (block {{ tip }}), shortened: long lists show
-    their first two items.
+    Amounts in the block, transaction, mempool and BMM answers are integers in szats (1 ECX = 100,000,000 szats), and
+    fee rates are in szat/vB; the credit answers use the node's own units (see there). Please keep to a few requests a
+    second. Each example below is a real answer from this chain (block {{ tip }}), shortened: long lists show their
+    first two items.
   </p>
 
   <nav class="api-toc" aria-label="API sections">
-    <a *ngFor="let group of groups" [href]="'#' + group.id" (click)="scrollTo($event, group.id)">{{ group.title }}</a>
-    <a href="#live-updates" (click)="scrollTo($event, 'live-updates')">Live updates</a>
-    <a href="#not-available" (click)="scrollTo($event, 'not-available')">Not available</a>
+    <a *ngFor="let group of groups" [href]="pagePath + '#' + group.id" (click)="scrollTo($event, group.id)">{{ group.title }}</a>
+    <a [href]="pagePath + '#live-updates'" (click)="scrollTo($event, 'live-updates')">Live updates</a>
+    <a [href]="pagePath + '#not-available'" (click)="scrollTo($event, 'not-available')">Not available</a>
   </nav>
 
   <section *ngFor="let group of groups" [id]="group.id">
@@ -29,12 +30,13 @@
       <div class="api-endpoint-head">
         <span class="api-method" [class.post]="endpoint.method === 'POST'">{{ endpoint.method }}</span>
         <code class="api-path">{{ endpoint.path }}</code>
+        <a *ngIf="exampleUrl(endpoint) as url" class="api-try" [href]="url" target="_blank" rel="noopener">try it</a>
       </div>
       <p class="api-description">{{ endpoint.description }}</p>
       <pre class="api-code">{{ curl(endpoint) }}</pre>
       <p *ngIf="endpoint.method === 'GET' && !endpoint.example" class="api-note">No example yet: the chain has none to show.</p>
       <details *ngIf="endpoint.response" class="api-example">
-        <summary>Example answer<ng-container *ngIf="exampleUrl(endpoint) as url"> · <a [href]="url" target="_blank" rel="noopener">try it</a></ng-container></summary>
+        <summary>Example answer</summary>
         <pre class="api-code">{{ endpoint.response }}</pre>
       </details>
     </div>

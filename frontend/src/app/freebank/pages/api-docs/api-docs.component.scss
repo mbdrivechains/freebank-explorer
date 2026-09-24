@@ -36,7 +36,7 @@
   padding: 0.1rem 0.45rem;
   border-radius: 0.25rem;
   background: var(--primary);
-  color: var(--bg);
+  color: var(--fg);
 
   &.post {
     background: var(--tertiary);
@@ -45,14 +45,29 @@
 
   &.ws {
     background: transparent;
-    border: 1px solid var(--primary);
-    color: var(--primary);
+    border: 1px solid var(--title-fg);
+    color: var(--title-fg);
   }
 }
 
 .api-path,
 .credit-intro code {
-  color: var(--primary);
+  color: var(--title-fg);
+}
+
+.api-try {
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+
+// the table of contents scrolls a section's heading clear of the sticky header
+section[id],
+.api-endpoint[id] {
+  scroll-margin-top: 80px;
+
+  @media (max-width: 767.98px) {
+    scroll-margin-top: 120px;
+  }
 }
 
 .api-path {

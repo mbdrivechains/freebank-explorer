@@ -20,6 +20,7 @@ export class FreebankApiDocsComponent implements OnInit {
   readonly tip = API_DOCS_TIP;
   base = '';                      // this explorer: 'https://explorer.ecxfreebank.com'
   wsBase = '';                    // 'wss://explorer.ecxfreebank.com'
+  pagePath = '';                  // '/docs/api/rest': the page has <base href="/">, so '#x' alone means '/#x'
 
   constructor(
     private seoService: SeoService,
@@ -32,13 +33,15 @@ export class FreebankApiDocsComponent implements OnInit {
       + 'the credit layer and blind merged mining.');
     this.base = this.stateService.isBrowser ? window.location.origin : '';
     this.wsBase = this.base.replace(/^http/, 'ws');
+    this.pagePath = this.stateService.isBrowser ? window.location.pathname : '';
   }
 
   curl(endpoint: ApiDocEndpoint): string {
     if (endpoint.method === 'POST') {
-      return `curl -sSL -X POST "${this.base}${endpoint.path}" -d "<signed transaction hex>"`;
+      return `curl -sSL -X POST -H "Content-Type: text/plain" --data-binary "<signed transaction hex>" "${this.base}${endpoint.path}"`;
     }
-    return `curl -sSL "${this.base}${endpoint.example || endpoint.path}"`;
+    const url = `"${this.base}${endpoint.example || endpoint.path}"`;
+    return endpoint.kind === 'binary' ? `curl -sSL -o out.bin ${url}` : `curl -sSL ${url}`;
   }
 
   /** The example as a link, for GET endpoints that have one. */
@@ -52,7 +55,10 @@ export class FreebankApiDocsComponent implements OnInit {
   }
 
   /** The table of contents: the app's router does not scroll to fragments (anchorScrolling is off), so scroll here. */
-  scrollTo(event: Event, id: string): void {
+  scrollTo(event: MouseEvent, id: string): void {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) {
+      return;                     // a new tab or window: let the link do it
+    }
     event.preventDefault();
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }

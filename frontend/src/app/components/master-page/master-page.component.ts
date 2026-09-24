@@ -59,11 +59,8 @@ export class MasterPageComponent implements OnInit, OnDestroy {
     this.navigationService.subnetPaths.subscribe((paths) => {
       this.networkPaths = paths;
       if (this.footerVisibleOverride === null) {
-        if (paths.mainnet.indexOf('docs') > -1) {
-          this.footerVisible = false;
-        } else {
-          this.footerVisible = true;
-        }
+        // FreeBank: upstream hid the footer on its /docs pages; ours (/docs/api/rest) keeps it, source link included
+        this.footerVisible = true;
       } else {
         this.footerVisible = this.footerVisibleOverride;
       }
