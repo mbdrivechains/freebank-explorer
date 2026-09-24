@@ -36,7 +36,7 @@ export class TxFeaturesComponent implements OnChanges {
       return;
     }
     this.segwitEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'segwit');
-    this.taprootEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'taproot');
+    this.taprootEnabled = false; // FreeBank has no Taproot, so no Taproot badge or fee-saving advice
     this.rbfEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'rbf');
     this.segwitGains = calcSegwitFeeGains(this.tx);
     this.isRbfTransaction = this.tx.vin.some((v) => v.sequence < 0xfffffffe);

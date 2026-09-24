@@ -993,7 +993,7 @@ export class TransactionComponent implements OnInit, AfterViewInit, OnDestroy {
   setFeatures(): void {
     if (this.tx) {
       this.segwitEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'segwit');
-      this.taprootEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'taproot');
+      this.taprootEnabled = false; // FreeBank has no Taproot
       this.rbfEnabled = !this.tx.status.confirmed || isFeatureActive(this.stateService.network, this.tx.status.block_height, 'rbf');
       const txHeight = this.tx.status?.block_height || (this.stateService.latestBlockHeight >= 0 ? this.stateService.latestBlockHeight + 1 : null);
       this.tx.flags = getTransactionFlags(this.tx, null, null, txHeight, this.stateService.network);
