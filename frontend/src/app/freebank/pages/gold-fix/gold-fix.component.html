@@ -47,7 +47,7 @@
                   <td>Braked view</td>
                   <td>
                     <span placement="bottom" container="body"
-                      ngbTooltip="A damped copy of the fix. It follows a rise at once, but falls only a small step per block, so a sudden drop in the reported price reaches it slowly.">{{ view.braked.price }}</span>
+                      ngbTooltip="A damped copy of the fix. It follows a rise at once, but when the fix falls it comes down at most a small step for each block since the previous fix, so a sudden drop in the reported price reaches it slowly.">{{ view.braked.price }}</span>
                     <span class="symbol" *ngIf="view.brakedAboveRaw"> still coming down to the fix</span>
                   </td>
                 </tr>
@@ -62,8 +62,9 @@
                   <td>Stored on chain</td>
                   <td>
                     <span placement="bottom" container="body"
-                      ngbTooltip="The numbers the chain keeps, in milligrams of gold per 1000 ECX. Divide by 1,000,000 for grams per ECX.">{{ view.raw.stored }}<ng-container *ngIf="view.braked.stored !== view.raw.stored"> / {{ view.braked.stored }}</ng-container></span>
+                      ngbTooltip="The number the chain keeps for the fix, in milligrams of gold per 1000 ECX. Divide by 1,000,000 for grams per ECX.">{{ view.raw.stored }}</span>
                     <span class="symbol"> mg per 1000 ECX</span>
+                    <span class="symbol" *ngIf="view.braked.stored !== view.raw.stored">(braked view {{ view.braked.stored }})</span>
                   </td>
                 </tr>
               </tbody>
