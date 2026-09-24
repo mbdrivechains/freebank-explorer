@@ -45,6 +45,9 @@
   flex-direction: column;
   min-width: 0;
   margin: 0;
+  @media (max-width: 575.98px) {
+    padding: 1rem;              // the .box 1.25rem leaves a half-width tile ~130px of text at 390px
+  }
   @media (max-width: 767.98px) {
     &.credit-tile-houses,
     &:last-child {
