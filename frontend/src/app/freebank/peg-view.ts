@@ -3,6 +3,7 @@ import {
   PegTxView, PegWithdrawal, PegWithdrawalStatus,
 } from '@interfaces/freebank-peg.interface';
 import { ecashExplorerUrl, shortTxid } from '@app/freebank/bmm-view';
+import { isRefundRequest } from '@app/freebank/freebank-tx-flags';
 import { formatSatsAsEcx, formatUnits, SATS_PER_ECX } from '@app/freebank/credit-units';
 
 // Display helpers for FreeBank's peg with eCash: the output labels of coinbases and peg txs, the
@@ -174,7 +175,7 @@ function isBundlePayment(head: { dest: string, amount: number }): boolean {
 
 /** An output whose details come from /peg/tx (records, bundles, commitments, withdrawals, refund requests). */
 export function isPegOutputScript(script: string): boolean {
-  return typeof script === 'string' && /^6a(acdcf66f(44|50|57)|fcd2e546|fb5345de|fa86c689|ef5d1dfe)/.test(script);
+  return typeof script === 'string' && (/^6a(acdcf66f(44|50|57)|fb5345de|fa86c689|ef5d1dfe)/.test(script) || isRefundRequest(script));
 }
 
 export interface PegOutputLabel {

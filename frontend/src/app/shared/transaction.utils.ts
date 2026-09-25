@@ -1,5 +1,5 @@
 import { TransactionFlags } from '@app/shared/filters.utils';
-import { getFreebankTxFlags, isOpReturnData } from '@app/freebank/freebank-tx-flags';
+import { getFreebankTxFlags, isOpReturnData, isRefundRequest } from '@app/freebank/freebank-tx-flags';
 import { getVarIntLength, parseMultisigScript, isPoint, parseTapscriptMultisig, parseTapscriptUnanimousMultisig, ScriptInfo } from '@app/shared/script.utils';
 import { Transaction, Vin, Utxo } from '@interfaces/electrs.interface';
 import { CpfpInfo, RbfInfo, TransactionStripped } from '@interfaces/node-api.interface';
@@ -688,6 +688,9 @@ export function getFreebankOutputLabel(scriptpubkey: string, isCoinbase: boolean
     return undefined;
   }
   const tag = scriptpubkey.slice(2, 10);
+  if (tag === 'fcd2e546' && !isRefundRequest(scriptpubkey)) {
+    return undefined; // FreeBank: a look-alike the node ignores (not 102 bytes, or a zero id)
+  }
   if (tag === 'acdcf66f') {
     return (isCoinbase ? FREEBANK_COINBASE_OBJECTS : FREEBANK_TX_OBJECTS)[scriptpubkey.slice(10, 12)];
   }

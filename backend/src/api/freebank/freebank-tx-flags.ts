@@ -149,7 +149,7 @@ export function sameAddress(output: string | undefined, dest: string): boolean {
 
 /** A withdrawal refund request in the node's exact shape (script.cpp IsWithdrawalRefundRequest,
  *  as peg-parser.ts parsePegOutput): 102 bytes, the tag, then a withdrawal id that is not zero. */
-function isRefundRequest(script: string): boolean {
+export function isRefundRequest(script: string): boolean {
   return script.length === 204 && script.startsWith(WITHDRAWAL_REFUND_REQUEST) && script.slice(10, 74) !== '0'.repeat(64);
 }
 

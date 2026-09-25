@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Observable, catchError, distinctUntilChanged, of, shareReplay, startWith, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, distinctUntilChanged, of, shareReplay, startWith, switchMap, tap, throwError } from 'rxjs';
 import { StateService } from '@app/services/state.service';
+import { behind, whileIndexing } from '@app/freebank/peg-retry';
 import {
   PegBlockView, PegEcashTxView, PegList, PegListType, PegSummary, PegTxView, PegWithdrawalView,
 } from '@interfaces/freebank-peg.interface';
@@ -9,7 +10,10 @@ import {
 // FreeBank's peg with eCash: /api/v1/freebank/peg*, pegs and withdrawal/:id (the backend's
 // api/freebank/peg.routes.ts). The base URL is worked out as ApiService does. A tx's or block's
 // answer is shared by every part of a page that asks (the output notes, the withdrawal panel)
-// and kept until the next block; a 404 comes back as null.
+// and kept until the next block; a 404 comes back as null. While the backend's peg index is
+// still reading the chain (behind_by > 0, e.g. right after a deploy), an answer is not kept and
+// is asked for again every few seconds, so 'indexing: block N of M' does not stay up until the
+// next block.
 
 const CACHE_MAX = 200;
 
@@ -56,6 +60,11 @@ export class FreebankPegService {
           this.cache.delete(key); // a failure is not kept: the next ask tries again
           return throwError(() => error);
         }),
+        tap((value) => {
+          if (behind(value)) {
+            this.cache.delete(key); // not complete yet: the next ask gets a fresh answer
+          }
+        }),
         shareReplay(1),
       );
       this.cache.set(key, answer);
@@ -70,13 +79,14 @@ export class FreebankPegService {
 
   /**
    * tx$, asked again on each new block while subscribed, since a withdrawal's status moves with
-   * the chain (one request per block, shared by the page's parts). A failed request gives null.
+   * the chain (one request per block, shared by the page's parts), and every few seconds while the
+   * index is behind. A failed request gives null.
    */
   txOnEachBlock$(txid: string): Observable<PegTxView | null> {
     return this.stateService.chainTip$.pipe(
       startWith(this.stateService.latestBlockHeight),
       distinctUntilChanged(),
-      switchMap(() => this.tx$(txid).pipe(catchError(() => of(null)))),
+      switchMap(() => whileIndexing(() => this.tx$(txid).pipe(catchError(() => of(null))))),
     );
   }
 
@@ -86,7 +96,7 @@ export class FreebankPegService {
   }
 
   summary$(): Observable<PegSummary> {
-    return this.httpClient.get<PegSummary>(this.url('peg/summary'));
+    return whileIndexing(() => this.httpClient.get<PegSummary>(this.url('peg/summary')));
   }
 
   /** Newest first. limit 1..200 (backend default 25). */
@@ -95,7 +105,7 @@ export class FreebankPegService {
     if (limit) {
       params = params.set('limit', String(limit));
     }
-    return this.httpClient.get<PegList>(this.url('pegs'), { params });
+    return whileIndexing(() => this.httpClient.get<PegList>(this.url('pegs'), { params }));
   }
 
   withdrawal$(id: string): Observable<PegWithdrawalView | null> {
