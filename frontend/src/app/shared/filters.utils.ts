@@ -1,3 +1,5 @@
+import { FREEBANK_TX_FLAGS } from '@app/freebank/freebank-tx-flags';
+
 export interface Filter {
   key: string,
   label: string,
@@ -57,6 +59,9 @@ export const TransactionFlags = {
   sighash_single: 0b00000100_00000000_00000000_00000000_00000000_00000000n,
   sighash_default:0b00001000_00000000_00000000_00000000_00000000_00000000n,
   sighash_acp:    0b00010000_00000000_00000000_00000000_00000000_00000000n,
+  // FreeBank: credit families and transfers to and from eCash (bits 29-31, 45-52), kept in step
+  // with the backend's mempool.interfaces.ts by sharing freebank-tx-flags.ts
+  ...FREEBANK_TX_FLAGS,
 };
 
 export function toFlags(filters: string[]): bigint {
@@ -77,17 +82,29 @@ export function toFilters(flags: bigint): Filter[] {
   return filters;
 }
 
-// FreeBank: the node has no Taproot (a Core 0.16-era chassis), so the Taproot, annex and
-// sighash_default filters are not offered; their TransactionFlags bits stay reserved.
-// 'inscription' stays defined because the dashboards' 'Data' goggles preset still names it
-// (the filter bar looks every active key up here), but it is no longer offered in FilterGroups.
+// FreeBank: the node has no Taproot (a Core 0.16-era chassis), so the Taproot, inscription, annex
+// and sighash_default filters are not offered. Nor are Version 1/2/3 (v3 is FreeBank's default tx
+// version, so 'Version 3' matched every ordinary tx; credit txs are told apart by their own
+// filters) or Coinjoin (no coinjoin tools exist for FreeBank: the heuristic only gives false
+// positives). Their TransactionFlags bits stay reserved, and the classifiers may still set them.
+// The credit filters stay out of the tooltip and the tx page, which name the credit type already.
 export const TransactionFilters: { [key: string]: Filter } = {
+    /* FreeBank: credit families (tx versions 11-17) */
+    credit: { key: 'credit', label: 'Any credit', flag: TransactionFlags.credit, important: true, tooltip: false, txPage: false, },
+    bill: { key: 'bill', label: 'Bill', flag: TransactionFlags.bill, important: true, tooltip: false, txPage: false, },
+    house: { key: 'house', label: 'House', flag: TransactionFlags.house, important: true, tooltip: false, txPage: false, },
+    note: { key: 'note', label: 'Note', flag: TransactionFlags.note, important: true, tooltip: false, txPage: false, },
+    term_deposit: { key: 'term_deposit', label: 'Term deposit', flag: TransactionFlags.term_deposit, important: true, tooltip: false, txPage: false, },
+    pool: { key: 'pool', label: 'Pool', flag: TransactionFlags.pool, important: true, tooltip: false, txPage: false, },
+    settlement: { key: 'settlement', label: 'Settlement', flag: TransactionFlags.settlement, important: true, tooltip: false, txPage: false, },
+    oracle: { key: 'oracle', label: 'Oracle', flag: TransactionFlags.oracle, important: true, tooltip: false, txPage: false, },
+    /* FreeBank: transfers to and from eCash */
+    deposit_from_ecash: { key: 'deposit_from_ecash', label: 'Deposit from eCash', flag: TransactionFlags.deposit_from_ecash, important: true, tooltip: true, txPage: true, },
+    withdrawal_to_ecash: { key: 'withdrawal_to_ecash', label: 'Withdrawal to eCash', flag: TransactionFlags.withdrawal_to_ecash, important: true, tooltip: true, txPage: true, },
+    withdrawal_refund: { key: 'withdrawal_refund', label: 'Withdrawal refund', flag: TransactionFlags.withdrawal_refund, important: true, tooltip: true, txPage: true, },
     /* features */
     rbf: { key: 'rbf', label: 'RBF enabled', flag: TransactionFlags.rbf, toggle: 'rbf', important: true, tooltip: true, txPage: false, },
     no_rbf: { key: 'no_rbf', label: 'RBF disabled', flag: TransactionFlags.no_rbf, toggle: 'rbf', important: true, tooltip: true, txPage: false, },
-    v1: { key: 'v1', label: 'Version 1', flag: TransactionFlags.v1, toggle: 'version', tooltip: true, txPage: false, },
-    v2: { key: 'v2', label: 'Version 2', flag: TransactionFlags.v2, toggle: 'version', tooltip: true, txPage: false, },
-    v3: { key: 'v3', label: 'Version 3', flag: TransactionFlags.v3, toggle: 'version', tooltip: true, txPage: false, },
     nonstandard: { key: 'nonstandard', label: 'Non-Standard', flag: TransactionFlags.nonstandard, important: true, tooltip: true, txPage: true, },
     /* address types */
     p2pk: { key: 'p2pk', label: 'P2PK', flag: TransactionFlags.p2pk, important: true, tooltip: true, txPage: true, },
@@ -104,10 +121,8 @@ export const TransactionFilters: { [key: string]: Filter } = {
     /* data */
     op_return: { key: 'op_return', label: 'OP_RETURN', flag: TransactionFlags.op_return, important: true, tooltip: true, txPage: true, },
     fake_pubkey: { key: 'fake_pubkey', label: 'Fake pubkey', flag: TransactionFlags.fake_pubkey, tooltip: true, txPage: true, },
-    inscription: { key: 'inscription', label: $localize`:@@99264845cdffed75db1a32df6e66febbdf1d99f1:Inscription`, flag: TransactionFlags.inscription, important: true, tooltip: true, txPage: true, },
     fake_scripthash: { key: 'fake_scripthash', label: 'Fake scripthash', flag: TransactionFlags.fake_scripthash, tooltip: true, txPage: true,},
     /* heuristics */
-    coinjoin: { key: 'coinjoin', label: $localize`Coinjoin`, flag: TransactionFlags.coinjoin, important: true, tooltip: true, txPage: true, },
     consolidation: { key: 'consolidation', label: $localize`Consolidation`, flag: TransactionFlags.consolidation, tooltip: true, txPage: true, },
     batch_payout: { key: 'batch_payout', label: $localize`Batch payment`, flag: TransactionFlags.batch_payout, tooltip: true, txPage: true, },
     /* sighash */
@@ -118,10 +133,12 @@ export const TransactionFilters: { [key: string]: Filter } = {
 };
 
 export const FilterGroups: { label: string, filters: Filter[]}[] = [
-  { label: $localize`:@@885666551418fd59011ceb09d5c481095940193b:Features`, filters: ['rbf', 'no_rbf', 'v1', 'v2', 'v3', 'nonstandard'] },
+  { label: 'Credit', filters: ['credit', 'bill', 'house', 'note', 'term_deposit', 'pool', 'settlement', 'oracle'] },
+  { label: 'To and from eCash', filters: ['deposit_from_ecash', 'withdrawal_to_ecash', 'withdrawal_refund'] },
+  { label: $localize`:@@885666551418fd59011ceb09d5c481095940193b:Features`, filters: ['rbf', 'no_rbf', 'nonstandard'] },
   { label: $localize`Address Types`, filters: ['p2pk', 'p2ms', 'p2pkh', 'p2sh', 'p2wpkh', 'p2wsh'] },
   { label: $localize`Behavior`, filters: ['cpfp_parent', 'cpfp_child', 'replacement', 'acceleration'] },
   { label: $localize`Data`, filters: ['op_return', 'fake_pubkey', 'fake_scripthash'] },
-  { label: $localize`Heuristics`, filters: ['coinjoin', 'consolidation', 'batch_payout'] },
+  { label: $localize`Heuristics`, filters: ['consolidation', 'batch_payout'] },
   { label: $localize`Sighash Flags`, filters: ['sighash_all', 'sighash_none', 'sighash_single', 'sighash_acp'] },
 ].map(group => ({ label: group.label, filters: group.filters.map(filter => TransactionFilters[filter] || null).filter(f => f != null) }));

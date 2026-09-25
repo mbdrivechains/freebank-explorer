@@ -9,6 +9,7 @@ import { isPoint } from '../utils/secp256k1';
 import logger from '../logger';
 import { getVarIntLength, opcodes, parseMultisigScript } from '../utils/bitcoin-script';
 import { IEsploraApi } from './bitcoin/esplora-api.interface';
+import { getFreebankTxFlags, isOpReturnData } from './freebank/freebank-tx-flags';
 
 // Bitcoin Core default policy settings
 const MAX_STANDARD_TX_WEIGHT = 400_000;
@@ -647,6 +648,8 @@ export class Common {
     } else if (tx.version === 3) {
       flags |= TransactionFlags.v3;
     }
+    // FreeBank: credit family (v11-v17) and transfers to and from eCash
+    flags |= getFreebankTxFlags(tx);
     const reusedInputAddresses: { [address: string ]: number } = {};
     const reusedOutputAddresses: { [address: string ]: number } = {};
     const inValues = {};
@@ -731,7 +734,8 @@ export class Common {
         case 'v0_p2wpkh': flags |= TransactionFlags.p2wpkh; break;
         case 'v0_p2wsh': flags |= TransactionFlags.p2wsh; break;
         case 'v1_p2tr': flags |= TransactionFlags.p2tr; break;
-        case 'op_return': flags |= TransactionFlags.op_return; break;
+        // FreeBank: not for a coinbase's own commitments (witness commitment, FreeBank protocol outputs)
+        case 'op_return': if (isOpReturnData(tx, vout.scriptpubkey)) { flags |= TransactionFlags.op_return; } break;
       }
       if (vout.scriptpubkey_address) {
         reusedOutputAddresses[vout.scriptpubkey_address] = (reusedOutputAddresses[vout.scriptpubkey_address] || 0) + 1;

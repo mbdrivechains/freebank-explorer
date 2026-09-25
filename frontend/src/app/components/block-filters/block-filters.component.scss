@@ -186,6 +186,9 @@
   &.menu-open {
     pointer-events: all;
     background: #1719227f;
+    // FreeBank: the menu has two more groups than upstream's (Credit, To and from eCash); keep it
+    // inside the block overview, scrolling, rather than spilling over the page below
+    overflow-y: auto;
   }
 
   &.small {

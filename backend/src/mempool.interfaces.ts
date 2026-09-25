@@ -1,6 +1,7 @@
 import { IEsploraApi } from './api/bitcoin/esplora-api.interface';
 import { OrphanedBlock } from './api/chain-tips';
 import { HeapNode } from './utils/pairing-heap';
+import { FREEBANK_TX_FLAGS } from './api/freebank/freebank-tx-flags';
 
 export interface PoolTag {
   id: number;
@@ -285,6 +286,9 @@ export const TransactionFlags = {
   sighash_single: 0b00000100_00000000_00000000_00000000_00000000_00000000n,
   sighash_default:0b00001000_00000000_00000000_00000000_00000000_00000000n,
   sighash_acp:    0b00010000_00000000_00000000_00000000_00000000_00000000n,
+  // FreeBank: credit families and transfers to and from eCash (bits 29-31, 45-52), kept in step
+  // with the frontend's filters.utils.ts by sharing freebank-tx-flags.ts
+  ...FREEBANK_TX_FLAGS,
 };
 
 export interface BlockExtension {
