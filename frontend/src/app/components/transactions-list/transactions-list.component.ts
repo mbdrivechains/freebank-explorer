@@ -18,6 +18,7 @@ import { ADDRESS_SIMILARITY_THRESHOLD, AddressMatch, AddressSimilarity, AddressT
 import { processInputSignatures, Sighash, SigInfo, SighashLabels, parseTaproot, getFreebankOutputLabels, isMostlyText, CREDIT_TX_LABELS } from '@app/shared/transaction.utils';
 import { ActivatedRoute } from '@angular/router';
 import { SighashFlag } from '@app/shared/transaction.utils';
+import { FreebankCustodyService } from '@app/freebank/freebank-custody.service';
 
 @Component({
   selector: 'app-transactions-list',
@@ -55,6 +56,7 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
   networkSubscription: Subscription;
   signaturesSubscription: Subscription;
   queryParamsSubscription: Subscription;
+  freebankCustodySubscription: Subscription; // FreeBank: exact custody labels (freebank/freebank-custody.service.ts)
   currency: string;
   refreshOutspends$: ReplaySubject<string[]> = new ReplaySubject();
   refreshChannels$: ReplaySubject<string[]> = new ReplaySubject();
@@ -93,6 +95,7 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
     private priceService: PriceService,
     private storageService: StorageService,
     private route: ActivatedRoute,
+    private freebankCustodyService: FreebankCustodyService,
   ) {
     this.signaturesMode = this.forceSignaturesMode || this.stateService.signaturesMode$.value;
   }
@@ -364,6 +367,8 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
         if (tx.vin[0]?.is_coinbase) {
           tx.vin[0]['_showAscii'] = isMostlyText(tx.vin[0].scriptsig);
         }
+        // FreeBank: custody labels on inputs and outputs (`_custody`), by family until the exact ones load
+        this.freebankCustodyService.applyLabels(tx);
       });
 
       if (this.blockTime && this.transactions?.length && this.currency) {
@@ -374,6 +379,16 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
       const txIds = this.transactions.filter((tx) => !tx._outspends).map((tx) => tx.txid);
       if (txIds.length && !this.cached) {
         this.refreshOutspends$.next(txIds);
+      }
+      // FreeBank: the exact custody labels of credit txs (not for a tx preview: the node has not seen it)
+      this.freebankCustodySubscription?.unsubscribe();
+      if (!this.txPreview) {
+        this.freebankCustodySubscription = this.freebankCustodyService.loadExact$(this.transactions)
+          .subscribe((changed) => {
+            if (changed) {
+              this.ref.markForCheck();
+            }
+          });
       }
       if (this.stateService.networkSupportsLightning()) {
         const txIds = this.transactions.filter((tx) => !tx._channels).map((tx) => tx.txid);
@@ -723,5 +738,6 @@ export class TransactionsListComponent implements OnInit, OnChanges, OnDestroy {
     this.currencyChangeSubscription?.unsubscribe();
     this.networkSubscription.unsubscribe();
     this.signaturesSubscription.unsubscribe();
+    this.freebankCustodySubscription?.unsubscribe();
   }
 }

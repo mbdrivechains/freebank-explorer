@@ -113,7 +113,11 @@
                           [similarity]="similarityMatches.get(tx.txid)?.get(vin.prevout.scriptpubkey_address)"
                         ></app-address-text>
                         <ng-template #vinScriptPubkeyType>
-                          {{ vin.prevout.scriptpubkey_type?.toUpperCase() }}
+                          @if (vin['_custody']; as custody) {
+                            <ng-container *ngTemplateOutlet="freebankCustody; context: { $implicit: custody }"></ng-container>
+                          } @else {
+                            {{ vin.prevout.scriptpubkey_type?.toUpperCase() }}
+                          }
                         </ng-template>
                         <div>
                           <app-address-labels  [vin]="vin" [channel]="tx._channels && tx._channels.inputs[vindex] ? tx._channels.inputs[vindex] : null"></app-address-labels>
@@ -297,6 +301,12 @@
                           <td i18n="transactions-list.previous-output-type">Previous output type</td>
                           <td style="text-align: left;">{{ vin.prevout.scriptpubkey_type?.toUpperCase() }}</td>
                         </tr>
+                        @if (vin['_custody']; as custody) {
+                          <tr>
+                            <td>Custody</td>
+                            <td style="text-align: left;"><ng-container *ngTemplateOutlet="freebankCustodyDetails; context: { $implicit: custody }"></ng-container></td>
+                          </tr>
+                        }
                     </ng-template>
                     </tbody>
                   </table>
@@ -384,7 +394,13 @@
                           </a>
                         }
                       </ng-template>
-                      <ng-template #otherPubkeyType><span [ngbTooltip]="vout['_freebankTooltip']" placement="bottom">{{ vout.freebankLabel || (vout.scriptpubkey_type | scriptpubkeyType) }}</span></ng-template>
+                      <ng-template #otherPubkeyType>
+                        @if (vout['_custody']; as custody) {
+                          <ng-container *ngTemplateOutlet="freebankCustody; context: { $implicit: custody }"></ng-container>
+                        } @else {
+                          <span [ngbTooltip]="vout['_freebankTooltip']" placement="bottom">{{ vout.freebankLabel || (vout.scriptpubkey_type | scriptpubkeyType) }}</span>
+                        }
+                      </ng-template>
                     </ng-template>
                   </ng-template>
                 </td>
@@ -496,6 +512,12 @@
                         <td i18n="transactions-list.vout.scriptpubkey-type">Type</td>
                         <td style="text-align: left;">{{ vout.scriptpubkey_type.toUpperCase() }}</td>
                       </tr>
+                      @if (vout['_custody']; as custody) {
+                        <tr>
+                          <td>Custody</td>
+                          <td style="text-align: left;"><ng-container *ngTemplateOutlet="freebankCustodyDetails; context: { $implicit: custody }"></ng-container></td>
+                        </tr>
+                      }
                     </tbody>
                   </table>
                 </td>
@@ -571,6 +593,21 @@
 </ng-template>
 
 <ng-template #xRemaining let-x i18n="x-remaining">{{ x }} remaining</ng-template>
+
+<!-- FreeBank: a custody label (freebank/custody-labels.ts), linked to its house, bill, pool or the gold page -->
+<ng-template #freebankCustody let-custody>
+  <span class="freebank-custody" [class.lookalike]="custody.kind === 'lookalike'" [ngbTooltip]="custody.tooltip" placement="bottom">
+    @if (custody.link) {
+      <a [routerLink]="[custody.link | relativeUrl]">{{ custody.text }}</a>
+    } @else {
+      {{ custody.text }}
+    }
+  </span>
+</ng-template>
+<ng-template #freebankCustodyDetails let-custody>
+  <ng-container *ngTemplateOutlet="freebankCustody; context: { $implicit: custody }"></ng-container>
+  <div class="freebank-custody-note">{{ custody.tooltip }}</div>
+</ng-template>
 
 <ng-template #taprootControlBlock let-scriptPath let-controlBlock="controlBlock" let-truncate="truncate">
   <span class="leaf-version" ngbTooltip="leaf version and parity"> {{ controlBlock.slice(0, 2) }}</span>
