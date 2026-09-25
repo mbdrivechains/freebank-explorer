@@ -122,6 +122,11 @@
 
 // ---- blocks table ----
 
+// if the table is ever too wide, it scrolls sideways inside its box rather than widen the page
+.bmm-table-box {
+  overflow-x: auto;
+}
+
 .bmm-table {
   // bills-pools.scss lets every credit-table cell wrap; these stay on one line
   td.nowrap {

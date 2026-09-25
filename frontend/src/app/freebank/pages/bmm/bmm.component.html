@@ -97,7 +97,7 @@
 
         <app-http-error *ngIf="blocks.load.error && !blocks.load.data" [error]="blocks.load.error">Could not load the BMM blocks</app-http-error>
 
-        <div class="box" *ngIf="!blocks.load.error || blocks.load.data">
+        <div class="box bmm-table-box" *ngIf="!blocks.load.error || blocks.load.data">
           <table class="table table-borderless table-striped credit-table bmm-table" [class.reloading]="blocks.load.loading && !!blocks.load.data">
             <thead>
               <tr>
@@ -105,7 +105,7 @@
                 <th>eCash block</th>
                 <th><span class="help" ngbTooltip="The eCash mining pool that mined the eCash block" placement="bottom" container="body">Pool</span></th>
                 <th class="text-right"><span class="help" ngbTooltip="The winning bid: the fee of the eCash transaction that asked miners to carry this FreeBank block" placement="bottom" container="body">Bid (szats)</span></th>
-                <th class="text-right d-none d-md-table-cell">Rate (szat/vB)</th>
+                <th class="text-right d-none d-lg-table-cell">Rate (szat/vB)</th>
                 <th class="d-none d-lg-table-cell">Bid tx</th>
                 <th class="text-right d-none d-sm-table-cell">Age</th>
               </tr>
@@ -132,7 +132,7 @@
                     <span *ngIf="row.bidNote" class="bmm-note" [class.bmm-waiting]="row.waiting" [ngbTooltip]="row.statusHelp" placement="bottom" container="body">{{ row.bidNote }}</span>
                   </ng-template>
                 </td>
-                <td class="text-right d-none d-md-table-cell nowrap">{{ row.rateText }}</td>
+                <td class="text-right d-none d-lg-table-cell nowrap">{{ row.rateText }}</td>
                 <td class="d-none d-lg-table-cell nowrap">
                   <a *ngIf="row.bidTxUrl" class="bmm-txid" [href]="row.bidTxUrl" target="_blank" rel="noopener" [title]="row.item.bid_txid">{{ row.bidTxShort }}</a>
                 </td>
@@ -154,7 +154,7 @@
                   <td><span class="skeleton-loader"></span></td>
                   <td><span class="skeleton-loader"></span></td>
                   <td><span class="skeleton-loader"></span></td>
-                  <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+                  <td class="d-none d-lg-table-cell"><span class="skeleton-loader"></span></td>
                   <td class="d-none d-lg-table-cell"><span class="skeleton-loader"></span></td>
                   <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
                 </tr>
