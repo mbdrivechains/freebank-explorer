@@ -1,0 +1,112 @@
+{
+  "source": "The explorer spike's FreeBank regtest chain (explorer/spike/chain.sh + chain-more.sh), the same chain as freebank-txs.json: listhouses, listbills, listpools and listoraclesubmitters read on 2026-09-24 (explorer/m4/rpc-samples), trimmed to the fields the custody labels read",
+  "listhouses": [
+    {
+      "id": 1,
+      "househash": "d45e35c49a16f8025f4d4eba5ea1479fe199ceba2f4fa36bfcdf3054b2562198",
+      "txidregister": "b6173fc41345c4090237aafaaf8cafc5aa85dd5e7348bf50b476b1a3db8dc938",
+      "partners": [
+        {
+          "index": 0,
+          "pubkey": "02ad63bc9990ae7264a8c8fbb0855cc59cc44cdb3bedc588c5700482cc1dfdc862"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "househash": "7d8ef9d537a15a4d67c7c54436ba609e5e615ca26632e676a6a7ddbecceaac4c",
+      "txidregister": "3453e23c9172d71f11bd2be72c66f40e1fd3fefcaa8567cc050ef0924e71b85a",
+      "partners": [
+        {
+          "index": 0,
+          "pubkey": "02b04a55992a9e1f00dceb67e3eeeb2c4d67022b0f8ecc69a85ae1579b6fee5a0e"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "househash": "e84991ce7a1c4cd3bfccac8dbf8e557f22a71e21c03dca958a89071bd85ff9f7",
+      "txidregister": "980ad10ad30097b7284451c5d021fbe8b56d6844f0c01c4c3608a74c5fd51898",
+      "partners": [
+        {
+          "index": 0,
+          "pubkey": "0306a805580bc24ff6ea826eff58ba59c37e097620ab687a9a3fcd3c303cd8329e"
+        }
+      ]
+    }
+  ],
+  "listbills": [
+    {
+      "id": 1,
+      "bill_id": "e2750a25ec700ceff3d2a9c3a372266efc3d50b7fd01b58a94d3c2832aaf9fff",
+      "issue_txid": "1bbc15814f6eed707b6ef0412f626c114eb77291fb703683e0b69fade581a7f6",
+      "escrow_outpoint": "1bbc15814f6eed707b6ef0412f626c114eb77291fb703683e0b69fade581a7f6:1",
+      "status": "a",
+      "owner_house_id": 0
+    },
+    {
+      "id": 2,
+      "bill_id": "75f4ad185bdaf1f5744145a64c58ce3a406c575f96e6ca1351179eba2f198ee0",
+      "issue_txid": "ea67f41bea044f9fd3eab37d43d3c35c6a5d5558ac53206a2ee1202f213d954b",
+      "escrow_outpoint": "ea67f41bea044f9fd3eab37d43d3c35c6a5d5558ac53206a2ee1202f213d954b:1",
+      "status": "a",
+      "owner_house_id": 0
+    },
+    {
+      "id": 3,
+      "bill_id": "d5302e2102330d7dd4a989a41d6083084f911ae203f4a7fdeceab02be2db7096",
+      "issue_txid": "96ffb5e9c0f3b3796ac98c1c477a6bd88acba683ad05d522de83a33994138669",
+      "escrow_outpoint": "96ffb5e9c0f3b3796ac98c1c477a6bd88acba683ad05d522de83a33994138669:1",
+      "status": "a",
+      "owner_house_id": 1
+    },
+    {
+      "id": 4,
+      "bill_id": "2292e264c21ecb9cd8a6d8dc7c31d6eb40232d5633d1d74e80df29cfb014beb9",
+      "issue_txid": "b9608e85417df8f0f7f9154317b8f5624f7b888ee53eb3a5336c2eb6a7982694",
+      "escrow_outpoint": "b9608e85417df8f0f7f9154317b8f5624f7b888ee53eb3a5336c2eb6a7982694:1",
+      "status": "a",
+      "owner_house_id": 0
+    },
+    {
+      "id": 5,
+      "bill_id": "642efe11c031221fca949939fd3e8749e4da04f9d8a149c5b938bd820d95a497",
+      "issue_txid": "3a5cf4247bf0317b12b6c2aaef443b33ff9fa5cc16127479ba5368cb0892270d",
+      "escrow_outpoint": "3a5cf4247bf0317b12b6c2aaef443b33ff9fa5cc16127479ba5368cb0892270d:1",
+      "status": "a",
+      "owner_house_id": 0
+    }
+  ],
+  "listpools": [
+    {
+      "pool_id": 1,
+      "house_id": 1,
+      "note_reserve": 2046450,
+      "btx_reserve": 1955035,
+      "note_escrow_txid": "b790fb147e8ec4df98572f75bbafdfe2507f02ccee314fd717cd1f56969ff175",
+      "note_escrow_vout": 0,
+      "btx_escrow_txid": "b790fb147e8ec4df98572f75bbafdfe2507f02ccee314fd717cd1f56969ff175",
+      "btx_escrow_vout": 1
+    }
+  ],
+  "listoraclesubmitters": [
+    {
+      "id": 1,
+      "pubkey": "038df6ae20808fba6aa967d838c402809864e47b5be6fe25914584656f45c4749b",
+      "bondtxid": "6baca0d51a5fbdfa319cc562d73ece74e6950394efb3521bb7e07c2cb092f14a",
+      "bondvout": 0
+    },
+    {
+      "id": 2,
+      "pubkey": "0215ce3032a9ae62fbfc226b3b6e59ec35865c53e85f32e28184384fd4b1d292cb",
+      "bondtxid": "1321439c2a5e5ed414db69fa9723cae4c82ea8589aa12752849010d8b3bffbbf",
+      "bondvout": 0
+    },
+    {
+      "id": 3,
+      "pubkey": "03ca163fd0ea04ab5728cfef23b60ad74b674eff089081e7c606b6262fb4ad08ed",
+      "bondtxid": "bf33f8e8701e79e42681c2222b9e8eafc01eeebc5af12ce8a164eff7b86d0b37",
+      "bondvout": 0
+    }
+  ]
+}
