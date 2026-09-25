@@ -9,10 +9,12 @@ import { Block } from '@interfaces/electrs.interface.js';
 import { CacheService } from '@app/services/cache.service';
 import { ElectrsApiService } from '@app/services/electrs-api.service';
 import { getCreditTxLabel } from '@app/shared/transaction.utils';
+import { creditVersionFromFlags } from '@app/freebank/freebank-tx-flags';
 
-// FreeBank: the stripped txs behind the block overview carry no tx version, so the credit type
-// badge comes from the tx list cache or from the version bytes of the raw tx (first 4, little
-// endian). Results are kept per txid for the session.
+// FreeBank: the stripped txs behind the block overview carry no tx version. The credit type badge
+// comes from the family bit in the tx's flags; only when a tx has no flags does it come from the
+// tx list cache or from the version bytes of the raw tx (first 4, little endian), one request per
+// tx. Fetched results are kept per txid for the session.
 const creditLabelByTxid = new Map<string, string | null>();
 
 @Component({
@@ -96,7 +98,7 @@ export class BlockOverviewTooltipComponent implements OnChanges, OnDestroy {
 
     if (this.tx && (changes.tx || changes.filterFlags || changes.filterMode)) {
       if (changes.tx && this.tx.txid !== this.txid) {
-        this.creditLabel = this.getCreditLabel(this.tx.txid);
+        this.creditLabel = this.getCreditLabel(this.tx);
       }
       this.txid = this.tx.txid || '';
       this.time = this.tx.time || 0;
@@ -140,9 +142,13 @@ export class BlockOverviewTooltipComponent implements OnChanges, OnDestroy {
     return window.innerWidth < 392 ? '-50px' : this.tooltipPosition.x + 'px';
   }
 
-  getCreditLabel(txid: string): string | null {
+  getCreditLabel(tx: TransactionStripped): string | null {
+    const txid = tx?.txid;
     if (!txid) {
       return null;
+    }
+    if (tx.flags) {
+      return getCreditTxLabel({ version: creditVersionFromFlags(BigInt(tx.flags)) }) ?? null;
     }
     if (creditLabelByTxid.has(txid)) {
       return creditLabelByTxid.get(txid);

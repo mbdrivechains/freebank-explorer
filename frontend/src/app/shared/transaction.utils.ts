@@ -1,4 +1,5 @@
 import { TransactionFlags } from '@app/shared/filters.utils';
+import { getFreebankTxFlags, isOpReturnData } from '@app/freebank/freebank-tx-flags';
 import { getVarIntLength, parseMultisigScript, isPoint, parseTapscriptMultisig, parseTapscriptUnanimousMultisig, ScriptInfo } from '@app/shared/script.utils';
 import { Transaction, Vin, Utxo } from '@interfaces/electrs.interface';
 import { CpfpInfo, RbfInfo, TransactionStripped } from '@interfaces/node-api.interface';
@@ -958,6 +959,8 @@ export function getTransactionFlags(tx: Transaction, cpfpInfo?: CpfpInfo, replac
   } else if (tx.version === 3) {
     flags |= TransactionFlags.v3;
   }
+  // FreeBank: credit family (v11-v17) and transfers to and from eCash
+  flags |= getFreebankTxFlags(tx);
   const reusedInputAddresses: { [address: string ]: number } = {};
   const reusedOutputAddresses: { [address: string ]: number } = {};
   const inValues = {};
@@ -1040,7 +1043,8 @@ export function getTransactionFlags(tx: Transaction, cpfpInfo?: CpfpInfo, replac
       case 'v0_p2wpkh': flags |= TransactionFlags.p2wpkh; break;
       case 'v0_p2wsh': flags |= TransactionFlags.p2wsh; break;
       case 'v1_p2tr': flags |= TransactionFlags.p2tr; break;
-      case 'op_return': flags |= TransactionFlags.op_return; break;
+      // FreeBank: not for a coinbase's own commitments (witness commitment, FreeBank protocol outputs)
+      case 'op_return': if (isOpReturnData(tx, vout.scriptpubkey)) { flags |= TransactionFlags.op_return; } break;
     }
     if (vout.scriptpubkey_address) {
       reusedOutputAddresses[vout.scriptpubkey_address] = (reusedOutputAddresses[vout.scriptpubkey_address] || 0) + 1;

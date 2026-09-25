@@ -94,9 +94,11 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   goggleResolution = 82;
   goggleCycle: { index: number, name: string, mode: FilterMode, filters: string[], gradient: GradientMode }[] = [
     { index: 0, name: $localize`:@@dfc3c34e182ea73c5d784ff7c8135f087992dac1:All`, mode: 'and', filters: [], gradient: 'age' },
-    { index: 1, name: $localize`Consolidation`, mode: 'and', filters: ['consolidation'], gradient: 'fee' },
-    { index: 2, name: $localize`Coinjoin`, mode: 'and', filters: ['coinjoin'], gradient: 'fee' },
-    { index: 3, name: $localize`Data`, mode: 'or', filters: ['inscription', 'fake_pubkey', 'fake_scripthash', 'op_return'], gradient: 'fee' },
+    // FreeBank: presets for FreeBank's own transactions in place of Consolidation, Coinjoin and Data.
+    // No 'Deposit from eCash': deposits are paid in the coinbase, which the mempool drawn here never has.
+    { index: 1, name: 'Credit', mode: 'and', filters: ['credit'], gradient: 'fee' },
+    { index: 2, name: 'Notes', mode: 'and', filters: ['note'], gradient: 'fee' },
+    { index: 3, name: 'Withdrawals', mode: 'or', filters: ['withdrawal_to_ecash', 'withdrawal_refund'], gradient: 'fee' },
   ];
   goggleFlags = 0n;
   goggleMode: FilterMode = 'and';

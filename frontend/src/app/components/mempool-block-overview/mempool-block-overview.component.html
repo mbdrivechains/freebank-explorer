@@ -1,3 +1,4 @@
+<!-- FreeBank: no 'Deposit from eCash' filter here: deposits are paid in the coinbase, which a mempool block never holds -->
 <app-block-overview-graph
   #blockGraph
   [isLoading]="(isLoading$ | async) || !stateService.isBrowser"
@@ -9,7 +10,7 @@
   [filterFlags]="filterFlags"
   [filterMode]="filterMode"
   [gradientMode]="gradientMode"
-  [excludeFilters]="['nonstandard']"
+  [excludeFilters]="['nonstandard', 'deposit_from_ecash']"
   [overrideColors]="overrideColors"
   (txClickEvent)="onTxClick($event)"
 ></app-block-overview-graph>
