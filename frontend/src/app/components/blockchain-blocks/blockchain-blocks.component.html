@@ -55,10 +55,10 @@
               </div>
             </ng-template>
             <ng-container *ngIf="blockDisplayMode === 'fees'; else noMiningInfo">
-              <!-- FreeBank: the big line is the block's fees (what its producer earns), in szats. With the BMM view
-                   on, the bid the eCash miner was paid for the block goes in small print under it ('bid …' until
-                   the backend has found it) -->
-              <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" class="block-size" [class.bmm-big]="!!bmmCubes[block.id]">{{ cubeAmount(block.extras?.totalFees ?? 0) }}</div>
+              <!-- FreeBank: the big line is what the block's producer earns (extras.reward: the fees plus 1,000 szats per
+                   deposit from eCash paid out), in szats. With the BMM view on, the bid the eCash miner was paid for
+                   the block goes in small print under it ('bid …' until the backend has found it) -->
+              <div [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-total-fees'" class="block-size" [class.bmm-big]="!!bmmCubes[block.id]">{{ cubeAmount(block.extras?.reward ?? block.extras?.totalFees ?? 0) }}</div>
               <div *ngIf="bmmCubes[block.id] as bmmCube" [attr.data-cy]="'bitcoin-block-' + offset + '-index-' + i + '-bid'" class="bmm-small">{{ bmmCube.bidText }}</div>
             </ng-container>
             <ng-template #noMiningInfo>

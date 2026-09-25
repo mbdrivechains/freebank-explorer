@@ -44,13 +44,14 @@ export function bmmStatusHelp(status: FreebankBmmStatus): string {
 
 /**
  * A link into the eCash explorer: ecashExplorerUrl('https://explorer.beta.ecash.ninja/', 'block', hash)
- * -> 'https://explorer.beta.ecash.ninja/block/<hash>'. Null without an http(s) base or an id.
+ * -> 'https://explorer.beta.ecash.ninja/block/<hash>'; with a fragment ('vout=1'), '...#vout=1'.
+ * Null without an http(s) base or an id.
  */
-export function ecashExplorerUrl(base: string, path: 'block' | 'tx' | 'mining/pool', id: string): string | null {
+export function ecashExplorerUrl(base: string, path: 'block' | 'tx' | 'mining/pool' | 'address', id: string, fragment?: string): string | null {
   if (!base || !id || !/^https?:\/\//i.test(base)) {
     return null;
   }
-  return base.replace(/\/+$/, '') + '/' + path + '/' + encodeURIComponent(id);
+  return base.replace(/\/+$/, '') + '/' + path + '/' + encodeURIComponent(id) + (fragment ? '#' + fragment : '');
 }
 
 /** The explorer's host name for text: 'https://explorer.beta.ecash.ninja' -> 'explorer.beta.ecash.ninja'. */

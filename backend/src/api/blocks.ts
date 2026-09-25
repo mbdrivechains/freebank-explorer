@@ -36,6 +36,7 @@ import CpfpRepository from '../repositories/CpfpRepository';
 import { parseDATUMTemplateCreator } from '../utils/bitcoin-script';
 import database from '../database';
 import { getBlockFirstSeenFromLogs, getOldestLogTimestampFromLogs, scanLogsForBlocksFirstSeen } from '../utils/file-read';
+import { freebankRewardExtras, unexpectedReward } from './freebank/coinbase-split';
 
 class Blocks {
   private blocks: BlockExtended[] = [];
@@ -258,7 +259,9 @@ class Blocks {
     const blk: Partial<BlockExtended> = Object.assign({}, block);
     const extras: Partial<BlockExtension> = {};
 
-    extras.reward = transactions[0].vout.reduce((acc, curr) => acc + curr.value, 0);
+    // FreeBank: the reward is what the block producer earns (fees + 1,000 szats per deposit from eCash
+    // paid out; no subsidy), not the whole coinbase, which also pays depositors and withdrawal refunds
+    Object.assign(extras, freebankRewardExtras(transactions[0].vout));
     extras.coinbaseRaw = coinbaseTx.vin[0].scriptsig;
     extras.orphans = chainTips.getOrphanedBlocksAtHeight(blk.height);
 
@@ -299,6 +302,10 @@ class Blocks {
       extras.segwitTotalSize = stats.swtotal_size;
       extras.segwitTotalWeight = stats.swtotal_weight;
     }
+    const oddReward = unexpectedReward(block.height, extras); // FreeBank
+    if (oddReward) {
+      logger.warn(oddReward);
+    }
 
     if (Common.blocksSummariesIndexingEnabled()) {
       extras.feePercentiles = await BlocksSummariesRepository.$getFeePercentilesByBlockId(block.id);
@@ -319,6 +326,10 @@ class Blocks {
       extras.coinbaseSignature = null;
       extras.coinbaseSignatureAscii = null;
     }
+    // FreeBank: the producer is vout[0], which pays 0 in a block without fees (so the stripped coinbase
+    // above has lost it); the other positive outputs pay depositors and withdrawal refunds
+    extras.coinbaseAddress = transactions[0]?.vout?.[0]?.scriptpubkey_address ?? null;
+    extras.coinbaseAddresses = extras.coinbaseAddress ? [extras.coinbaseAddress] : [];
 
     const header = await bitcoinClient.getBlockHeader(block.id, false);
     extras.header = header;
@@ -393,7 +404,6 @@ class Blocks {
     // TODO: make these match the definitions used by the RPC response
     const totalFee = transactions.reduce((acc, tx) => acc + tx.fee, 0);
     const totalVsize = transactions.reduce((acc, tx) => acc + tx.vsize, 0);
-    const totalReward = transactions[0].vout.reduce((acc, vout) => acc + vout.value, 0);
     const sortedByFee = transactions.sort((a, b) => a.fee - b.fee);
     const sortedByVsize = transactions.sort((a, b) => a.vsize - b.vsize);
     const sortedByFeerate = transactions.sort((a, b) => (a.fee / a.weight) - (b.fee / b.weight));
@@ -412,7 +422,7 @@ class Blocks {
     const maxtxsize = sortedByVsize[sortedByVsize.length - 1].vsize;
     const ins = transactions.reduce((acc, tx) => acc + tx.vin.length, 0);
     const outs = transactions.reduce((acc, tx) => acc + tx.vout.length, 0);
-    const subsidy = totalReward - totalFee;
+    const subsidy = 0; // FreeBank: no block subsidy (the coinbase also pays depositors and refunds)
     const swtotal_size = 0;
     const swtotal_weight = 0;
     const swtxs = 0;
@@ -836,7 +846,8 @@ class Blocks {
         }
 
         const coinbaseTx = await bitcoinApi.$getCoinbaseTx(hash);
-        const addresses = new Set<string>(coinbaseTx.vout.map(v => v.scriptpubkey_address).filter(a => a) as string[]);
+        // FreeBank: the producer's output (vout[0]) only; the others pay depositors and refunds
+        const addresses = new Set<string>(coinbaseTx.vout.slice(0, 1).map(v => v.scriptpubkey_address).filter(a => a) as string[]);
         await blocksRepository.$saveCoinbaseAddresses(hash, [...addresses]);
 
         // Logging
@@ -1518,6 +1529,14 @@ class Blocks {
         tx_count: block.tx_count ?? null,
         merkle_root: block.merkle_root ?? null,
         reward: block.extras.reward ?? null,
+        // FreeBank: the coinbase's deposit and refund payouts (coinbase-split.ts)
+        pegin_count: block.extras.pegInCount ?? null,
+        pegin_amt: block.extras.pegInAmt ?? null,
+        pegin_fees: block.extras.pegInFees ?? null,
+        pegin_unpaid: block.extras.pegInUnpaidCount ?? null,
+        refund_count: block.extras.refundCount ?? null,
+        refund_amt: block.extras.refundAmt ?? null,
+        peg_records: block.extras.pegRecords ?? null,
         total_fee_amt: block.extras.totalFees ?? null,
         avg_fee_amt: block.extras.avgFee ?? null,
         median_fee_amt: block.extras.medianFeeAmt ?? null,

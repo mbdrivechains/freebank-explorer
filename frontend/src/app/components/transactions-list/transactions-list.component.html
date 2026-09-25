@@ -355,6 +355,11 @@
                     @if (vout.scriptpubkey_address && vout.freebankLabel) {
                       <span class="badge badge-pill badge-secondary" [ngbTooltip]="vout['_freebankTooltip']" placement="bottom">{{ vout.freebankLabel }}</span>
                     }
+                    <!-- FreeBank: what a peg output means (a deposit from eCash, a withdrawal to eCash, a bundle, a refund),
+                         on a tx's own page and in coinbases -->
+                    @if (vout.freebankLabel && (transactionPage || tx.vin[0]?.is_coinbase)) {
+                      <app-freebank-peg-output [tx]="tx" [vout]="vindex"></app-freebank-peg-output>
+                    }
                   </div>
                   <ng-template #scriptpubkey_type>
                     <ng-template [ngIf]="vout.pegout" [ngIfElse]="defaultscriptpubkey_type">

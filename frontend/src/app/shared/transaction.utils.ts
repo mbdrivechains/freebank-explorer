@@ -8,6 +8,7 @@ import { StateService } from '@app/services/state.service';
 import { hash, Hash } from '@app/shared/sha256';
 import { AddressType, AddressTypeInfo, detectAddressType } from '@app/shared/address-utils';
 import * as secp256k1 from '@noble/secp256k1';
+import { applyPegLabels } from '@app/freebank/peg-view';
 
 // Bitcoin Core default policy settings
 const MAX_STANDARD_TX_WEIGHT = 400_000;
@@ -661,20 +662,24 @@ const FREEBANK_COINBASE_TAGS: { [tag: string]: string } = {
   'fd7ad1ef': 'Previous block commitment',
   'a7e67e1f': 'Block version commitment',
   'ef5d1dfe': 'Withdrawal bundle commitment',
-  'fa86c689': 'Withdrawal bundle failed',
-  'fb5345de': 'Withdrawal bundle paid out',
+  'fa86c689': 'Withdrawal bundle marked failed',
+  'fb5345de': 'Withdrawal bundle marked paid',
+  'fcd2e546': 'Withdrawal refund request', // FreeBank: the node reads these from every tx, the coinbase too
 };
 const FREEBANK_TX_TAGS: { [tag: string]: string } = {
   'fcd2e546': 'Withdrawal refund request',
 };
-// sidechain objects (tag acdcf66f): the byte after the tag is the object type
-const DEPOSIT_RECORD = 'Deposit record';
+// sidechain objects (tag acdcf66f): the byte after the tag is the object type. Deposit records and
+// bundles count only in a coinbase: one in an ordinary tx is named as not real.
 const FREEBANK_COINBASE_OBJECTS: { [op: string]: string } = {
-  '44': DEPOSIT_RECORD, // 'D'
+  '44': 'Deposit from eCash (record)', // 'D'
   '50': 'Withdrawal bundle', // 'P'
+  '57': 'Withdrawal to eCash', // 'W': a block producer's own (the node reads withdrawals from every tx)
 };
 const FREEBANK_TX_OBJECTS: { [op: string]: string } = {
-  '57': 'Withdrawal', // 'W'
+  '57': 'Withdrawal to eCash', // 'W'
+  '44': 'Not a real deposit (outside the coinbase)',
+  '50': 'Not a real withdrawal bundle (outside the coinbase)',
 };
 
 export function getFreebankOutputLabel(scriptpubkey: string, isCoinbase: boolean): string | undefined {
@@ -695,10 +700,7 @@ const WITNESS_COMMITMENT_SCRIPT = /^6a24aa21a9ed[0-9a-f]{64}/;
 export interface FreebankOutputLabel {
   label: string;
   tooltip?: string;
-}
-
-function asciiToHex(text: string): string {
-  return Array.from(text, (c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+  peg?: boolean; // FreeBank peg output: its details come from /api/v1/freebank/peg/tx (freebank/peg-view.ts)
 }
 
 // FreeBank labels for every output of a tx, by output index (undefined where there is none)
@@ -716,21 +718,8 @@ export function getFreebankOutputLabels(tx: Transaction): (FreebankOutputLabel |
     const label = getFreebankOutputLabel(script, isCoinbase);
     return label ? { label } : undefined;
   });
-  // A deposit that pays anything is paid in the output right before its record (freebank
-  // miner.cpp). The record carries the destination address, so check it: a withdrawal refund
-  // payout can also sit before a record whose deposit paid nothing.
-  if (isCoinbase) {
-    for (let i = 2; i < labels.length; i++) {
-      const payout = tx.vout[i - 1];
-      const address = payout?.scriptpubkey_address;
-      const record = tx.vout[i].scriptpubkey;
-      if (labels[i]?.label === DEPOSIT_RECORD && !labels[i - 1] && payout.value > 0 && address
-        && (record.includes(asciiToHex(address)) || record.includes(asciiToHex(address.toUpperCase())))) {
-        labels[i - 1] = { label: 'Deposit payout', tooltip: 'Pays out the mainchain deposit recorded in the output below' };
-        labels[i] = { label: DEPOSIT_RECORD, tooltip: 'Records a mainchain deposit. The deposit is paid out in the output above.' };
-      }
-    }
-  }
+  // deposit and refund payouts, the producer's output and bundle payments need the whole coinbase
+  applyPegLabels(tx, labels);
   return labels;
 }
 

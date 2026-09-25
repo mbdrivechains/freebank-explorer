@@ -332,6 +332,15 @@ export interface BlockExtension {
   totalInputAmt: number | null;
   // pools-v2.json git hash
   definitionHash: string | undefined;
+  // FreeBank: what the coinbase pays besides the producer (api/freebank/coinbase-split.ts). reward
+  // above is what the producer earns: fees + pegInFees, as FreeBank has no block subsidy.
+  pegInCount?: number; // deposits from eCash paid out in this block
+  pegInAmt?: number; // szats paid to those depositors (each deposit less 1,000 szats)
+  pegInFees?: number; // 1,000 szats per deposit paid out, to the producer
+  pegInUnpaidCount?: number; // deposits recorded with nothing paid (dust, or not a FreeBank address)
+  refundCount?: number; // withdrawal refunds paid
+  refundAmt?: number;
+  pegRecords?: number; // coinbase outputs that make peg events (records, bundle paid/failed): see /api/v1/freebank/peg/block/:hash
 }
 
 /**

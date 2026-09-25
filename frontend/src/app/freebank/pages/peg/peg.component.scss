@@ -1,0 +1,61 @@
+// /peg - listed after ../bills-pools.scss (page frame, intro, section titles, .credit-table).
+// The summary tiles are the /bmm ones (bmm.component.scss), kept in step by hand.
+// Theme variables only (theme-freebank.scss).
+
+.credit-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  @media (min-width: 992px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+.credit-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  @media (max-width: 575.98px) {
+    padding: 1rem;
+  }
+}
+
+.credit-tile-title {
+  color: var(--title-fg);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.credit-tile-value {
+  color: var(--fg);
+  font-size: 1.25rem;
+  line-height: 1.25;
+  margin: 0.35rem 0 0.4rem;
+  overflow-wrap: anywhere;
+  @media (min-width: 992px) {
+    font-size: 1.5rem;
+  }
+}
+
+.credit-tile-line {
+  color: var(--transparent-fg);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.peg-skeleton-title {
+  width: 60%;
+  margin-bottom: 0.5rem;
+}
+
+.peg-skeleton-value {
+  width: 80%;
+  height: 1.5rem;
+  margin-bottom: 0.5rem;
+}

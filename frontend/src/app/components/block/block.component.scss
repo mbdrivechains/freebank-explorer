@@ -357,3 +357,14 @@ h1 {
     white-space: nowrap;
   }
 }
+
+// FreeBank: the peg rows under Total fees (deposits from eCash, refunds, bundles): long lines wrap
+.peg-label {
+  cursor: help;
+  white-space: normal;
+}
+
+.peg-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

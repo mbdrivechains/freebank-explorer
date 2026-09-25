@@ -61,6 +61,14 @@ interface DatabaseBlock {
   totalInputAmt: number;
   firstSeen: string; // UNIX_TIMESTAMP() returns a string when applied to datetime(6)
   stale: boolean;
+  // FreeBank: the coinbase's deposit and refund payouts
+  pegInCount: number;
+  pegInAmt: number;
+  pegInFees: number;
+  pegInUnpaidCount: number;
+  refundCount: number;
+  refundAmt: number;
+  pegRecords: number;
 }
 
 const BLOCK_DB_FIELDS = `
@@ -106,7 +114,14 @@ const BLOCK_DB_FIELDS = `
   blocks.utxoset_size AS utxoSetSize,
   blocks.total_input_amt AS totalInputAmt,
   UNIX_TIMESTAMP(blocks.first_seen) AS firstSeen,
-  blocks.stale
+  blocks.stale,
+  blocks.pegin_count AS pegInCount,
+  blocks.pegin_amt AS pegInAmt,
+  blocks.pegin_fees AS pegInFees,
+  blocks.pegin_unpaid AS pegInUnpaidCount,
+  blocks.refund_count AS refundCount,
+  blocks.refund_amt AS refundAmt,
+  blocks.peg_records AS pegRecords
 `;
 
 class BlocksRepository {
@@ -132,7 +147,9 @@ class BlocksRepository {
         total_inputs,       total_outputs,            total_input_amt,   total_output_amt,
         fee_percentiles,    segwit_total_txs,         segwit_total_size, segwit_total_weight,
         median_fee_amt,     coinbase_signature_ascii, definition_hash,   index_version,
-        stale,              first_seen
+        stale,              first_seen,
+        pegin_count,        pegin_amt,                pegin_fees,        pegin_unpaid,
+        refund_count,       refund_amt,               peg_records
       ) VALUE (
         ?, ?, FROM_UNIXTIME(?), ?,
         ?, ?, ?, ?,
@@ -144,7 +161,9 @@ class BlocksRepository {
         ?, ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?, ?,
-        ?, FROM_UNIXTIME(?)
+        ?, FROM_UNIXTIME(?),
+        ?, ?, ?, ?,
+        ?, ?, ?
       )`;
 
       const poolDbId = await PoolsRepository.$getPoolByUniqueId(block.extras.pool.id);
@@ -194,7 +213,15 @@ class BlocksRepository {
         poolsUpdater.currentSha,
         BlocksRepository.version,
         (block.stale ? 1 : 0),
-        block.extras.firstSeen === null ? 1 : block.extras.firstSeen // Sentinel value 1 indicates that we could not find first seen time
+        block.extras.firstSeen === null ? 1 : block.extras.firstSeen, // Sentinel value 1 indicates that we could not find first seen time
+        // FreeBank: the coinbase's deposit and refund payouts
+        block.extras.pegInCount ?? 0,
+        block.extras.pegInAmt ?? 0,
+        block.extras.pegInFees ?? 0,
+        block.extras.pegInUnpaidCount ?? 0,
+        block.extras.refundCount ?? 0,
+        block.extras.refundAmt ?? 0,
+        block.extras.pegRecords ?? 0,
       ];
 
       await DB.query(query, params);
@@ -1277,6 +1304,14 @@ class BlocksRepository {
     extras.utxoSetSize = dbBlk.utxoSetSize;
     extras.totalInputAmt = dbBlk.totalInputAmt;
     extras.virtualSize = dbBlk.weight / 4.0;
+    // FreeBank: the coinbase's deposit and refund payouts
+    extras.pegInCount = dbBlk.pegInCount;
+    extras.pegInAmt = dbBlk.pegInAmt;
+    extras.pegInFees = dbBlk.pegInFees;
+    extras.pegInUnpaidCount = dbBlk.pegInUnpaidCount;
+    extras.refundCount = dbBlk.refundCount;
+    extras.refundAmt = dbBlk.refundAmt;
+    extras.pegRecords = dbBlk.pegRecords;
 
     extras.firstSeen = null;
     if (config.CORE_RPC.DEBUG_LOG_PATH) {

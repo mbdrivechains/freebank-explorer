@@ -92,6 +92,11 @@ const routes: Routes = [
         path: 'bmm',
         loadChildren: () => import('@app/freebank/bmm.module').then(m => m.BmmModule),
       },
+      // FreeBank: the peg with eCash (deposits from eCash, withdrawals to eCash, bundles), lazy like /bmm
+      {
+        path: 'peg',
+        loadChildren: () => import('@app/freebank/peg.module').then(m => m.PegModule),
+      },
       // FreeBank: the credit pages (/credit, /houses, /house/:id, /bills, /bill/:id, /pools,
       // /pool/:id, /gold). canMatch runs before the lazy module loads, so other pages never fetch it.
       {

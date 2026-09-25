@@ -1,0 +1,44 @@
+// FreeBank peg notes and panels (freebank/components/peg). Theme variables only (theme-freebank.scss).
+
+:host {
+  display: block;
+}
+
+.peg-line {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.peg-muted {
+  color: var(--transparent-fg);
+}
+
+.peg-warn {
+  color: var(--yellow);
+}
+
+.peg-notes {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.peg-panel {
+  table {
+    margin-bottom: 0;
+  }
+  td {
+    white-space: normal;
+  }
+  td:first-child {
+    width: 30%;
+    @media (max-width: 575.98px) {
+      width: 40%;
+    }
+  }
+  .help {
+    cursor: help;
+    text-decoration: underline dotted;
+  }
+}

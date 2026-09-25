@@ -113,6 +113,9 @@
 
     <br>
 
+    <!-- FreeBank: a withdrawal to eCash (or a refund request): what it pays on eCash, where, and its status -->
+    <app-freebank-peg-tx [tx]="tx"></app-freebank-peg-tx>
+
     <ng-container *ngIf="rbfInfo">
       <div class="title float-left">
         <h2 id="rbf" i18n="transaction.rbf-history|RBF Timeline">RBF Timeline</h2>

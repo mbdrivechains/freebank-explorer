@@ -67,7 +67,7 @@ export class BlockchainBlocksComponent implements OnInit, OnChanges, OnDestroy {
   timeLtr: boolean;
   bmmSubscription: Subscription;
   bmmCubes: Record<string, BmmCube> = {};   // FreeBank: the bid and the eCash pool on each cube, by block hash
-  readonly cubeAmount = formatCubeAmount;   // FreeBank: the fees on the cube's big line, in szats (ECX from 0.01)
+  readonly cubeAmount = formatCubeAmount;   // FreeBank: the producer's earnings on the cube's big line, in szats (ECX from 0.01)
   readonly producerOf = blockProducer;      // FreeBank: who produced each block (its coinbase tag), under the cube
   readonly unknownHelp = unknownProducerHelp;
 
