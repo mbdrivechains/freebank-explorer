@@ -144,11 +144,32 @@ export function readDepositHead(script: string): { dest: string, amount: number 
   }
 }
 
-function sameAddress(output: string | undefined, dest: string): boolean {
+// the node's own spelling of a bech32 address: lower case, the HRP, '1', then 6 or more symbols
+const BECH32_ADDRESS = /^[a-z0-9]+1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,}$/;
+// C isspace, which base58.cpp skips; String.trim() would strip more (NBSP, U+FEFF, ...)
+const C_SPACE_AT_ENDS = /^[ \t\n\v\f\r]+|[ \t\n\v\f\r]+$/g;
+
+/**
+ * Whether a destination string names the address an output pays, as the node reads the string
+ * (freebank base58.cpp DecodeDestination). `output` is the node's own spelling of the output's
+ * address. bech32 (bech32.cpp Decode) takes the whole string: printable ASCII in one case, lower
+ * or upper. base58 (DecodeBase58Check on str.c_str()) stops at the first NUL and skips C
+ * whitespace at both ends; whitespace left inside is no address. The same rule as the backend's
+ * coinbase-split.ts and freebank-tx-flags.ts.
+ */
+export function sameAddress(output: string | undefined | null, dest: string): boolean {
   if (!output || !dest) {
     return false;
   }
-  return output === dest || (/^[a-z0-9]+1[a-z0-9]+$/i.test(dest) && output.toLowerCase() === dest.toLowerCase());
+  if (BECH32_ADDRESS.test(output)) {
+    return /^[\x21-\x7e]+$/.test(dest) && (dest === dest.toLowerCase() || dest === dest.toUpperCase()) && dest.toLowerCase() === output;
+  }
+  return dest.split('\0')[0].replace(C_SPACE_AT_ENDS, '') === output;
+}
+
+/** A deposit record that is a bundle's eCash payment: 'D' with nothing to pay (backend peg-parser.ts isBundlePayment). */
+function isBundlePayment(head: { dest: string, amount: number }): boolean {
+  return head.dest === 'D' && head.amount <= 0;
 }
 
 /** An output whose details come from /peg/tx (records, bundles, commitments, withdrawals, refund requests). */
@@ -167,35 +188,24 @@ interface LabelledTx {
   vout?: { value: number, scriptpubkey: string, scriptpubkey_address?: string }[];
 }
 
+type CoinbaseOutputs = NonNullable<LabelledTx['vout']>;
+
 /**
- * Labels that need the whole coinbase: the producer's output, deposit payouts (paired with their
- * records the way consensus claims them: amount less 1,000 szats to the record's destination,
- * each output once, never vout[0]), withdrawal refunds (the positive outputs left, OP_RETURNs
- * aside), and bundle
- * payment records. Also marks every peg output (peg: true). Changes `labels` in place.
+ * A coinbase's deposit records, each with the output that pays it (-1: none), paired the way
+ * consensus claims them (sidechain.cpp ClaimDepositPayoutOutput): amount less 1,000 szats to the
+ * record's destination, each output once; never vout[0], the producer's. The builder puts the
+ * payout right before its record, so that one is taken first. Bundle payments are left out.
  */
-export function applyPegLabels(tx: LabelledTx, labels: (PegOutputLabel | undefined)[]): void {
-  const vout = tx?.vout || [];
-  vout.forEach((o, i) => {
-    if (labels[i] && isPegOutputScript(o?.scriptpubkey)) {
-      labels[i] = { ...labels[i], peg: true };
-    }
-  });
-  if (!tx?.vin?.[0]?.is_coinbase || !vout.length) {
-    return;
-  }
+function claimDepositPayouts(vout: CoinbaseOutputs): { records: { vout: number, head: { dest: string, amount: number }, payout: number }[], claimed: Set<number> } {
   const claimed = new Set<number>([0]);
+  const records: { vout: number, head: { dest: string, amount: number }, payout: number }[] = [];
   vout.forEach((o, i) => {
     const head = readDepositHead(o?.scriptpubkey);
-    if (!head) {
-      return;
-    }
-    if (head.dest === 'D') {
-      labels[i] = { label: 'Withdrawal bundle paid on eCash (record)', tooltip: 'Records the eCash transaction that paid a withdrawal bundle', peg: true };
+    if (!head || isBundlePayment(head)) {
       return;
     }
     let payout = -1;
-    if (head.amount > DEPOSIT_FEE_SZATS) {
+    if (head.dest !== 'D' && head.amount > DEPOSIT_FEE_SZATS) { // 'D' is never paid (sidechain.cpp)
       const want = head.amount - DEPOSIT_FEE_SZATS;
       const matches = (j: number): boolean => !claimed.has(j) && vout[j]?.value === want && sameAddress(vout[j]?.scriptpubkey_address, head.dest);
       payout = i - 1 >= 1 && matches(i - 1) ? i - 1 : -1;
@@ -207,26 +217,80 @@ export function applyPegLabels(tx: LabelledTx, labels: (PegOutputLabel | undefin
     }
     if (payout >= 0) {
       claimed.add(payout);
+    }
+    records.push({ vout: i, head, payout });
+  });
+  return { records, claimed };
+}
+
+/**
+ * A coinbase's positive outputs after vout[0] that pay no deposit (OP_RETURNs aside): each is a
+ * withdrawal refund or more for the block producer, which only the block's refund requests can
+ * tell, so the page asks /peg/tx (coinbasePayoutLines). Empty for any other tx.
+ */
+export function coinbaseOtherPayouts(tx: LabelledTx): number[] {
+  const vout = tx?.vout || [];
+  if (!tx?.vin?.[0]?.is_coinbase) {
+    return [];
+  }
+  const { claimed } = claimDepositPayouts(vout);
+  const other: number[] = [];
+  vout.forEach((o, i) => {
+    if (!claimed.has(i) && o?.value > 0 && !String(o?.scriptpubkey || '').startsWith('6a')) {
+      other.push(i);
+    }
+  });
+  return other;
+}
+
+/**
+ * Labels that need the whole coinbase: the producer's output, deposit payouts and their records
+ * (claimDepositPayouts), and bundle payment records. The other positive outputs are a withdrawal
+ * refund or more for the producer, which the coinbase alone cannot tell: they are labelled
+ * 'Coinbase payout', and the note under them (coinbasePayoutLines) says which. Also marks every
+ * peg output (peg: true). Changes `labels` in place.
+ */
+export function applyPegLabels(tx: LabelledTx, labels: (PegOutputLabel | undefined)[]): void {
+  const vout = tx?.vout || [];
+  vout.forEach((o, i) => {
+    if (labels[i] && isPegOutputScript(o?.scriptpubkey)) {
+      labels[i] = { ...labels[i], peg: true };
+    }
+  });
+  if (!tx?.vin?.[0]?.is_coinbase || !vout.length) {
+    return;
+  }
+  vout.forEach((o, i) => {
+    const head = readDepositHead(o?.scriptpubkey);
+    if (head && isBundlePayment(head)) {
+      labels[i] = { label: 'Withdrawal bundle paid on eCash (record)', tooltip: 'Records the eCash transaction that paid a withdrawal bundle', peg: true };
+    }
+  });
+  for (const { vout: i, head, payout } of claimDepositPayouts(vout).records) {
+    if (payout >= 0) {
       labels[payout] = { label: 'Deposit from eCash (payout)', tooltip: `Pays out the deposit from eCash recorded in output ${i}, less the 1,000-szat fee that goes to the block producer` };
       labels[i] = { label: 'Deposit from eCash (record)', tooltip: `Records a deposit from eCash: its eCash transaction and amount. Paid out in output ${payout}.`, peg: true };
     } else {
       labels[i] = {
         label: 'Deposit from eCash (record)',
-        tooltip: head.amount <= DEPOSIT_FEE_SZATS
+        tooltip: head.dest !== 'D' && head.amount <= DEPOSIT_FEE_SZATS
           ? 'Records a deposit from eCash that is not paid out: it is no more than the 1,000-szat fee'
           : 'Records a deposit from eCash that is not paid out: its destination is not a FreeBank address, so the coins stay in the eCash treasury',
         peg: true,
       };
     }
-  });
+  }
   if (!labels[0]) {
     labels[0] = { label: 'Block producer', tooltip: 'What the block producer earns: the transaction fees, plus 1,000 szats for each deposit from eCash paid out. FreeBank has no block subsidy.' };
   }
-  vout.forEach((o, i) => {
-    if (!claimed.has(i) && o?.value > 0 && !labels[i] && !String(o?.scriptpubkey || '').startsWith('6a')) {
-      labels[i] = { label: 'Withdrawal refund', tooltip: 'Pays back a withdrawal to eCash that was refunded: the whole amount, eCash fee included' };
+  for (const i of coinbaseOtherPayouts(tx)) {
+    if (!labels[i]) {
+      labels[i] = {
+        label: 'Coinbase payout',
+        tooltip: 'Paid by this block besides the block producer\'s first output: a withdrawal refund, or more for the block producer. The note under it says which.',
+      };
     }
-  });
+  }
 }
 
 // ------------------------------------------------------------------------------ status words
@@ -395,12 +459,50 @@ export function pegOutputLines(view: PegTxView | null, vout: number): PegLine[] 
     case 'refund-request':
       return [refundRequestLine(found, view, base)];
     case 'stray':
-      return []; // its label already says it (shared/transaction.utils.ts: 'Not a real deposit (outside the coinbase)')
+      return []; // its label already says it (shared/transaction.utils.ts: 'Not a real deposit from eCash (outside the coinbase)')
     case 'unreadable':
       return [pegLine('warn', 'This FreeBank peg output could not be read')];
     default:
       return [];
   }
+}
+
+/** 'indexing: block N of M' while the explorer's peg index is behind the node, else null. */
+export function indexingText(at: { tip_height?: number, behind_by?: number } | null | undefined): string | null {
+  const behind = at?.behind_by ?? 0;
+  if (!(behind > 0)) {
+    return null;
+  }
+  const top = at.tip_height ?? 0; // -1 before the first block
+  return `indexing: block ${formatUnits(Math.max(0, top))} of ${formatUnits(top + behind)}`;
+}
+
+/**
+ * The note under a coinbase output that pays neither the producer's first output nor a deposit
+ * (coinbaseOtherPayouts): a withdrawal refund when the block's refund requests claim it
+ * (view.refund_payouts), else more for the block producer; unknown until the index has read the
+ * block. `view`: /peg/tx of the coinbase.
+ */
+export function coinbasePayoutLines(view: PegTxView | null, vout: number): PegLine[] {
+  if (!view?.coinbase) {
+    return [];
+  }
+  const refund = (view.refund_payouts || []).find((r) => r.vout === vout);
+  if (refund) {
+    return [pegLine(null,
+      'Withdrawal refund',
+      ['for ', { text: 'withdrawal ' + shortTxid(refund.withdrawal_id), title: refund.withdrawal_id }],
+      refund.request_txid ? txLink('request ' + shortTxid(refund.request_txid), refund.request_txid, refund.request_vout) : null,
+    )];
+  }
+  const deposit = (view.deposit_payouts || []).find((d) => d.vout === vout);
+  if (deposit) {
+    return [pegLine(null, 'Deposit from eCash (payout)', `recorded in output ${deposit.record_vout}`)];
+  }
+  if (!view.indexed) {
+    return [pegLine('muted', 'Withdrawal refund or block producer: not known yet', indexingText(view) || 'the explorer is still reading the chain')];
+  }
+  return [pegLine(null, 'Block producer', 'not a withdrawal refund')];
 }
 
 function bundleRecordLine(out: PegBundleRecord): PegLine {
@@ -426,6 +528,26 @@ function refundRequestLine(found: PegTxOutputView, view: PegTxView, base: string
 }
 
 // ------------------------------------------------------------------------------ the tx page
+
+/** The node's getwithdrawal status (sidechain.cpp GetStatusStr), in the page's words. */
+const NODE_WITHDRAWAL_STATUS: Record<string, string> = {
+  'Unspent': 'not paid or refunded yet',
+  'Pending - in WithdrawalBundle': 'in a withdrawal bundle',
+  'Spent': 'paid or refunded',
+};
+
+/**
+ * While the explorer's peg index is behind the node, the status above may be old: a muted line
+ * saying so, with the node's own status when it has one.
+ */
+function indexingLines(view: PegTxView, node: PegNodeWithdrawal | null | undefined): PegLine[] {
+  const indexing = indexingText(view);
+  if (!indexing) {
+    return [];
+  }
+  const nodeStatus = node?.status ? NODE_WITHDRAWAL_STATUS[node.status] : undefined;
+  return [pegLine('muted', indexing, nodeStatus && `the node says: ${nodeStatus}`)];
+}
 
 export interface PegPanel {
   title: string;                  // 'Withdrawal to eCash' or 'Withdrawal refund request'
@@ -455,7 +577,7 @@ export function pegTxPanels(view: PegTxView | null): PegPanel[] {
         },
         { label: 'eCash fee', help: 'Paid to eCash miners when the withdrawal bundle is paid', lines: [pegLine(null, formatSzats(out.ecash_fee))] },
         { label: 'Refund address', help: 'Where the whole amount goes back if the withdrawal is refunded', lines: [pegLine(null, addressLink(out.refund_dest))] },
-        { label: 'Status', lines: [withdrawalStatusLine(found.withdrawal, found.bundle, view.confirmed, base)] },
+        { label: 'Status', lines: [withdrawalStatusLine(found.withdrawal, found.bundle, view.confirmed, base), ...indexingLines(view, found.node)] },
         { label: 'Withdrawal id', lines: [pegLine(null, { text: shortTxid(out.id), title: out.id })] },
       ];
       panels.push({ title: 'Withdrawal to eCash', rows });
@@ -473,7 +595,7 @@ export function pegTxPanels(view: PegTxView | null): PegPanel[] {
         lines: [found.refund
           ? pegLine(null, ['Refunded in FreeBank block ', blockLink(String(found.refund.freebank_height), found.refund.freebank_block)],
             typeof found.refund.payout_vout === 'number' && found.refund.coinbase_txid ? txLink(`coinbase output ${found.refund.payout_vout}`, found.refund.coinbase_txid, found.refund.payout_vout) : null)
-          : pegLine('muted', view.confirmed ? 'Status not known yet' : 'Not in a block yet')],
+          : pegLine('muted', view.confirmed ? 'Status not known yet' : 'Not in a block yet'), ...indexingLines(view, found.node)],
       });
       panels.push({ title: 'Withdrawal refund request', rows });
     }

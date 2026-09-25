@@ -36,7 +36,7 @@ import CpfpRepository from '../repositories/CpfpRepository';
 import { parseDATUMTemplateCreator } from '../utils/bitcoin-script';
 import database from '../database';
 import { getBlockFirstSeenFromLogs, getOldestLogTimestampFromLogs, scanLogsForBlocksFirstSeen } from '../utils/file-read';
-import { freebankRewardExtras, unexpectedReward } from './freebank/coinbase-split';
+import { $blockRefundsDue, coinbaseMayPayRefunds, freebankRewardExtras, RefundDue, unexpectedReward } from './freebank/coinbase-split';
 
 class Blocks {
   private blocks: BlockExtended[] = [];
@@ -260,8 +260,18 @@ class Blocks {
     const extras: Partial<BlockExtension> = {};
 
     // FreeBank: the reward is what the block producer earns (fees + 1,000 szats per deposit from eCash
-    // paid out; no subsidy), not the whole coinbase, which also pays depositors and withdrawal refunds
-    Object.assign(extras, freebankRewardExtras(transactions[0].vout));
+    // paid out; no subsidy), not the whole coinbase, which also pays depositors and withdrawal refunds.
+    // Only a coinbase paying more than vout[0] and its deposit payouts can pay a refund; then the
+    // block's refund requests and their withdrawals are read from the node (getblock when only the
+    // coinbase is at hand, as when indexing, and getwithdrawal per request). A node failure throws,
+    // as the other node calls here do: the block is not saved and the indexer retries it, so no
+    // wrong reward is stored for good.
+    let refunds: RefundDue[] = [];
+    if (coinbaseMayPayRefunds(transactions[0].vout)) {
+      const allTxs = transactions.length === block.tx_count ? transactions : null;
+      refunds = await $blockRefundsDue(block.id, allTxs, bitcoinClient);
+    }
+    Object.assign(extras, freebankRewardExtras(transactions[0].vout, refunds));
     extras.coinbaseRaw = coinbaseTx.vin[0].scriptsig;
     extras.orphans = chainTips.getOrphanedBlocksAtHeight(blk.height);
 

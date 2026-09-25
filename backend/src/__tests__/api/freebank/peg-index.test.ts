@@ -79,7 +79,7 @@ function chain(): any[] {
     ZERO_FEE_PRODUCER,
     { value: 0, hex: commitScript('bundle-paid', BUNDLE_HASH) },
     { value: 0, hex: commitScript('bundle-hash', BUNDLE_HASH) },
-    { value: 0, hex: depositScript({ dest: 'D', amount: M6.vout[0].value, dtx: M6, burn: 0, block: hash32('ecash block 2') }) },
+    { value: 0, hex: depositScript({ dest: 'D', amount: 0, dtx: M6, burn: 0, block: hash32('ecash block 2') }) },
   ], true)]);
   return [b0, b1, b2, b3, b4, b5];
 }
@@ -90,8 +90,10 @@ function stored(blocks: any[]): StoredBlock[] {
 
 class FakeNode implements PegNode {
   public getBlockCalls = 0;
+  public getBlockCountCalls = 0;
   constructor(public blocks: any[]) { }
   async getBlockCount(): Promise<number> {
+    this.getBlockCountCalls++;
     return this.blocks.length - 1;
   }
   async getBlockHash(height: number): Promise<string> {
@@ -114,11 +116,14 @@ async function settle(index: PegIndex, node: FakeNode): Promise<void> {
 
 describe('FreeBank peg state', () => {
   test('blocks without peg events keep nothing; the current-bundle commitment alone is no event', () => {
-    const [b0, , , , b4] = chain();
+    const [b0, , , b3, b4] = chain();
     expect(extractBlockEvents(b0)).toBeUndefined();
+    const quiet = nodeBlock(9, b4.hash, [nodeTx(hash32('cb quiet'), [ZERO_FEE_PRODUCER, { value: 0, hex: commitScript('bundle-hash', BUNDLE_HASH) }], true)]);
+    expect(extractBlockEvents(quiet)).toBeUndefined();
     const ev4 = extractBlockEvents(b4);
-    expect(ev4?.coinbase).toEqual([]); // only the bundle-hash commitment, left out
+    expect(ev4?.coinbase.map((o) => o.kind)).toEqual(['bundle-hash']); // kept in a block with events, for the tx view
     expect(ev4?.cb).toBeDefined(); // kept for the refund's pairing
+    expect(extractBlockEvents(b3)?.coinbase.map((o) => o.kind)).toEqual(['bundle-hash', 'bundle']);
   });
 
   test('the whole cycle: deposit, withdrawals, bundle, refund, payment on eCash', () => {
@@ -169,7 +174,7 @@ describe('FreeBank peg state', () => {
   test('an M6 record whose payouts do not match the bundle is not taken as its payment (the D2 caveat)', () => {
     const blocks = chain();
     const wrongM6: TxSpec = { ...M6, vout: [M6.vout[0], { value: 999_999, scriptpubkey: M6.vout[1].scriptpubkey }] };
-    blocks[5].tx[0].vout[3].scriptPubKey.hex = depositScript({ dest: 'D', amount: 1, dtx: wrongM6, burn: 0, block: hash32('x') });
+    blocks[5].tx[0].vout[3].scriptPubKey.hex = depositScript({ dest: 'D', amount: 0, dtx: wrongM6, burn: 0, block: hash32('x') });
     const state = derivePegState(stored(blocks).filter((b) => b.ev));
     expect(state.bundles.get(BUNDLE_HASH)?.status).toEqual('marked-paid');
     expect(state.payments[0].bundle_hash).toBeNull();
@@ -184,6 +189,58 @@ describe('FreeBank peg state', () => {
     const state = derivePegState(stored(blocks).filter((b) => b.ev));
     expect(state.bundles.get(BUNDLE_HASH)).toMatchObject({ status: 'failed', status_height: 5 });
     expect(state.withdrawals.get(W1.id)).toMatchObject({ status: 'requeued', failed_bundles: [BUNDLE_HASH] });
+  });
+
+  test('a bundle in an ordinary tx is the block\'s bundle, as the node takes it', () => {
+    const blocks = chain();
+    const cb3 = blocks[3].tx[0];
+    const record = cb3.vout.pop(); // the bundle object moves out of the coinbase
+    blocks[3].tx.push(nodeTx(hash32('bundle tx'), [{ value: 0, hex: record.scriptPubKey.hex }]));
+    const state = derivePegState(stored(blocks).filter((b) => b.ev));
+    expect(state.bundles.get(BUNDLE_HASH)).toMatchObject({ status: 'paid', freebank_height: 3, coinbase_txid: hash32('cb3'), record_txid: hash32('bundle tx'), record_vout: 0 });
+    expect(state.withdrawals.get(W1.id)).toMatchObject({ status: 'paid', bundle_hash: BUNDLE_HASH });
+    expect(pegTxView(state, hash32('bundle tx'), 'https://ex')?.outputs[0].bundle?.bundle_hash).toEqual(BUNDLE_HASH);
+    expect(state.bundles.get(BUNDLE_HASH)?.record_txid).not.toEqual(state.bundles.get(BUNDLE_HASH)?.coinbase_txid);
+  });
+
+  test('status commitments come before the block\'s new bundle (the node\'s order)', () => {
+    const blocks = chain();
+    // block 5 fails the bundle and makes a new one with the same withdrawal, in an ordinary tx
+    const tx2: TxSpec = { ...BUNDLE_TX, vout: [BUNDLE_TX.vout[0], { value: 1_000_000, scriptpubkey: P2WPKH('alice ecash 2') }] };
+    blocks[5].tx = [
+      nodeTx(hash32('cb5'), [ZERO_FEE_PRODUCER, { value: 0, hex: commitScript('bundle-failed', BUNDLE_HASH) }], true),
+      nodeTx(hash32('bundle 2 tx'), [{ value: 0, hex: bundleScript({ tx: tx2, ids: [W1.id] }) }]),
+    ];
+    const state = derivePegState(stored(blocks).filter((b) => b.ev));
+    expect(state.bundles.get(BUNDLE_HASH)?.status).toEqual('failed');
+    expect(state.bundles.get(bitcoinTxid(tx2))).toMatchObject({ status: 'created', freebank_height: 5, record_txid: hash32('bundle 2 tx') });
+    expect(state.withdrawals.get(W1.id)).toMatchObject({ status: 'in-bundle', bundle_hash: bitcoinTxid(tx2), failed_bundles: [BUNDLE_HASH] });
+  });
+
+  test('a "D" record with a positive amount is a deposit from eCash to "D": recorded, not paid', () => {
+    const blocks = chain();
+    blocks[5].tx[0].vout[3].scriptPubKey.hex = depositScript({ dest: 'D', amount: 500_000_000, dtx: M6, burn: 0, block: hash32('ecash block 2') });
+    const state = derivePegState(stored(blocks).filter((b) => b.ev));
+    expect(state.deposits).toHaveLength(2);
+    expect(state.deposits[1]).toMatchObject({ dest: 'D', amount: 500_000_000, payout_vout: null, paid: 0, unpaid_reason: 'not-a-freebank-address' });
+    expect(state.payments).toHaveLength(0);
+    expect(state.bundles.get(BUNDLE_HASH)?.status).toEqual('marked-paid');
+    expect(state.ecashTxs.get(bitcoinTxid(M6))?.deposit?.freebank_height).toEqual(5);
+  });
+
+  test('a refund address the node reads with whitespace around it still pairs its payout', () => {
+    const blocks = chain();
+    const W3 = withdrawalObject({ dest: 'ecash:qcarol', refund: 'XCarolRefund\n', amount: 204_000, fee: 4000 });
+    const b6 = nodeBlock(6, blocks[5].hash, [
+      nodeTx(hash32('cb6'), [ZERO_FEE_PRODUCER], true),
+      nodeTx(hash32('w3 tx'), [{ value: 204_000, hex: '6a' }, { value: 0, hex: W3.script }]),
+    ]);
+    const b7 = nodeBlock(7, b6.hash, [
+      nodeTx(hash32('cb7'), [ZERO_FEE_PRODUCER, payTo(204_000, 'XCarolRefund')], true),
+      nodeTx(hash32('refund 3 tx'), [{ value: 0, hex: refundRequestScript(W3.id) }]),
+    ]);
+    const state = derivePegState(stored([...blocks, b6, b7]).filter((b) => b.ev));
+    expect(state.refunds.get(W3.id)).toMatchObject({ payout_vout: 1, amount: 204_000 });
   });
 
   test('a deposit record in an ordinary tx is shown as not real and changes nothing', () => {
@@ -214,16 +271,18 @@ describe('FreeBank peg state', () => {
     const cb1 = pegTxView(state, hash32('cb1'), 'https://ex')!;
     expect(cb1).toMatchObject({ coinbase: true, confirmed: true, indexed: true, freebank_height: 1, deposit_payouts: [{ vout: 1, record_vout: 2 }] });
     expect(cb1.outputs[0].deposit?.paid).toEqual(8_999_999_000);
-    const cb4 = pegTxView(state, hash32('cb4'), 'https://ex')!;
-    expect(cb4).toMatchObject({ outputs: [], refund_payouts: [{ vout: 2, withdrawal_id: W2.id }] }); // its commitment is not kept
+    const cb4 = pegTxView(state, hash32('cb4'), 'https://ex', { tip_height: 5, behind_by: 0 })!;
+    expect(cb4).toMatchObject({ tip_height: 5, behind_by: 0, refund_payouts: [{ vout: 2, withdrawal_id: W2.id, request_txid: hash32('refund tx'), request_vout: 0 }] });
+    expect(cb4.outputs.map((o) => o.output.kind)).toEqual(['bundle-hash']); // the current-bundle commitment is kept
+    expect(cb4.outputs[0].bundle?.bundle_hash).toEqual(BUNDLE_HASH);
     const refund = pegTxView(state, hash32('refund tx'), 'https://ex')!;
     expect(refund.outputs[0].withdrawal?.id).toEqual(W2.id);
     expect(refund.outputs[0].refund?.payout_vout).toEqual(2);
     const cb5 = pegTxView(state, hash32('cb5'), 'https://ex')!;
-    expect(cb5.outputs.map((o) => o.output.kind)).toEqual(['bundle-paid', 'deposit']);
-    expect((cb5.outputs[1].output as any).ecash_outputs).toBeUndefined(); // kept in the index only
-    expect(cb5.outputs[1].payment?.bundle_hash).toEqual(BUNDLE_HASH);
-    expect(cb5.outputs[1].bundle?.status).toEqual('paid');
+    expect(cb5.outputs.map((o) => o.output.kind)).toEqual(['bundle-paid', 'bundle-hash', 'deposit']);
+    expect((cb5.outputs[2].output as any).ecash_outputs).toBeUndefined(); // kept in the index only
+    expect(cb5.outputs[2].payment?.bundle_hash).toEqual(BUNDLE_HASH);
+    expect(cb5.outputs[2].bundle?.status).toEqual('paid');
   });
 });
 
@@ -241,11 +300,15 @@ describe('FreeBank peg index', () => {
     const index = new PegIndex(node, null);
     await settle(index, node);
     expect(index.getTop()).toEqual(5);
-    const summary = index.getSummary();
-    expect(summary).toMatchObject({ tip_height: 5, deposits: 1, deposits_amount: 9_000_000_000, withdrawals: 2, withdrawals_paid: 1, withdrawals_refunded: 1, bundles: 1, current_bundle: null });
+    const summary = index.getSummary(5);
+    expect(summary).toMatchObject({
+      tip_height: 5, behind_by: 0, deposits: 1, deposits_amount: 9_000_000_000, withdrawals: 2, withdrawals_paid: 1, withdrawals_marked_paid: 0,
+      withdrawals_refunded: 1, bundles: 1, current_bundle: null,
+    });
     expect(summary.treasury?.value).toEqual(M6.vout[0].value);
-    expect(index.getList('withdrawal', 1).items.map((w: any) => w.id)).toEqual([W2.id]); // newest first
-    expect(index.getList('deposit', 10).total).toEqual(1);
+    expect(index.getSummary(8).behind_by).toEqual(3); // the node is 3 blocks past the index
+    expect(index.getList('withdrawal', 1, 5).items.map((w: any) => w.id)).toEqual([W2.id]); // newest first
+    expect(index.getList('deposit', 10, 6)).toMatchObject({ total: 1, tip_height: 5, behind_by: 1 });
     expect(index.getBlock(hash32('block 4'), 4, true)).toMatchObject({ indexed: true, refunds_amount: 505_000 });
     expect(index.getBlock(hash32('block 0'), 0, true)).toMatchObject({ indexed: true, deposits: [], refunds: [] });
     expect(index.getBlock(hash32('block 4'), 4, false).indexed).toBe(false); // not on the active chain
@@ -256,9 +319,53 @@ describe('FreeBank peg index', () => {
 
   test('a tx the index does not hold is decoded on the fly', () => {
     const index = new PegIndex(new FakeNode(chain()), null);
-    const view = index.describeTx(hash32('mempool w'), [{ scriptpubkey: W1.script }], false, null);
-    expect(view).toMatchObject({ confirmed: false, indexed: false, outputs: [{ output: { kind: 'withdrawal', id: W1.id } }] });
-    expect(index.describeTx(hash32('plain'), [{ scriptpubkey: P2PKH('x') }], false, null)).toBeNull();
+    const view = index.describeTx(hash32('mempool w'), [{ scriptpubkey: W1.script }], false, null, 5);
+    expect(view).toMatchObject({ confirmed: false, indexed: false, behind_by: 6, outputs: [{ output: { kind: 'withdrawal', id: W1.id } }] });
+    expect(index.describeTx(hash32('plain'), [{ scriptpubkey: P2PKH('x') }], false, null, 5)).toBeNull();
+  });
+
+  test('a coinbase always gets an answer, saying whether the index has read its block', async () => {
+    const node = new FakeNode(chain());
+    const index = new PegIndex(node, null);
+    const cb0 = [{ scriptpubkey: ZERO_FEE_PRODUCER.hex }];
+    expect(index.describeTx(hash32('cb0'), cb0, true, { height: 0, hash: hash32('block 0') }, 5)).toMatchObject({ indexed: false, outputs: [], refund_payouts: [] });
+    expect(index.describeTx(hash32('plain'), cb0, false, { height: 0, hash: hash32('block 0') }, 5)).toBeNull();
+    await settle(index, node);
+    expect(index.describeTx(hash32('cb0'), cb0, true, { height: 0, hash: hash32('block 0') }, 5)).toMatchObject({
+      confirmed: true, indexed: true, coinbase: true, outputs: [], deposit_payouts: [], refund_payouts: [], behind_by: 0,
+    });
+    expect(index.describeTx(hash32('cb0'), cb0, true, { height: 0, hash: hash32('block 0'), active: false }, 5)?.indexed).toBe(false);
+    expect(index.describeTx(hash32('cb x'), cb0, true, { height: 0, hash: hash32('another block 0') }, 5)?.indexed).toBe(false);
+  });
+
+  test('a "paid" commitment without its eCash payment counts as marked paid, not paid', async () => {
+    const blocks = chain();
+    blocks[5].tx[0].vout.pop(); // drop the M6 record
+    const node = new FakeNode(blocks);
+    const index = new PegIndex(node, null);
+    await settle(index, node);
+    expect(index.getSummary(5)).toMatchObject({ withdrawals_paid: 0, withdrawals_marked_paid: 1, withdrawals_refunded: 1 });
+  });
+
+  test('API kicks during a scan to the same tip do not restart it', async () => {
+    const node = new FakeNode(chain());
+    const slow = node.getBlock.bind(node);
+    node.getBlock = async (hash: string) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return slow(hash);
+    };
+    const index = new PegIndex(node, null);
+    index.kick(5);
+    for (let i = 0; i < 5; i++) {
+      index.kick(5);
+      await new Promise((resolve) => setTimeout(resolve, 3));
+    }
+    await settle(index, node);
+    expect(index.getTop()).toEqual(5);
+    expect(node.getBlockCountCalls).toEqual(1);
+    index.kick(); // a new-block kick is always honoured
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(node.getBlockCountCalls).toEqual(2);
   });
 
   test('a reorg rolls the replaced blocks back', async () => {
@@ -276,13 +383,13 @@ describe('FreeBank peg index', () => {
     expect(index.getTop()).toEqual(4);
     expect(index.getWithdrawal(W2.id).withdrawal?.status).toEqual('waiting');
     expect(index.getWithdrawal(W1.id).withdrawal?.status).toEqual('in-bundle');
-    expect(index.getSummary().current_bundle?.bundle_hash).toEqual(BUNDLE_HASH);
-    expect(index.getTx(hash32('refund tx'))).toBeNull();
+    expect(index.getSummary(4).current_bundle?.bundle_hash).toEqual(BUNDLE_HASH);
+    expect(index.getTx(hash32('refund tx'), 4)).toBeNull();
     expect(index.getBlock(hash32('block 4'), 4, true).indexed).toBe(false); // the old block 4
   });
 
   test('saved and reloaded: resumes without scanning again', async () => {
-    const file = path.join(dir, 'freebank', 'peg-v1.json');
+    const file = path.join(dir, 'freebank', 'peg-index.json');
     const node = new FakeNode(chain());
     const first = new PegIndex(node, file);
     await settle(first, node);
@@ -295,11 +402,53 @@ describe('FreeBank peg index', () => {
     await settle(second, again);
     expect(again.getBlockCalls).toEqual(0);
     expect(second.getWithdrawal(W1.id).withdrawal?.status).toEqual('paid');
-    expect(second.getSummary().deposits).toEqual(1);
+    expect(second.getSummary(5).deposits).toEqual(1);
+  });
+
+  test('a cache of another version is not used', async () => {
+    const file = path.join(dir, 'freebank', 'peg-index.json');
+    const node = new FakeNode(chain());
+    const first = new PegIndex(node, file);
+    await settle(first, node);
+    await first.$save();
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, JSON.stringify({ ...saved, version: 1 }));
+
+    const again = new FakeNode(chain());
+    const second = new PegIndex(again, file);
+    second.kick();
+    await settle(second, again);
+    expect(again.getBlockCalls).toEqual(6); // scanned again
+    expect(second.getSummary(5).withdrawals_paid).toEqual(1);
+  });
+
+  test('cached events that do not rebuild start the scan over, and the answers say it is behind', async () => {
+    const file = path.join(dir, 'freebank', 'peg-index.json');
+    const node = new FakeNode(chain());
+    const first = new PegIndex(node, file);
+    await settle(first, node);
+    await first.$save();
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const b of saved.blocks) {
+      if (b.ev) {
+        delete b.ev.pegins; // a shape this code cannot use
+      }
+    }
+    fs.writeFileSync(file, JSON.stringify(saved));
+
+    const again = new FakeNode(chain());
+    const second = new PegIndex(again, file);
+    second.kick();
+    await new Promise((resolve) => setTimeout(resolve, 20)); // loaded, but not rebuilt yet
+    const during = second.getSummary(5); // the rebuild fails: rescan
+    expect(during.behind_by).toBeGreaterThan(0);
+    await settle(second, again);
+    expect(again.getBlockCalls).toEqual(6);
+    expect(second.getSummary(5)).toMatchObject({ behind_by: 0, deposits: 1, withdrawals_paid: 1, withdrawals_refunded: 1 });
   });
 
   test('a cache from another chain is not used', async () => {
-    const file = path.join(dir, 'freebank', 'peg-v1.json');
+    const file = path.join(dir, 'freebank', 'peg-index.json');
     const node = new FakeNode(chain());
     const first = new PegIndex(node, file);
     await settle(first, node);
@@ -310,6 +459,6 @@ describe('FreeBank peg index', () => {
     second.kick();
     await settle(second, other);
     expect(second.getTop()).toEqual(0);
-    expect(second.getSummary().deposits).toEqual(0);
+    expect(second.getSummary(0).deposits).toEqual(0);
   });
 });

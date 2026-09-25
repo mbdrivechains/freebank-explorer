@@ -16,14 +16,16 @@ import { PegListType, PegTxView, PegWithdrawalView } from './peg.interfaces';
 //   GET pegs?type=&limit=    PegList: type deposit | withdrawal | bundle, newest first;
 //                            limit 1-200, default 25
 //   GET peg/tx/:txid         PegTxView: the tx's peg outputs with their status, and the node's
-//                            getwithdrawal for each withdrawal it names                404 none
+//                            getwithdrawal for each withdrawal it names; a coinbase also
+//                            says which outputs pay deposits and refunds     404 none (a coinbase: never)
 //   GET peg/block/:hash      PegBlockView: the block's peg events (empty lists when none) 404 unknown
 //   GET peg/ecash-tx/:txid   PegEcashTxView: the FreeBank block that recorded an eCash deposit
 //                            or bundle payment                                         404 unknown
 //   GET withdrawal/:id       PegWithdrawalView: the withdrawal, its bundle, and the node's
 //                            getwithdrawal                                             404 unknown
 //
-// A malformed id is a 400; a node failure is a 500 with a short message.
+// A malformed id is a 400; a node failure is a 500 with a short message. The summary, lists, tx
+// and withdrawal answers carry behind_by: how many blocks the index has still to read.
 
 const LIST_DEFAULT_LIMIT = 25;
 const LIST_MAX_LIMIT = 200;
@@ -83,8 +85,8 @@ class PegRoutes {
 
   private $getSummary = async (req: Request, res: Response): Promise<void> => {
     try {
-      await $caughtUp();
-      res.json(pegIndex.getSummary());
+      const tip = await $caughtUp();
+      res.json(pegIndex.getSummary(tip.height));
     } catch (e) {
       nodeError(req, res, 'summary', e);
     }
@@ -99,8 +101,8 @@ class PegRoutes {
     const limitParam = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : NaN;
     const limit = Number.isFinite(limitParam) ? Math.min(LIST_MAX_LIMIT, Math.max(1, limitParam)) : LIST_DEFAULT_LIMIT;
     try {
-      await $caughtUp();
-      res.json(pegIndex.getList(type as PegListType, limit));
+      const tip = await $caughtUp();
+      res.json(pegIndex.getList(type as PegListType, limit, tip.height));
     } catch (e) {
       nodeError(req, res, 'list', e);
     }
@@ -114,14 +116,14 @@ class PegRoutes {
     }
     try {
       const tip = await $caughtUp();
-      const indexed = pegIndex.getTx(txid);
+      const indexed = pegIndex.getTx(txid, tip.height);
       if (indexed) {
         await $addNodeWithdrawals(indexed, tip);
         res.json(indexed);
         return;
       }
-      // not in the index: unconfirmed, in a block the index has not reached, or a coinbase whose
-      // only peg output is the current-bundle commitment
+      // not in the index: unconfirmed, in a block the index has not reached, or in a block with no
+      // peg events (a coinbase then pays no deposit and no refund)
       let tx: any;
       try {
         tx = await bitcoinClient.getRawTransaction(txid, true);
@@ -132,16 +134,17 @@ class PegRoutes {
         }
         throw e;
       }
-      let block: { height: number, hash: string } | null = null;
+      let block: { height: number, hash: string, active: boolean } | null = null;
       if (typeof tx?.blockhash === 'string') {
         const header = await bitcoinClient.getBlockHeader(tx.blockhash, true);
-        block = { height: header.height, hash: tx.blockhash };
+        block = { height: header.height, hash: tx.blockhash, active: header.confirmations >= 0 };
       }
       const view = pegIndex.describeTx(
         txid,
         (tx?.vout || []).map((o: any) => ({ scriptpubkey: o?.scriptPubKey?.hex || '' })),
         typeof tx?.vin?.[0]?.coinbase === 'string',
         block,
+        tip.height,
       );
       if (!view) {
         handleError(req, res, 404, 'No FreeBank peg outputs in this transaction');
@@ -214,7 +217,7 @@ class PegRoutes {
       }
       const view: PegWithdrawalView = {
         explorer_url: pegExplorerUrl(),
-        tip_height: pegIndex.getTop(),
+        ...pegIndex.tipInfo(tip.height),
         withdrawal,
         bundle,
         node,

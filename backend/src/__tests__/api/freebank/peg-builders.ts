@@ -48,8 +48,7 @@ export function i32(n: number): Buffer {
 
 export function i64(n: number): Buffer {
   const b = Buffer.alloc(8);
-  b.writeUInt32LE(n % 0x100000000);
-  b.writeUInt32LE(Math.floor(n / 0x100000000), 4);
+  b.writeBigInt64LE(BigInt(n)); // negative amounts too (a 'D' record may carry one)
   return b;
 }
 

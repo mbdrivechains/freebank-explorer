@@ -13,17 +13,30 @@ import {
 //                                GenerateWithdrawalRefundRequest (102 bytes)
 //   miner.cpp                    which of them a block producer writes into the coinbase
 //
-// Deposit records and bundles are written by block producers and count only in a coinbase.
-// Consensus still accepts a deposit or bundle object in an ordinary tx (only the mempool refuses
-// them since v0.2.14), so one found there is returned as 'stray', never as a deposit. Withdrawals
-// and refund requests count in any tx, the coinbase included, as the node reads them from every
-// tx of a block (validation.cpp ConnectBlock).
+// Deposit records are written by block producers and count only in a coinbase: the node checks
+// only the coinbase's against eCash (CheckBlock VerifyDeposit reads vtx[0]). Consensus still
+// accepts a deposit object in an ordinary tx (only the mempool refuses them since v0.2.14), so
+// one found there is returned as 'stray', never as a deposit from eCash. Bundles, withdrawals and
+// refund requests count in any tx, the coinbase included, as the node reads them from every tx of
+// a block (validation.cpp ConnectBlock; VerifyWithdrawalBundles checks a bundle against the one the
+// node builds itself, wherever it is).
 //
 // Pure: no node calls, never throws. A tagged output whose contents do not decode is returned
 // as 'unreadable'; an output that is not a peg output gives null.
 
 export const SIDECHAIN_DEPOSIT_FEE = 1000; // sidechain.h: 0.00001 COIN, kept by the block producer
 export const BUNDLE_RETURN_DEST = 'D'; // sidechain.h SIDECHAIN_WITHDRAWAL_BUNDLE_RETURN_DEST
+
+/**
+ * A deposit record that is a withdrawal bundle's payment (M6): destination 'D' and nothing to
+ * pay. The node skips only the 'D' records of amount 0 (validation.cpp ConnectBlock); the stock
+ * builder clamps an M6 record to 0 (miner.cpp), and a negative one passes the amount check too.
+ * A 'D' record with a positive amount is a deposit from eCash to the address 'D', recorded and
+ * never paid (sidechain.cpp GetDepositPayoutOutput).
+ */
+export function isBundlePayment(dest: string, amount: number): boolean {
+  return dest === BUNDLE_RETURN_DEST && amount <= 0;
+}
 
 const OBJECT_TAG = 'acdcf66f';
 const COMMIT_TAGS: Readonly<Record<string, 'bundle-hash' | 'bundle-paid' | 'bundle-failed'>> = {
@@ -169,13 +182,8 @@ export function parsePegOutput(scriptHex: string, vout: number, inCoinbase: bool
   if (!object) {
     return null; // ParseSidechainObj: not an object
   }
-  if (object !== 'withdrawal' && !inCoinbase) {
-    return {
-      kind: 'stray',
-      vout,
-      object,
-      note: object === 'deposit' ? 'not a real deposit (outside the coinbase)' : 'not a real withdrawal bundle (outside the coinbase)',
-    };
+  if (object === 'deposit' && !inCoinbase) {
+    return { kind: 'stray', vout, object, note: 'not a real deposit from eCash (outside the coinbase)' };
   }
 
   try {
@@ -215,7 +223,7 @@ function readDeposit(r: ByteReader, buf: Buffer, vout: number): PegDepositRecord
   const burn_index = r.u32();
   const ecash_tx_index = r.u32();
   const ecash_block = r.hash256();
-  const bundle_payment = dest === BUNDLE_RETURN_DEST;
+  const bundle_payment = isBundlePayment(dest, amount);
   const burn = tx.vout[burn_index];
   const record: PegDepositRecord = {
     kind: 'deposit',

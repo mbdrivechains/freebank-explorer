@@ -4,7 +4,7 @@ import config from '../../config';
 import logger from '../../logger';
 import bitcoinClient from '../bitcoin/bitcoin-client';
 import { parsePegOutputs } from './peg-parser';
-import { derivePegState, extractBlockEvents, joinOutputs, pegTxView, PegState, StoredBlock } from './peg-state';
+import { derivePegState, extractBlockEvents, joinOutputs, PegTipInfo, pegTxView, PegState, StoredBlock } from './peg-state';
 import {
   PegBlockView, PegBundle, PegDeposit, PegEcashTxView, PegList, PegListType, PegNodeWithdrawal, PegSummary,
   PegTxView, PegWithdrawal, PegWithdrawalView,
@@ -24,10 +24,11 @@ import {
 // credit-activity.ts does). Every change rebuilds the derived state (peg-state.ts) from the
 // kept events, which is cheap: most blocks have none.
 //
-// Restarts: kept in <CACHE_DIR>/freebank/peg-v1.json (a subdirectory, since the deploy clears the
+// Restarts: kept in <CACHE_DIR>/freebank/peg-index.json (a subdirectory, since the deploy clears the
 // cache's top-level *.json), with the chain's genesis hash, so the scan resumes where it stopped
 // and a cache from another chain is not used. index.ts kicks the index at startup and on every
-// new block; the API also kicks it.
+// new block; the API also kicks it. The answers say how far the index is behind the node's tip
+// (behind_by), so a page can say the totals are not complete yet.
 
 const KEEP_RECENT = 2016;
 const RETRY_MS = 30_000;
@@ -35,9 +36,13 @@ const SAVE_DELAY_MS = 10_000;
 const SAVE_EVERY_BLOCKS = 500; // during a long scan
 const NODE_WITHDRAWAL_CACHE_MAX = 500;
 
-const CACHE_VERSION = 1;
+// The cache keeps each block's events as peg-parser.ts and coinbase-split.ts decoded them, so bump
+// CACHE_VERSION whenever either of them or the stored events (peg-state.ts StoredEvents) change:
+// the index then scans the chain again with the new code instead of keeping the old decodes.
+// 2: 'D' records with an amount, bundles outside the coinbase, the bundle-hash kept in the coinbase.
+const CACHE_VERSION = 2;
 const CACHE_SUBDIR = 'freebank';
-const CACHE_FILE = 'peg-v1.json';
+const CACHE_FILE = 'peg-index.json';
 
 const DEFAULT_EXPLORER_URL = 'https://explorer.beta.ecash.ninja';
 
@@ -69,9 +74,11 @@ export class PegIndex {
   private state: PegState = derivePegState([]);
   private dirty = false; // the state needs rebuilding
   private loaded = false;
+  private fromCache = false; // some kept blocks were read from the cache file
 
   private working = false;
   private again = false;
+  private syncTip = -1; // the node's block count the running sync scans up to (-1: not asked yet)
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private saving = false;
@@ -85,10 +92,18 @@ export class PegIndex {
     private readonly cacheFile: string | null = path.join(config.MEMPOOL.CACHE_DIR, CACHE_SUBDIR, CACHE_FILE),
   ) { }
 
-  /** Start (or nudge) the indexer. Safe to call any number of times; never throws. */
-  public kick(): void {
+  /**
+   * Start (or nudge) the indexer. Safe to call any number of times; never throws. `tipHeight`:
+   * the node's tip height as the caller saw it (an API request). While a sync is about to ask
+   * the node's block count, or is scanning up to that same height, the kick is dropped: it
+   * would only restart the scan (3 node calls) for nothing. A kick without it (a new block)
+   * always makes the sync re-check the tip.
+   */
+  public kick(tipHeight?: number): void {
     if (this.working) {
-      this.again = true;
+      if (tipHeight === undefined || (this.syncTip >= 0 && (tipHeight !== this.syncTip || this.top >= this.syncTip))) {
+        this.again = true;
+      }
       return;
     }
     void this.$work();
@@ -104,6 +119,17 @@ export class PegIndex {
     return this.blocks.get(tip.height)?.hash === tip.hash;
   }
 
+  /** The index's top, and how many blocks the node's tip (`nodeHeight`) is past it. */
+  public tipInfo(nodeHeight: number): PegTipInfo {
+    return { tip_height: this.top, behind_by: Math.max(0, nodeHeight - this.top) };
+  }
+
+  /** Whether the index has read this block (eventless blocks below the kept window are assumed so). */
+  private hasRead(height: number, hash: string): boolean {
+    const kept = this.blocks.get(height);
+    return this.top >= height && (!kept || kept.hash === hash);
+  }
+
   /**
    * Kick the index and wait (up to timeoutMs) until it holds the node's best block, so a block
    * that just arrived, or replaced the tip at the same height, is in the answer.
@@ -113,7 +139,7 @@ export class PegIndex {
     if (this.holdsTip(tip)) {
       return;
     }
-    this.kick();
+    this.kick(tip.height);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       await sleep$(100);
@@ -125,11 +151,12 @@ export class PegIndex {
 
   // ------------------------------------------------------------------------------ queries
 
-  public getSummary(): PegSummary {
+  /** `nodeHeight`: the node's tip height, for behind_by. */
+  public getSummary(nodeHeight: number): PegSummary {
     const s = this.current();
     const summary: PegSummary = {
       explorer_url: pegExplorerUrl(),
-      tip_height: this.top,
+      ...this.tipInfo(nodeHeight),
       scanned_from_height: 0,
       treasury: s.treasury,
       deposits: s.deposits.length,
@@ -138,6 +165,7 @@ export class PegIndex {
       withdrawals_waiting: 0,
       withdrawals_in_bundle: 0,
       withdrawals_paid: 0,
+      withdrawals_marked_paid: 0,
       withdrawals_refunded: 0,
       bundles: s.bundles.size,
       current_bundle: null,
@@ -147,8 +175,10 @@ export class PegIndex {
         summary.withdrawals_waiting++;
       } else if (w.status === 'in-bundle') {
         summary.withdrawals_in_bundle++;
-      } else if (w.status === 'paid' || w.status === 'marked-paid') {
+      } else if (w.status === 'paid') {
         summary.withdrawals_paid++;
+      } else if (w.status === 'marked-paid') {
+        summary.withdrawals_marked_paid++;
       } else if (w.status === 'refunded') {
         summary.withdrawals_refunded++;
       }
@@ -158,8 +188,8 @@ export class PegIndex {
     return summary;
   }
 
-  /** Newest first. */
-  public getList(type: PegListType, limit: number): PegList {
+  /** Newest first. `nodeHeight`: the node's tip height, for behind_by. */
+  public getList(type: PegListType, limit: number, nodeHeight: number): PegList {
     const s = this.current();
     let all: (PegDeposit | PegWithdrawal | PegBundle)[];
     if (type === 'deposit') {
@@ -171,7 +201,7 @@ export class PegIndex {
     }
     return {
       explorer_url: pegExplorerUrl(),
-      tip_height: this.top,
+      ...this.tipInfo(nodeHeight),
       type,
       total: all.length,
       items: all.slice(Math.max(0, all.length - limit)).reverse(),
@@ -184,9 +214,8 @@ export class PegIndex {
    */
   public getBlock(hash: string, height: number, onActiveChain: boolean): PegBlockView {
     const events = this.current().blocks.get(hash);
-    const kept = this.blocks.get(height);
     // eventless blocks below the newest KEEP_RECENT are not kept: scanned, with nothing to show
-    const indexed = onActiveChain && this.top >= height && (!kept || kept.hash === hash);
+    const indexed = onActiveChain && this.hasRead(height, hash);
     return {
       explorer_url: pegExplorerUrl(),
       indexed,
@@ -209,24 +238,28 @@ export class PegIndex {
   }
 
   /** A tx's peg outputs, from the index; null when the index does not hold the tx. */
-  public getTx(txid: string): PegTxView | null {
-    return pegTxView(this.current(), txid, pegExplorerUrl());
+  public getTx(txid: string, nodeHeight: number): PegTxView | null {
+    return pegTxView(this.current(), txid, pegExplorerUrl(), this.tipInfo(nodeHeight));
   }
 
   /**
-   * A tx the index does not hold (unconfirmed, or in a block the index has not reached): its
-   * outputs decoded, joined with what the index knows. Null when it has no peg outputs.
+   * A tx the index does not hold (unconfirmed, or in a block the index has not reached, or with
+   * no peg events): its outputs decoded, joined with what the index knows. Null when it has no
+   * peg outputs, except for a confirmed coinbase, which always gets an answer: once the index
+   * has read its block, empty deposit_payouts and refund_payouts say it pays neither.
+   * `block.active`: the block is on the node's best chain.
    */
-  public describeTx(txid: string, vout: { scriptpubkey: string }[], coinbase: boolean, block: { height: number, hash: string } | null): PegTxView | null {
+  public describeTx(txid: string, vout: { scriptpubkey: string }[], coinbase: boolean, block: { height: number, hash: string, active?: boolean } | null, nodeHeight: number): PegTxView | null {
     const outputs = parsePegOutputs(vout, coinbase);
-    if (!outputs.length) {
+    if (!outputs.length && !(coinbase && block)) {
       return null;
     }
     return {
       explorer_url: pegExplorerUrl(),
+      ...this.tipInfo(nodeHeight),
       txid,
       confirmed: block !== null,
-      indexed: false,
+      indexed: block !== null && block.active !== false && this.hasRead(block.height, block.hash),
       freebank_height: block ? block.height : null,
       freebank_block: block ? block.hash : null,
       coinbase,
@@ -290,12 +323,28 @@ export class PegIndex {
     return pending;
   }
 
-  /** The derived state, rebuilt when the kept events changed. */
+  /**
+   * The derived state, rebuilt when the kept events changed. Kept events that do not rebuild
+   * (read from a cache file this code cannot use) start the scan over; the answers then say
+   * how far behind the index is. A failure on events this process scanned itself is a fault in
+   * the code: it throws (the API answers 500), rather than serve an old state as if current.
+   */
   private current(): PegState {
     if (this.dirty) {
-      this.dirty = false;
       const withEvents = [...this.blocks.values()].filter((b) => b.ev).sort((a, b) => a.height - b.height);
-      this.state = derivePegState(withEvents);
+      try {
+        this.state = derivePegState(withEvents);
+      } catch (e) {
+        if (!this.fromCache) {
+          throw e;
+        }
+        logger.warn(`FreeBank peg index: the cached events do not rebuild (${errMsg(e)}), scanning from the start`);
+        this.reset();
+        this.state = derivePegState([]);
+        this.kick();
+        return this.state;
+      }
+      this.dirty = false;
     }
     return this.state;
   }
@@ -332,11 +381,14 @@ export class PegIndex {
     this.top = -1;
     this.genesis = null;
     this.dirty = true;
+    this.fromCache = false;
   }
 
   /** @asyncUnsafe */
   private async $sync(): Promise<void> {
+    this.syncTip = -1;
     const tip = await this.node.getBlockCount();
+    this.syncTip = tip;
 
     if (this.top >= 0) {
       const genesis = await this.node.getBlockHash(0);
@@ -453,6 +505,7 @@ export class PegIndex {
     this.top = data.top;
     this.genesis = data.genesis;
     this.dirty = true;
+    this.fromCache = true;
     logger.info(`FreeBank peg index: resuming at block ${this.top} from ${this.cacheFile}`);
   }
 

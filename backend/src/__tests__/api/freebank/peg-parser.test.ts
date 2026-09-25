@@ -67,11 +67,22 @@ describe('FreeBank peg parser', () => {
 
     test('the bundle payment ("D" destination): the eCash tx is the M6, its outputs are kept', () => {
       const m6: TxSpec = { version: 2, vin: [{ txid: hash32('ctip'), vout: 0 }], vout: [{ value: 5_000_000_000, scriptpubkey: 'b7018251' }, { value: 900_000, scriptpubkey: P2WPKH('a') }] };
-      const record = parsePegOutput(depositScript({ dest: 'D', amount: 5_000_000_000, dtx: m6, burn: 0, block: ECASH_BLOCK }), 3, true) as PegDepositRecord;
+      const record = parsePegOutput(depositScript({ dest: 'D', amount: 0, dtx: m6, burn: 0, block: ECASH_BLOCK }), 3, true) as PegDepositRecord;
       expect(record.bundle_payment).toBe(true);
       expect(record.ecash_txid).toEqual(bitcoinTxid(m6));
       expect(record.ecash_outputs).toEqual(m6.vout);
       expect(record.treasury_value).toEqual(5_000_000_000);
+    });
+
+    test('the bundle payment may carry a negative amount (the node accepts it); a positive one is a deposit to "D"', () => {
+      const m6: TxSpec = { version: 2, vin: [{ txid: hash32('ctip'), vout: 0 }], vout: [{ value: 5_000_000_000, scriptpubkey: 'b7018251' }] };
+      const negative = parsePegOutput(depositScript({ dest: 'D', amount: -3_000_000, dtx: m6, burn: 0, block: ECASH_BLOCK }), 3, true) as PegDepositRecord;
+      expect(negative).toMatchObject({ amount: -3_000_000, bundle_payment: true });
+      const zero = parsePegOutput(depositScript({ dest: 'D', amount: 0, dtx: m6, burn: 0, block: ECASH_BLOCK }), 3, true) as PegDepositRecord;
+      expect(zero.bundle_payment).toBe(true);
+      const positive = parsePegOutput(depositScript({ dest: 'D', amount: 500_000_000, dtx: m6, burn: 0, block: ECASH_BLOCK }), 3, true) as PegDepositRecord;
+      expect(positive).toMatchObject({ kind: 'deposit', dest: 'D', amount: 500_000_000, bundle_payment: false });
+      expect(positive.ecash_outputs).toBeUndefined();
     });
 
     test('a burn index past the outputs gives no treasury value', () => {
@@ -84,9 +95,9 @@ describe('FreeBank peg parser', () => {
       expect(record?.kind).toEqual('deposit');
     });
 
-    test('outside a coinbase it is not a real deposit', () => {
+    test('outside a coinbase it is not a real deposit from eCash', () => {
       expect(parsePegOutput(depositScript({ dest: 'x', amount: 5, dtx, burn: 2, block: ECASH_BLOCK }), 2, false)).toEqual({
-        kind: 'stray', vout: 2, object: 'deposit', note: 'not a real deposit (outside the coinbase)',
+        kind: 'stray', vout: 2, object: 'deposit', note: 'not a real deposit from eCash (outside the coinbase)',
       });
     });
   });
@@ -123,9 +134,10 @@ describe('FreeBank peg parser', () => {
       expect(a).toEqual(b);
     });
 
-    test('outside a coinbase it is not a real bundle', () => {
-      const tx: TxSpec = { version: 2, vin: [], vout: [payouts[0]] };
-      expect(parsePegOutput(bundleScript({ tx, ids: [] }), 0, false)?.kind).toEqual('stray');
+    test('outside a coinbase it is still the bundle (the node takes a bundle from any tx)', () => {
+      const tx: TxSpec = { version: 2, vin: [{ txid: '00'.repeat(32), vout: 0, scriptsig: '00' }], vout: [{ value: 0, scriptpubkey: cusfFeeScript(3000) }, payouts[0]] };
+      expect(parsePegOutput(bundleScript({ tx, ids: [ids[0]] }), 1, false)).toEqual(parsePegOutput(bundleScript({ tx, ids: [ids[0]] }), 1, true));
+      expect(parsePegOutput(bundleScript({ tx, ids: [ids[0]] }), 1, false)).toMatchObject({ kind: 'bundle', bundle_hash: bitcoinTxid(tx), withdrawal_ids: [ids[0]] });
     });
   });
 

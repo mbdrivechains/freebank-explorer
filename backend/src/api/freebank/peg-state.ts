@@ -1,4 +1,4 @@
-import { CoinbaseOutput, PegInPayout, splitFreebankCoinbase } from './coinbase-split';
+import { CoinbaseOutput, PegInPayout, sameAddress, splitFreebankCoinbase } from './coinbase-split';
 import { parsePegOutputs } from './peg-parser';
 import {
   PegBlockEvents, PegBundle, PegBundleRecord, PegDeposit, PegDepositRecord, PegEcashPaymentRecord, PegOutput,
@@ -10,8 +10,9 @@ import {
 // the node applies them when it connects a block:
 //   bundle failed (commitment)   the bundle's withdrawals go back in the queue
 //   bundle paid (commitment)     its withdrawals are paid
-//   bundle record                a new bundle; its withdrawals are in it
-//   deposit records              deposits from eCash, and a bundle's eCash payment (dest 'D')
+//   bundle record                a new bundle; its withdrawals are in it (the coinbase's, or one in
+//                                another tx: the node takes a bundle from any tx)
+//   deposit records              deposits from eCash, and a bundle's eCash payment (dest 'D', amount 0)
 //   withdrawals, refund requests in block order (the coinbase first: the node reads them from
 //                                every tx, and a block producer may make them too)
 // A bundle counts as paid on eCash, with a link, only when a payment record's outputs match the
@@ -21,7 +22,7 @@ import {
 /** A block's peg events as the index stores them (compact: most blocks have none). */
 export interface StoredEvents {
   coinbase_txid: string;
-  coinbase: PegOutput[]; // bundle-hash commitments left out: every block after the first bundle has one
+  coinbase: PegOutput[]; // with its bundle-hash commitment, which alone makes no event (most coinbases have one)
   pegins: PegInPayout[]; // the coinbase's deposit payouts (coinbase-split.ts)
   cb?: [number, string | null][]; // the coinbase's outputs (value, address), kept when a refund needs pairing
   txs: { txid: string, outputs: PegOutput[] }[]; // ordinary txs with peg outputs
@@ -70,7 +71,7 @@ export function extractBlockEvents(block: any): StoredEvents | undefined {
     scriptpubkey: o?.scriptPubKey?.hex || '',
     scriptpubkey_address: nodeAddress(o?.scriptPubKey),
   }));
-  const coinbase = parsePegOutputs(cbVout, true).filter((o) => o.kind !== 'bundle-hash');
+  const coinbase = parsePegOutputs(cbVout, true);
   const others: StoredEvents['txs'] = [];
   for (let i = 1; i < txs.length; i++) {
     const outputs = parsePegOutputs((txs[i].vout || []).map((o: any) => ({ scriptpubkey: o?.scriptPubKey?.hex || '' })), false);
@@ -78,7 +79,8 @@ export function extractBlockEvents(block: any): StoredEvents | undefined {
       others.push({ txid: txs[i].txid, outputs });
     }
   }
-  if (!coinbase.length && !others.length) {
+  // the current-bundle commitment is in every coinbase while a bundle waits: no event by itself
+  if (!coinbase.some((o) => o.kind !== 'bundle-hash') && !others.length) {
     return undefined;
   }
   const events: StoredEvents = {
@@ -177,10 +179,13 @@ function applyBlock(state: PegState, block: StoredBlock, ev: StoredEvents): void
     }
   }
 
-  // 2. a new bundle
-  for (const out of ev.coinbase) {
-    if (out.kind === 'bundle') {
-      addBundle(state, block, ev, out, events);
+  // 2. a new bundle: the coinbase's, or one in another tx (validation.cpp takes it from any tx
+  // and checks it against the bundle the node builds, so wherever it is, it is the real one)
+  for (const tx of [{ txid: ev.coinbase_txid, outputs: ev.coinbase }, ...ev.txs]) {
+    for (const out of tx.outputs) {
+      if (out.kind === 'bundle') {
+        addBundle(state, block, ev, tx.txid, out, events);
+      }
     }
   }
 
@@ -243,10 +248,10 @@ function applyBlock(state: PegState, block: StoredBlock, ev: StoredEvents): void
           amount: w ? w.amount : null,
           refund_dest: w ? w.refund_dest : null,
         };
-        // the coinbase output that pays it: the withdrawal's whole amount to its refund address
-        // (validation.cpp); each output pays one refund
+        // the coinbase output that pays it: the withdrawal's whole amount to its refund address,
+        // as the node reads the address (validation.cpp); each output pays one refund
         if (w && ev.cb) {
-          const i = ev.cb.findIndex(([value, address], j) => !claimed.has(j) && value === w.amount && address === w.refund_dest);
+          const i = ev.cb.findIndex(([value, address], j) => !claimed.has(j) && value === w.amount && sameAddress(address, w.refund_dest));
           if (i >= 0) {
             claimed.add(i);
             refund.payout_vout = i;
@@ -264,7 +269,7 @@ function applyBlock(state: PegState, block: StoredBlock, ev: StoredEvents): void
   }
 }
 
-function addBundle(state: PegState, block: StoredBlock, ev: StoredEvents, out: PegBundleRecord, events: PegBlockEvents): void {
+function addBundle(state: PegState, block: StoredBlock, ev: StoredEvents, txid: string, out: PegBundleRecord, events: PegBlockEvents): void {
   if (state.bundles.has(out.bundle_hash)) {
     return; // the node refuses a bundle whose hash it has seen (fCheckUnique)
   }
@@ -275,6 +280,7 @@ function addBundle(state: PegState, block: StoredBlock, ev: StoredEvents, out: P
     freebank_block: block.hash,
     freebank_time: block.time,
     coinbase_txid: ev.coinbase_txid,
+    record_txid: txid,
     record_vout: out.vout,
     format: out.format,
     ecash_fee: out.ecash_fee,
@@ -387,14 +393,22 @@ function markWithdrawalsPaid(state: PegState, bundle: PegBundle): void {
   }
 }
 
+/** Where the index stands: its top, and how far the node's tip is past it. */
+export interface PegTipInfo {
+  tip_height: number;
+  behind_by: number;
+}
+
 /** One tx's peg outputs joined with the index's state (null when the tx has none in the index). */
-export function pegTxView(state: PegState, txid: string, explorerUrl: string): PegTxView | null {
+export function pegTxView(state: PegState, txid: string, explorerUrl: string, tip: PegTipInfo = { tip_height: -1, behind_by: 0 }): PegTxView | null {
   const tx = state.txs.get(txid);
   if (!tx) {
     return null;
   }
   const view: PegTxView = {
     explorer_url: explorerUrl,
+    tip_height: tip.tip_height,
+    behind_by: tip.behind_by,
     txid,
     confirmed: true,
     indexed: true,
@@ -414,7 +428,7 @@ export function pegTxView(state: PegState, txid: string, explorerUrl: string): P
     }
     for (const r of events?.refunds || []) {
       if (r.payout_vout !== null) {
-        view.refund_payouts.push({ vout: r.payout_vout, withdrawal_id: r.withdrawal_id });
+        view.refund_payouts.push({ vout: r.payout_vout, withdrawal_id: r.withdrawal_id, request_txid: r.request_txid, request_vout: r.request_vout });
       }
     }
   }

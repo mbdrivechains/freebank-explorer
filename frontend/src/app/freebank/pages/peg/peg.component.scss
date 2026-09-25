@@ -59,3 +59,14 @@
   height: 1.5rem;
   margin-bottom: 0.5rem;
 }
+
+// a count only the block producer's word backs (withdrawals marked paid, no eCash payment found)
+.peg-warn {
+  color: var(--yellow);
+}
+
+.peg-indexing {
+  color: var(--yellow);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}

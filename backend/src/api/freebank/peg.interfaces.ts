@@ -21,8 +21,10 @@ export type PegOutput =
 
 /**
  * A deposit record (coinbase, OP_RETURN acdcf66f 'D'): an eCash deposit credited in this block.
- * Its destination 'D' marks the other kind, a withdrawal bundle's payment: then the eCash tx is
- * the M6 that paid the bundle, and nothing is paid on FreeBank.
+ * The destination 'D' with an amount of 0 or less marks the other kind, a withdrawal bundle's
+ * payment: then the eCash tx is the M6 that paid the bundle, and nothing is paid on FreeBank. A
+ * 'D' record with a positive amount is a deposit from eCash to the address 'D': recorded, never
+ * paid (validation.cpp skips only the 'D' records of amount 0; sidechain.cpp never pays 'D').
  */
 export interface PegDepositRecord {
   kind: 'deposit';
@@ -35,11 +37,15 @@ export interface PegDepositRecord {
   ecash_tx_index: number; // its position in that eCash block
   burn_index: number; // the output that holds the eCash treasury after this tx
   treasury_value: number | null; // that output's value: what the treasury holds for FreeBank
-  bundle_payment: boolean; // dest 'D': the M6 of a withdrawal bundle
+  bundle_payment: boolean; // dest 'D' and amount 0 or less: the M6 of a withdrawal bundle
   ecash_outputs?: { value: number, scriptpubkey: string }[]; // bundle payments only: the M6's outputs
 }
 
-/** A withdrawal bundle (coinbase, OP_RETURN acdcf66f 'P'): the eCash payout tx FreeBank asks eCash to approve. */
+/**
+ * A withdrawal bundle (OP_RETURN acdcf66f 'P'): the eCash payout tx FreeBank asks eCash to approve.
+ * The block producer writes it into the coinbase; the node takes it from any tx of a block
+ * (validation.cpp VerifyWithdrawalBundles checks it against the bundle it builds itself).
+ */
 export interface PegBundleRecord {
   kind: 'bundle';
   vout: number;
@@ -88,14 +94,14 @@ export interface PegRefundRequest {
 }
 
 /**
- * A deposit record or a withdrawal bundle outside the coinbase. Only block producers write real
- * ones; the node's consensus still accepts one in an ordinary tx, but the explorer does not count
- * it as a peg event.
+ * A deposit record outside the coinbase. Only block producers write real ones, in the coinbase
+ * (the node checks only the coinbase's against eCash); the node's consensus still accepts one in
+ * an ordinary tx, but the explorer does not count it as a deposit from eCash.
  */
 export interface PegStray {
   kind: 'stray';
   vout: number;
-  object: 'deposit' | 'bundle';
+  object: 'deposit';
   note: string;
 }
 
@@ -179,6 +185,7 @@ export interface PegBundle {
   freebank_block: string;
   freebank_time: number;
   coinbase_txid: string;
+  record_txid: string; // the tx that holds the record: the coinbase, or (a modified block producer's) another tx
   record_vout: number;
   format: 'cusf' | 'legacy' | 'unknown';
   ecash_fee: number | null;
@@ -244,6 +251,7 @@ export interface PegBlockEvents {
 export interface PegSummary {
   explorer_url: string;
   tip_height: number; // the index's top
+  behind_by: number; // the node's tip height minus tip_height: blocks not read yet (0 when caught up)
   scanned_from_height: number;
   treasury: PegTreasury | null;
   deposits: number;
@@ -251,7 +259,8 @@ export interface PegSummary {
   withdrawals: number;
   withdrawals_waiting: number; // waiting or requeued
   withdrawals_in_bundle: number;
-  withdrawals_paid: number; // paid or marked paid
+  withdrawals_paid: number; // paid, with the bundle's eCash payment known
+  withdrawals_marked_paid: number; // marked paid by the block producer; no matching eCash payment recorded
   withdrawals_refunded: number;
   bundles: number;
   current_bundle: PegBundle | null; // the newest bundle while it is 'created'
@@ -271,6 +280,8 @@ export interface PegTxOutputView {
 /** GET peg/tx/:txid */
 export interface PegTxView {
   explorer_url: string;
+  tip_height: number; // the index's top
+  behind_by: number; // the node's tip height minus tip_height (0 when caught up)
   txid: string;
   confirmed: boolean;
   indexed: boolean; // the index holds the tx's block, so the statuses are known
@@ -279,7 +290,7 @@ export interface PegTxView {
   coinbase: boolean;
   outputs: PegTxOutputView[];
   deposit_payouts: { vout: number, record_vout: number }[]; // coinbase outputs paying a deposit
-  refund_payouts: { vout: number, withdrawal_id: string }[]; // coinbase outputs paying a refund
+  refund_payouts: { vout: number, withdrawal_id: string, request_txid: string, request_vout: number }[]; // coinbase outputs paying a refund
 }
 
 /** GET peg/block/:hash */
@@ -307,6 +318,7 @@ export type PegListType = 'deposit' | 'withdrawal' | 'bundle';
 export interface PegList {
   explorer_url: string;
   tip_height: number;
+  behind_by: number;
   type: PegListType;
   total: number;
   items: (PegDeposit | PegWithdrawal | PegBundle)[]; // newest first
@@ -328,6 +340,7 @@ export interface PegNodeWithdrawal {
 export interface PegWithdrawalView {
   explorer_url: string;
   tip_height: number;
+  behind_by: number;
   withdrawal: PegWithdrawal | null;
   bundle: PegBundle | null;
   node: PegNodeWithdrawal | null; // null when the node does not know it (yet)

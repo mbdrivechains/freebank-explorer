@@ -669,8 +669,9 @@ const FREEBANK_COINBASE_TAGS: { [tag: string]: string } = {
 const FREEBANK_TX_TAGS: { [tag: string]: string } = {
   'fcd2e546': 'Withdrawal refund request',
 };
-// sidechain objects (tag acdcf66f): the byte after the tag is the object type. Deposit records and
-// bundles count only in a coinbase: one in an ordinary tx is named as not real.
+// sidechain objects (tag acdcf66f): the byte after the tag is the object type. Deposit records
+// count only in a coinbase: one in an ordinary tx is named as not real. The node takes a bundle
+// from any tx (validation.cpp VerifyWithdrawalBundles), so a bundle is named wherever it is.
 const FREEBANK_COINBASE_OBJECTS: { [op: string]: string } = {
   '44': 'Deposit from eCash (record)', // 'D'
   '50': 'Withdrawal bundle', // 'P'
@@ -678,8 +679,8 @@ const FREEBANK_COINBASE_OBJECTS: { [op: string]: string } = {
 };
 const FREEBANK_TX_OBJECTS: { [op: string]: string } = {
   '57': 'Withdrawal to eCash', // 'W'
-  '44': 'Not a real deposit (outside the coinbase)',
-  '50': 'Not a real withdrawal bundle (outside the coinbase)',
+  '44': 'Not a real deposit from eCash (outside the coinbase)',
+  '50': 'Withdrawal bundle', // FreeBank: a block producer may put it outside the coinbase
 };
 
 export function getFreebankOutputLabel(scriptpubkey: string, isCoinbase: boolean): string | undefined {

@@ -9,6 +9,8 @@
     <!-- SUMMARY -->
     <app-http-error *ngIf="view.summary.error && !view.summary.data" [error]="view.summary.error">Could not load the eCash peg summary</app-http-error>
 
+    <p class="peg-indexing" *ngIf="view.indexing">The explorer is still reading the chain ({{ view.indexing }}): the counts and lists below are not complete yet.</p>
+
     <div class="credit-tiles" *ngIf="view.summary.data as s">
       <div class="box credit-tile">
         <div class="credit-tile-title">eCash treasury</div>
@@ -33,7 +35,7 @@
         <div class="credit-tile-value">{{ s.withdrawals | number }}</div>
         <div class="credit-tile-line" *ngIf="s.withdrawals > 0">
           {{ s.withdrawals_waiting | number }} waiting for a bundle, {{ s.withdrawals_in_bundle | number }} waiting for approval on eCash,
-          {{ s.withdrawals_paid | number }} paid, {{ s.withdrawals_refunded | number }} refunded.
+          {{ s.withdrawals_paid | number }} paid<span class="peg-warn" *ngIf="s.withdrawals_marked_paid > 0">, {{ s.withdrawals_marked_paid | number }} marked paid by the block producer (eCash transaction not found)</span>, {{ s.withdrawals_refunded | number }} refunded.
         </div>
       </div>
 

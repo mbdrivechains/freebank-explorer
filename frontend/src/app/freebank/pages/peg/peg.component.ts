@@ -7,7 +7,7 @@ import { CreditLoad, loadOnEachBlock } from '@app/freebank/credit-load';
 import { ecashExplorerHost } from '@app/freebank/bmm-view';
 import { FreebankPegService } from '@app/freebank/peg.service';
 import {
-  PegLine, PegTableRow, bundleLine, bundleTableRow, depositTableRow, formatPegAmount, treasuryLine, withdrawalTableRow,
+  PegLine, PegTableRow, bundleLine, bundleTableRow, depositTableRow, formatPegAmount, indexingText, treasuryLine, withdrawalTableRow,
 } from '@app/freebank/peg-view';
 import { PegBundle, PegDeposit, PegList, PegSummary, PegWithdrawal } from '@interfaces/freebank-peg.interface';
 
@@ -29,6 +29,7 @@ interface PageView {
   treasury: PegLine | null;
   currentBundle: PegLine | null;
   depositsText: string;
+  indexing: string | null; // 'indexing: block N of M' while the explorer is still reading the chain
   explorerHost: string;
   deposits: ListView;
   withdrawals: ListView;
@@ -84,6 +85,7 @@ export class PegComponent implements OnInit {
           treasury: s ? treasuryLine(s.treasury, base) : null,
           currentBundle: s?.current_bundle ? bundleLine(s.current_bundle, base, false) : null,
           depositsText: s ? formatPegAmount(s.deposits_amount) : '',
+          indexing: indexingText(s),
           explorerHost: ecashExplorerHost(base),
           deposits,
           withdrawals,
