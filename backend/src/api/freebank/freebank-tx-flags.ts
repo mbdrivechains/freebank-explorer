@@ -74,25 +74,93 @@ export function isOpReturnData(tx: FreebankFlagsTx, scriptpubkey: string): boole
   return !(tx.vin?.[0]?.is_coinbase && isCoinbaseCommitment(scriptpubkey));
 }
 
-function asciiToHex(text: string): string {
-  return Array.from(text, (c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+const DEPOSIT_FEE = 1000; // szats, kept by the block producer (freebank sidechain.h SIDECHAIN_DEPOSIT_FEE)
+const BUNDLE_RETURN_DEST = 'D'; // a record of a withdrawal bundle paid on eCash, not a deposit
+
+// A deposit record's destination and amount: after OP_RETURN, the tag, 'D' and the slot, the
+// destination as a length-prefixed string and the amount as 8 bytes little-endian (freebank
+// sidechain.cpp SidechainDeposit). Null when the script is not one or is cut short. The same
+// reader as the backend's peg-parser.ts readDepositHead, on hex so it runs in the browser too.
+function readDepositHead(script: string): { dest: string, amount: number } | null {
+  if (!script.startsWith(DEPOSIT_RECORD)) {
+    return null;
+  }
+  let pos = 14;
+  const byte = (): number => {
+    if (pos + 2 > script.length) {
+      throw new Error('short');
+    }
+    const b = parseInt(script.slice(pos, pos + 2), 16);
+    if (!(b >= 0)) {
+      throw new Error('not hex');
+    }
+    pos += 2;
+    return b;
+  };
+  try {
+    let len = byte();
+    if (len === 0xfd) {
+      len = byte() | (byte() << 8);
+    } else if (len >= 0xfe) {
+      return null; // no address is that long
+    }
+    let dest = '';
+    for (let i = 0; i < len; i++) {
+      dest += String.fromCharCode(byte());
+    }
+    let lo = 0;
+    for (let i = 0; i < 4; i++) {
+      lo += byte() * 2 ** (8 * i);
+    }
+    let hi = 0;
+    for (let i = 0; i < 4; i++) {
+      hi += byte() * 2 ** (8 * i);
+    }
+    if (hi >= 0x80000000) {
+      hi -= 0x100000000;
+    }
+    return { dest, amount: hi * 0x100000000 + lo };
+  } catch {
+    return null;
+  }
 }
 
-// A deposit that pays anything is paid in the output right before its deposit record (freebank
-// miner.cpp). The record carries the destination address, so check it: a withdrawal refund payout
-// can also sit before a record whose deposit paid nothing. Same rule as the frontend's
-// getFreebankOutputLabels ('Deposit payout').
-function hasDepositPayout(vout: FreebankFlagsTx['vout']): boolean {
-  for (let i = 2; i < vout.length; i++) {
-    const record = vout[i]?.scriptpubkey || '';
-    const payout = vout[i - 1];
-    const address = payout?.scriptpubkey_address;
-    if (record.startsWith(DEPOSIT_RECORD) && !isCoinbaseCommitment(payout?.scriptpubkey || '') && (payout?.value || 0) > 0 && address
-      && (record.includes(asciiToHex(address)) || record.includes(asciiToHex(address.toUpperCase())))) {
-      return true;
-    }
+/** bech32 is case-insensitive (a depositor may type it in capitals); base58 is not. */
+function sameAddress(output: string | undefined, dest: string): boolean {
+  if (!output || !dest) {
+    return false;
   }
-  return false;
+  return output === dest || (/^[a-z0-9]+1[a-z0-9]+$/i.test(dest) && output.toLowerCase() === dest.toLowerCase());
+}
+
+// Whether a coinbase pays out a deposit from eCash, by the node's claim rule (sidechain.cpp
+// ClaimDepositPayoutOutput): a deposit above the 1,000-szat fee claims one output, not vout[0]
+// (the producer's), of exactly its amount less the fee to its destination; an output is claimed
+// once. The builder puts it right before the record, so that one is taken first. The same rule
+// as the backend's coinbase-split.ts and the frontend's peg-view.ts applyPegLabels (the page's
+// 'Deposit from eCash (payout)' label).
+function hasDepositPayout(vout: FreebankFlagsTx['vout']): boolean {
+  const claimed = new Set<number>([0]);
+  let paid = false;
+  vout.forEach((out, i) => {
+    const head = readDepositHead(out?.scriptpubkey || '');
+    if (!head || head.dest === BUNDLE_RETURN_DEST || head.amount <= DEPOSIT_FEE) {
+      return;
+    }
+    const want = head.amount - DEPOSIT_FEE;
+    const matches = (j: number): boolean => !claimed.has(j) && vout[j]?.value === want && sameAddress(vout[j]?.scriptpubkey_address, head.dest);
+    let found = i - 1 >= 1 && matches(i - 1) ? i - 1 : -1;
+    for (let j = 1; found < 0 && j < vout.length; j++) {
+      if (matches(j)) {
+        found = j;
+      }
+    }
+    if (found >= 0) {
+      claimed.add(found);
+      paid = true;
+    }
+  });
+  return paid;
 }
 
 /** The FreeBank bits of a tx's flags (0n for a plain tx). */

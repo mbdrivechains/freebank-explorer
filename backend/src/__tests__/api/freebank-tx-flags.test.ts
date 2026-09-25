@@ -93,7 +93,10 @@ const PREV_BLOCK_COMMIT = '6afd7ad1ef' + '11'.repeat(64);
 const VERSION_COMMIT = '6aa7e67e1f00000020';
 const WITNESS_COMMIT = '6a24aa21a9ed' + '22'.repeat(32);
 // a deposit record: 'D', slot 130, then the destination address as a length-prefixed string
-const depositRecord = (address: string) => '6aacdcf66f44' + '82' + (address.length).toString(16).padStart(2, '0') + hex(address) + '00'.repeat(40);
+// the slot, the destination, the amount (8 bytes little-endian), then the rest of the record
+const le64 = (n: number) => Buffer.from(BigInt.asUintN(64, BigInt(n)).toString(16).padStart(16, '0'), 'hex').reverse().toString('hex');
+const depositRecord = (address: string, amount = 150_001_000) => '6aacdcf66f44' + '82' + (address.length).toString(16).padStart(2, '0') + hex(address)
+  + le64(amount) + '00'.repeat(32);
 const coinbase = (vout: { scriptpubkey: string, value?: number, scriptpubkey_address?: string }[]) => ({
   version: 3,
   vin: [{ is_coinbase: true }],
@@ -171,27 +174,46 @@ describe('FreeBank Goggles flags', () => {
     );
   });
 
-  describe('deposits from eCash (coinbase payout followed by its record)', () => {
+  describe('deposits from eCash (a coinbase output pays the record its amount less the 1,000-szat fee)', () => {
     const payout = { scriptpubkey: P2PKH(1), value: 150_000_000, scriptpubkey_address: ADDR };
     const flagsOf = (vout) => getFreebankTxFlags(coinbase(vout));
+    const BECH32 = 'fbkrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
 
     test('a payout right before its record', () => {
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: PREV_BLOCK_COMMIT }, payout, { scriptpubkey: depositRecord(ADDR) }]))
         .toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
     });
-    test('the record may spell the address in upper case', () => {
-      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(ADDR.toUpperCase()) }]))
+    test('a payout elsewhere in the coinbase (the node claims any output)', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: PREV_BLOCK_COMMIT }, { scriptpubkey: depositRecord(ADDR) }]))
         .toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
     });
-    test('a record with no payout before it (a deposit that paid nothing)', () => {
+    test('a bech32 destination may be spelled in capitals', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { ...payout, scriptpubkey_address: BECH32 }, { scriptpubkey: depositRecord(BECH32.toUpperCase()) }]))
+        .toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
+    });
+    test('a base58 destination in capitals is another address', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(ADDR.toUpperCase()) }])).toEqual(0n);
+    });
+    test('a record with no payout (a deposit that paid nothing)', () => {
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: VERSION_COMMIT }, { scriptpubkey: depositRecord(ADDR) }])).toEqual(0n);
     });
     test('a payout to another address than the record names (a refund payout)', () => {
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { ...payout, scriptpubkey_address: 'XVx5H3pzuF8xRGJUap1ndQTw44kGvytY8P' },
         { scriptpubkey: depositRecord(ADDR) }])).toEqual(0n);
     });
-    test('a payout of zero', () => {
+    test('a payout of another amount', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { ...payout, value: 150_001_000 }, { scriptpubkey: depositRecord(ADDR) }])).toEqual(0n);
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { ...payout, value: 0 }, { scriptpubkey: depositRecord(ADDR) }])).toEqual(0n);
+    });
+    test('a deposit at or below the fee pays nothing', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { ...payout, value: 0 }, { scriptpubkey: depositRecord(ADDR, 1000) }])).toEqual(0n);
+    });
+    test('an output pays one deposit only', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(ADDR) }, { scriptpubkey: depositRecord(ADDR) }]))
+        .toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
+    });
+    test('a withdrawal bundle record is not a deposit', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { ...payout, scriptpubkey_address: 'D' }, { scriptpubkey: depositRecord('D') }])).toEqual(0n);
     });
     test('the block reward output is never the payout', () => {
       expect(flagsOf([payout, { scriptpubkey: depositRecord(ADDR) }])).toEqual(0n);
@@ -199,6 +221,9 @@ describe('FreeBank Goggles flags', () => {
     test('a payout and record in an ordinary tx are not a deposit', () => {
       expect(getFreebankTxFlags({ version: 3, vin: [{ is_coinbase: false }], vout: [{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(ADDR) }] }))
         .toEqual(0n);
+    });
+    test('a cut-short record', () => {
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(ADDR).slice(0, 90) }])).toEqual(0n);
     });
   });
 
