@@ -5,6 +5,7 @@ import { handleError } from '../../utils/api';
 import freebankApi, { FreebankResult, parseCreditId } from './freebank-api';
 import creditActivity from './credit-activity';
 import bmm from './bmm';
+import custody, { CUSTODY_MAX_TXIDS } from './custody';
 import { CREDIT_FAMILIES, CreditFamily } from './freebank-tx-parser';
 
 // /api/v1/freebank/* - the FreeBank credit pages' API: read-only JSON, cached until the next
@@ -34,6 +35,12 @@ import { CREDIT_FAMILIES, CreditFamily } from './freebank-tx-parser';
 //   GET bmm/block/:hash BmmBlock ('pending' if not looked up yet)             404 unknown
 //   GET bmm/summary   { enabled, explorer_url, indexed, pending, carried, total_bid_sats,
 //                       avg_bid_sats, median_bid_sats, last, pools, latest_ecash_height }
+//
+// Custody labels (custody.ts): the coins the credit rules hold, on inputs and outputs.
+//   GET custody?txids=<txid>,<txid>,...   (1-25 txids)
+//                     { tip_height, txs: { [txid]: { vin: [label|null], vout: [label|null],
+//                       truncated? } | null } }; label = { kind, text, tooltip, link, and the
+//                       ids it names }; null for a txid the node does not know
 //
 // A malformed id is a 400; an id the node does not know is a 404; a node failure is a 500
 // with a short message. Nothing here throws past the handler.
@@ -70,6 +77,7 @@ class FreebankRoutes {
       .get(prefix + 'bmm', this.$getBmm)
       .get(prefix + 'bmm/block/:hash', this.$getBmmBlock)
       .get(prefix + 'bmm/summary', this.$getBmmSummary)
+      .get(prefix + 'custody', this.$getCustody)
       ;
   }
 
@@ -226,6 +234,19 @@ class FreebankRoutes {
 
   private $getBmmSummary = (req: Request, res: Response): void => {
     res.json(bmm.getSummary());
+  };
+
+  private $getCustody = async (req: Request, res: Response): Promise<void> => {
+    const txids = typeof req.query.txids === 'string' ? req.query.txids.toLowerCase().split(',') : [];
+    if (!txids.length || txids.length > CUSTODY_MAX_TXIDS || !txids.every((txid) => /^[0-9a-f]{64}$/.test(txid))) {
+      handleError(req, res, 400, `Invalid txids: expected 1 to ${CUSTODY_MAX_TXIDS} txids, separated by commas`);
+      return;
+    }
+    try {
+      res.json(await custody.$getCustody(txids));
+    } catch (e) {
+      nodeError(req, res, 'custody', e);
+    }
   };
 }
 

@@ -10,6 +10,7 @@ import { AssetsService } from '@app/services/assets.service';
 import { environment } from '@environments/environment';
 import { ElectrsApiService } from '@app/services/electrs-api.service';
 import { getFreebankOutputLabels } from '@app/shared/transaction.utils';
+import { getFreebankCustodyLabels } from '@app/freebank/custody-labels';
 
 interface SvgLine {
   path: string;
@@ -196,6 +197,8 @@ export class TxBowtieGraphComponent implements OnInit, OnChanges {
     }
     const outputCount = voutWithFee.length;
 
+    // FreeBank: custody inputs by family, as the tx list shows them until its exact labels load
+    const custodyInputs = getFreebankCustodyLabels(this.tx).vin;
     let truncatedInputs = this.tx.vin.map((v, i) => {
       return {
         type: 'input',
@@ -203,7 +206,7 @@ export class TxBowtieGraphComponent implements OnInit, OnChanges {
         displayValue: v?.prevout?.value,
         txid: v.txid,
         vout: v.vout,
-        address: v?.prevout?.scriptpubkey_address || v?.prevout?.scriptpubkey_type?.toUpperCase(),
+        address: v?.prevout?.scriptpubkey_address || custodyInputs[i]?.text || v?.prevout?.scriptpubkey_type?.toUpperCase(),
         index: i,
         coinbase: v?.is_coinbase,
         pegin: v?.is_pegin,

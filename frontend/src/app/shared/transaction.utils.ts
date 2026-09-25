@@ -3,6 +3,7 @@ import { getFreebankTxFlags, isOpReturnData } from '@app/freebank/freebank-tx-fl
 import { getVarIntLength, parseMultisigScript, isPoint, parseTapscriptMultisig, parseTapscriptUnanimousMultisig, ScriptInfo } from '@app/shared/script.utils';
 import { Transaction, Vin, Utxo } from '@interfaces/electrs.interface';
 import { CpfpInfo, RbfInfo, TransactionStripped } from '@interfaces/node-api.interface';
+import { custodyFamilyLabel } from '@app/freebank/custody-labels';
 import { StateService } from '@app/services/state.service';
 import { hash, Hash } from '@app/shared/sha256';
 import { AddressType, AddressTypeInfo, detectAddressType } from '@app/shared/address-utils';
@@ -687,17 +688,7 @@ export function getFreebankOutputLabel(scriptpubkey: string, isCoinbase: boolean
   return (isCoinbase ? FREEBANK_COINBASE_TAGS : FREEBANK_TX_TAGS)[tag];
 }
 
-// FreeBank credit custody outputs: <push> OP_DROP OP_TRUE, open at script level and guarded by
-// consensus coin tags (freebank bill.cpp, house.cpp, pool.cpp, oracle.cpp, note.cpp). The push is
-// 32 bytes (bill, house and pool escrows), 33 (oracle bond pubkey) or 20 (note pre-auth custody);
-// the tx version says which family the output belongs to.
-const CREDIT_CUSTODY_SCRIPT = /^(?:14[0-9a-f]{40}|20[0-9a-f]{64}|21[0-9a-f]{66})7551$/;
-const CREDIT_CUSTODY_LABELS: { [version: number]: string } = {
-  11: 'Bill escrow',
-  12: 'House escrow',
-  15: 'Pool reserve',
-  17: 'Oracle bond',
-};
+// FreeBank credit custody outputs (<push> OP_DROP OP_TRUE): freebank/custody-labels.ts
 // BIP 141 witness commitment: OP_RETURN, then a 36-byte push of aa21a9ed and the commitment hash
 const WITNESS_COMMITMENT_SCRIPT = /^6a24aa21a9ed[0-9a-f]{64}/;
 
@@ -713,11 +704,11 @@ function asciiToHex(text: string): string {
 // FreeBank labels for every output of a tx, by output index (undefined where there is none)
 export function getFreebankOutputLabels(tx: Transaction): (FreebankOutputLabel | undefined)[] {
   const isCoinbase = !!tx?.vin?.[0]?.is_coinbase;
-  const custody = CREDIT_TX_LABELS[tx?.version] ? (CREDIT_CUSTODY_LABELS[tx.version] || 'Credit custody') : undefined;
   const labels: (FreebankOutputLabel | undefined)[] = (tx?.vout || []).map((vout) => {
     const script = vout?.scriptpubkey || '';
-    if (custody && CREDIT_CUSTODY_SCRIPT.test(script)) {
-      return { label: custody, tooltip: 'Locked by the FreeBank credit rules for this transaction type, not by a key' };
+    const custody = custodyFamilyLabel(script, tx.version, isCoinbase);
+    if (custody) {
+      return { label: custody.text, tooltip: custody.tooltip };
     }
     if (isCoinbase && WITNESS_COMMITMENT_SCRIPT.test(script)) {
       return { label: 'Witness commitment', tooltip: 'SegWit witness commitment (BIP 141)' };
