@@ -94,6 +94,8 @@ module.exports = {
   getTxoutSetinfo: 'gettxoutsetinfo',
   getIndexInfo: 'getindexinfo',
   testMempoolAccept: 'testmempoolaccept',
+  // FreeBank peg, read-only (freebank/src/rpc/misc.cpp), for /api/v1/freebank/withdrawal/:id
+  getWithdrawal: 'getwithdrawal',
   // FreeBank credit layer, read-only (freebank/src/rpc/misc.cpp), for /api/v1/freebank/*
   listHouses: 'listhouses',
   getHouse: 'gethouse',

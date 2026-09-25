@@ -53,6 +53,8 @@ import freebankRoutes from './api/freebank/freebank.routes';
 import freebankApi from './api/freebank/freebank-api';
 import creditActivity from './api/freebank/credit-activity';
 import bmm from './api/freebank/bmm';
+import pegIndex from './api/freebank/peg-index';
+import pegRoutes from './api/freebank/peg.routes';
 
 class Server {
   private wss: WebSocket.Server | undefined;
@@ -216,6 +218,8 @@ class Server {
     // FreeBank: the BMM view's eCash lookups, in the background (/api/v1/freebank/bmm*); off
     // unless FREEBANK.BMM_ENABLED. With cluster workers only the first makes requests (bmm.ts)
     bmm.start();
+    // FreeBank: the peg index (deposits from and withdrawals to eCash, /api/v1/freebank/peg*)
+    pegIndex.kick();
 
     if (config.MEMPOOL.ENABLED) {
       void this.runMainUpdateLoop();
@@ -348,6 +352,7 @@ class Server {
       freebankApi.onNewBlock();
       creditActivity.kick();
       bmm.onNewBlock(block.id);
+      pegIndex.kick(); // FreeBank: the peg index
     });
     websocketHandler.setupConnectionHandling();
     if (config.MEMPOOL.ENABLED) {
@@ -401,6 +406,7 @@ class Server {
       servicesRoutes.initRoutes(this.app);
     }
     freebankRoutes.initRoutes(this.app); // FreeBank: credit pages API, /api/v1/freebank/*
+    pegRoutes.initRoutes(this.app); // FreeBank: the eCash peg, /api/v1/freebank/peg* and withdrawal/:id
     // FreeBank: no aboutRoutes - they proxy donations/contributors/translators/sponsors from mempool.space
   }
 
