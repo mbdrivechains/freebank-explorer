@@ -7,7 +7,7 @@ import cpfpRepository from '../repositories/CpfpRepository';
 import { RowDataPacket } from 'mysql2';
 
 class DatabaseMigration {
-  private static currentVersion = 107;
+  private static currentVersion = 108;
   private queryTimeout = 3600_000;
   private statisticsAddedIndexed = false;
   private uniqueLogs: string[] = [];
@@ -1227,6 +1227,23 @@ class DatabaseMigration {
     if (databaseSchemaVersion < 107) {
       await this.$executeQuery('ALTER TABLE `blocks` MODIFY header varchar(272) NOT NULL');
       await this.updateToSchemaVersion(107);
+    }
+
+    // FreeBank: `reward` becomes what the block producer earns (fees + 1,000 szats per deposit from
+    // eCash paid out) instead of the whole coinbase, and the deposit and refund payouts get their own
+    // columns (api/freebank/coinbase-split.ts). Every block is indexed again.
+    if (databaseSchemaVersion < 108) {
+      this.uniqueLog(logger.notice, this.blocksTruncatedMessage);
+      await this.$executeQuery('TRUNCATE blocks;'); // Need to re-index
+      await this.$executeQuery(`ALTER TABLE blocks
+        ADD pegin_count INT UNSIGNED NOT NULL DEFAULT 0,
+        ADD pegin_amt BIGINT UNSIGNED NOT NULL DEFAULT 0,
+        ADD pegin_fees BIGINT UNSIGNED NOT NULL DEFAULT 0,
+        ADD pegin_unpaid INT UNSIGNED NOT NULL DEFAULT 0,
+        ADD refund_count INT UNSIGNED NOT NULL DEFAULT 0,
+        ADD refund_amt BIGINT UNSIGNED NOT NULL DEFAULT 0
+      `);
+      await this.updateToSchemaVersion(108);
     }
   }
 

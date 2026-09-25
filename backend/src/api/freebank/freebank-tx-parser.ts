@@ -256,7 +256,30 @@ export function parseFreebankTx(raw: string | Buffer): FreebankParsedTx {
     buf = raw;
   }
   const r = new ByteReader(buf);
+  const { tx } = readFreebankTx(r, buf);
+  if (r.remaining !== 0) {
+    throw new FreebankParseError(`${r.remaining} trailing byte(s) after the transaction`);
+  }
+  return tx;
+}
 
+/** Where the parts of a transaction read by readFreebankTx lie in its buffer (absolute offsets). */
+export interface FreebankTxSpan {
+  start: number; // nVersion
+  headerEnd: number; // after nVersion and the v3 replay byte
+  bodyStart: number; // vin count (after the segwit marker and flags, if any)
+  bodyEnd: number; // after the last output
+  locktimeStart: number;
+  end: number; // after the credit or BitAsset trailer
+}
+
+/**
+ * Read one FreeBank transaction at the reader's position (a transaction embedded in a larger
+ * object, such as a deposit record's mainchain tx), leaving the reader just after it. `buf` is
+ * the reader's buffer. Returns the transaction and where its parts lie. Throws FreebankParseError.
+ */
+export function readFreebankTx(r: ByteReader, buf: Buffer): { tx: FreebankParsedTx, span: FreebankTxSpan } {
+  const start = r.pos;
   const version = r.i32();
   let replayByte: number | null = null;
   if (version === 3) {
@@ -332,32 +355,33 @@ export function parseFreebankTx(raw: string | Buffer): FreebankParsedTx {
     op = r.u8();
     payload = r.varBytes();
   }
-
-  if (r.remaining !== 0) {
-    throw new FreebankParseError(`${r.remaining} trailing byte(s) after the transaction`);
-  }
+  const end = r.pos;
 
   // The no-witness serialization: version (+ replay byte), vin, vout, then locktime and the
   // trailer - i.e. everything except the marker/flags and the witness stacks.
+  const full = buf.subarray(start, end);
   const stripped = hasWitness
-    ? Buffer.concat([buf.subarray(0, headerEnd), buf.subarray(bodyStart, bodyEnd), buf.subarray(locktimeStart)])
-    : buf;
+    ? Buffer.concat([buf.subarray(start, headerEnd), buf.subarray(bodyStart, bodyEnd), buf.subarray(locktimeStart, end)])
+    : full;
 
   return {
-    txid: reverseHex(sha256d(stripped)),
-    wtxid: reverseHex(sha256d(buf)),
-    version,
-    replayByte,
-    hasWitness,
-    vin,
-    vout,
-    locktime,
-    size: buf.length,
-    strippedSize: stripped.length,
-    family,
-    op,
-    payload,
-    bitasset,
+    tx: {
+      txid: reverseHex(sha256d(stripped)),
+      wtxid: reverseHex(sha256d(full)),
+      version,
+      replayByte,
+      hasWitness,
+      vin,
+      vout,
+      locktime,
+      size: full.length,
+      strippedSize: stripped.length,
+      family,
+      op,
+      payload,
+      bitasset,
+    },
+    span: { start, headerEnd, bodyStart, bodyEnd, locktimeStart, end },
   };
 }
 
