@@ -18,8 +18,9 @@
         <th class="timestamp" i18n="latest-blocks.timestamp" *ngIf="!widget" [class]="isMempoolModule ? '' : 'legacy'">Timestamp</th>
         <th *ngIf="auditAvailable" class="health text-right" i18n="latest-blocks.health" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"
           i18n-ngbTooltip="latest-blocks.health" ngbTooltip="Health" placement="bottom" #health [disableTooltip]="!isEllipsisActive(health)">Health</th>
-        <!-- FreeBank: no Reward column. There is no block subsidy, and the coinbase also pays out mainchain deposits,
-             so block.extras.reward is not income; Fees shows in every mode instead -->
+        <!-- FreeBank: no Reward column. There is no block subsidy: block.extras.reward is the fees plus 1,000 szats per
+             deposit from eCash paid out, and the block page shows it when it differs from the fees. Fees shows in
+             every mode instead -->
         <th *ngIf="isMempoolModule" class="fees text-right" i18n="latest-blocks.fees" [class]="isMempoolModule ? '' : 'legacy'">Fees</th>
         <th *ngIf="auditAvailable && !widget" class="fee-delta" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"></th>
         <th *ngIf="isMempoolModule" class="txs text-right" i18n="dashboard.txs" [ngClass]="{'widget': widget, 'legacy': !isMempoolModule}"

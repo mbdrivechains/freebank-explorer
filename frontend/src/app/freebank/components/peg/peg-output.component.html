@@ -1,0 +1,5 @@
+<ng-container *ngIf="lines$ | async as lines">
+  <div class="peg-notes" *ngIf="lines.length">
+    <div *ngFor="let line of lines"><app-freebank-peg-line [line]="line"></app-freebank-peg-line></div>
+  </div>
+</ng-container>

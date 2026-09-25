@@ -196,7 +196,15 @@ export interface BlockExtension {
   minFee?: number;
   maxFee?: number;
   feeRange?: number[];
-  reward?: number;
+  reward?: number; // FreeBank: what the block producer earns (fees + pegInFees; no subsidy)
+  // FreeBank: what the coinbase pays besides the producer (backend api/freebank/coinbase-split.ts)
+  pegInCount?: number; // deposits from eCash paid out
+  pegInAmt?: number; // szats paid to those depositors
+  pegInFees?: number; // 1,000 szats per deposit paid out, to the producer
+  pegInUnpaidCount?: number; // deposits recorded, nothing paid (dust, or not a FreeBank address)
+  refundCount?: number; // withdrawal refunds
+  refundAmt?: number;
+  pegRecords?: number; // coinbase outputs that make peg events: > 0 means /peg/block/:hash has something
   coinbaseRaw?: string;
   matchRate?: number;
   expectedFees?: number;

@@ -1,0 +1,198 @@
+<div class="container-xl credit-page peg-page">
+  <div class="title-block">
+    <h1>eCash &#8644; FreeBank</h1>
+  </div>
+
+  <p class="credit-intro">FreeBank's coins are backed by eCash held in FreeBank's treasury on eCash. A deposit from eCash moves eCash into the treasury, and a FreeBank block pays it out here, less 1,000 szats. A withdrawal to eCash burns FreeBank coins; eCash pays them out in a withdrawal bundle once eCash miners approve it.</p>
+
+  <ng-container *ngIf="view$ | async as view">
+    <!-- SUMMARY -->
+    <app-http-error *ngIf="view.summary.error && !view.summary.data" [error]="view.summary.error">Could not load the eCash peg summary</app-http-error>
+
+    <div class="credit-tiles" *ngIf="view.summary.data as s">
+      <div class="box credit-tile">
+        <div class="credit-tile-title">eCash treasury</div>
+        <ng-container *ngIf="view.treasury; else noTreasury">
+          <div class="credit-tile-value"><app-freebank-peg-line [line]="view.treasury"></app-freebank-peg-line></div>
+          <div class="credit-tile-line">Held on eCash for FreeBank, as of FreeBank block <a [routerLink]="['/block/' | relativeUrl, s.treasury.freebank_height]">{{ s.treasury.freebank_height }}</a>.</div>
+        </ng-container>
+        <ng-template #noTreasury>
+          <div class="credit-tile-value">None yet</div>
+          <div class="credit-tile-line">No deposit from eCash has been credited yet.</div>
+        </ng-template>
+      </div>
+
+      <div class="box credit-tile">
+        <div class="credit-tile-title">Deposits from eCash</div>
+        <div class="credit-tile-value">{{ s.deposits | number }}</div>
+        <div class="credit-tile-line" *ngIf="s.deposits > 0">{{ view.depositsText }} in all.</div>
+      </div>
+
+      <div class="box credit-tile">
+        <div class="credit-tile-title">Withdrawals to eCash</div>
+        <div class="credit-tile-value">{{ s.withdrawals | number }}</div>
+        <div class="credit-tile-line" *ngIf="s.withdrawals > 0">
+          {{ s.withdrawals_waiting | number }} waiting for a bundle, {{ s.withdrawals_in_bundle | number }} waiting for approval on eCash,
+          {{ s.withdrawals_paid | number }} paid, {{ s.withdrawals_refunded | number }} refunded.
+        </div>
+      </div>
+
+      <div class="box credit-tile">
+        <div class="credit-tile-title">Withdrawal bundle</div>
+        <ng-container *ngIf="view.currentBundle; else noBundle">
+          <div class="credit-tile-value"><a [routerLink]="['/block/' | relativeUrl, s.current_bundle.freebank_block]">Block {{ s.current_bundle.freebank_height }}</a></div>
+          <div class="credit-tile-line"><app-freebank-peg-line [line]="view.currentBundle"></app-freebank-peg-line></div>
+        </ng-container>
+        <ng-template #noBundle>
+          <div class="credit-tile-value">None waiting</div>
+          <div class="credit-tile-line">{{ s.bundles | number }} {{ s.bundles === 1 ? 'bundle' : 'bundles' }} so far.</div>
+        </ng-template>
+      </div>
+    </div>
+
+    <div class="credit-tiles" *ngIf="!view.summary.data && !view.summary.error" aria-busy="true">
+      <div class="box credit-tile" *ngFor="let i of skeletonTiles">
+        <span class="skeleton-loader peg-skeleton-title"></span>
+        <span class="skeleton-loader peg-skeleton-value"></span>
+        <span class="skeleton-loader"></span>
+      </div>
+    </div>
+
+    <!-- DEPOSITS FROM ECASH -->
+    <div class="credit-section-title">
+      <h2 id="deposits">Deposits from eCash</h2>
+    </div>
+    <app-http-error *ngIf="view.deposits.load.error && !view.deposits.load.data" [error]="view.deposits.load.error">Could not load the deposits from eCash</app-http-error>
+    <div class="box" *ngIf="!view.deposits.load.error || view.deposits.load.data">
+      <table class="table table-borderless table-striped credit-table" [class.reloading]="view.deposits.load.loading && !!view.deposits.load.data">
+        <thead>
+          <tr>
+            <th>FreeBank block</th>
+            <th class="text-right"><span class="help" ngbTooltip="Paid to the depositor: the deposit less 1,000 szats, which go to the block producer" placement="bottom" container="body">Amount</span></th>
+            <th class="d-none d-sm-table-cell">To</th>
+            <th class="d-none d-md-table-cell">eCash tx</th>
+            <th class="text-right d-none d-sm-table-cell">Age</th>
+          </tr>
+        </thead>
+        <tbody *ngIf="view.deposits.load.data; else skeleton5">
+          <tr *ngFor="let row of view.deposits.rows; trackBy: trackByKey">
+            <td class="nowrap"><app-freebank-peg-line [line]="row.cells[0]"></app-freebank-peg-line></td>
+            <td class="text-right"><app-freebank-peg-line [line]="row.cells[1]"></app-freebank-peg-line></td>
+            <td class="d-none d-sm-table-cell"><app-freebank-peg-line [line]="row.cells[2]"></app-freebank-peg-line></td>
+            <td class="d-none d-md-table-cell"><app-freebank-peg-line [line]="row.cells[3]"></app-freebank-peg-line></td>
+            <td class="text-right d-none d-sm-table-cell nowrap"><app-time kind="since" [time]="row.time" [fastRender]="true" [showTooltip]="true"></app-time></td>
+          </tr>
+          <tr *ngIf="!view.deposits.rows.length">
+            <td colspan="5" class="empty-row">No deposits from eCash yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="credit-footnote" *ngIf="view.deposits.total > view.deposits.rows.length">The newest {{ view.deposits.rows.length }} of {{ view.deposits.total | number }}.</p>
+
+    <!-- WITHDRAWALS TO ECASH -->
+    <div class="credit-section-title">
+      <h2 id="withdrawals">Withdrawals to eCash</h2>
+    </div>
+    <app-http-error *ngIf="view.withdrawals.load.error && !view.withdrawals.load.data" [error]="view.withdrawals.load.error">Could not load the withdrawals to eCash</app-http-error>
+    <div class="box" *ngIf="!view.withdrawals.load.error || view.withdrawals.load.data">
+      <table class="table table-borderless table-striped credit-table" [class.reloading]="view.withdrawals.load.loading && !!view.withdrawals.load.data">
+        <thead>
+          <tr>
+            <th>FreeBank tx</th>
+            <th class="text-right"><span class="help" ngbTooltip="What the eCash address receives: the amount burned on FreeBank, less the eCash fee" placement="bottom" container="body">Paid on eCash</span></th>
+            <th class="text-right d-none d-md-table-cell">eCash fee</th>
+            <th>Status</th>
+            <th class="text-right d-none d-sm-table-cell">Age</th>
+          </tr>
+        </thead>
+        <tbody *ngIf="view.withdrawals.load.data; else skeletonWithdrawals">
+          <tr *ngFor="let row of view.withdrawals.rows; trackBy: trackByKey">
+            <td class="nowrap"><app-freebank-peg-line [line]="row.cells[0]"></app-freebank-peg-line></td>
+            <td class="text-right"><app-freebank-peg-line [line]="row.cells[1]"></app-freebank-peg-line></td>
+            <td class="text-right d-none d-md-table-cell"><app-freebank-peg-line [line]="row.cells[2]"></app-freebank-peg-line></td>
+            <td><app-freebank-peg-line [line]="row.cells[3]"></app-freebank-peg-line></td>
+            <td class="text-right d-none d-sm-table-cell nowrap"><app-time kind="since" [time]="row.time" [fastRender]="true" [showTooltip]="true"></app-time></td>
+          </tr>
+          <tr *ngIf="!view.withdrawals.rows.length">
+            <td colspan="5" class="empty-row">No withdrawals to eCash yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="credit-footnote" *ngIf="view.withdrawals.total > view.withdrawals.rows.length">The newest {{ view.withdrawals.rows.length }} of {{ view.withdrawals.total | number }}.</p>
+
+    <!-- WITHDRAWAL BUNDLES -->
+    <div class="credit-section-title">
+      <h2 id="bundles">Withdrawal bundles</h2>
+    </div>
+    <app-http-error *ngIf="view.bundles.load.error && !view.bundles.load.data" [error]="view.bundles.load.error">Could not load the withdrawal bundles</app-http-error>
+    <div class="box" *ngIf="!view.bundles.load.error || view.bundles.load.data">
+      <table class="table table-borderless table-striped credit-table" [class.reloading]="view.bundles.load.loading && !!view.bundles.load.data">
+        <thead>
+          <tr>
+            <th><span class="help" ngbTooltip="The FreeBank block that made the bundle" placement="bottom" container="body">FreeBank block</span></th>
+            <th class="text-right d-none d-sm-table-cell">Withdrawals</th>
+            <th class="text-right">Amount</th>
+            <th class="text-right d-none d-md-table-cell">eCash fee</th>
+            <th>Status</th>
+            <th class="text-right d-none d-lg-table-cell">Age</th>
+          </tr>
+        </thead>
+        <tbody *ngIf="view.bundles.load.data; else skeleton6">
+          <tr *ngFor="let row of view.bundles.rows; trackBy: trackByKey">
+            <td class="nowrap"><app-freebank-peg-line [line]="row.cells[0]"></app-freebank-peg-line></td>
+            <td class="text-right d-none d-sm-table-cell"><app-freebank-peg-line [line]="row.cells[1]"></app-freebank-peg-line></td>
+            <td class="text-right"><app-freebank-peg-line [line]="row.cells[2]"></app-freebank-peg-line></td>
+            <td class="text-right d-none d-md-table-cell"><app-freebank-peg-line [line]="row.cells[3]"></app-freebank-peg-line></td>
+            <td><app-freebank-peg-line [line]="row.cells[4]"></app-freebank-peg-line></td>
+            <td class="text-right d-none d-lg-table-cell nowrap"><app-time kind="since" [time]="row.time" [fastRender]="true" [showTooltip]="true"></app-time></td>
+          </tr>
+          <tr *ngIf="!view.bundles.rows.length">
+            <td colspan="6" class="empty-row">No withdrawal bundles yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="credit-footnote">
+      A deposit made on eCash shows here once a FreeBank block credits it. Approval of a bundle on eCash is not shown: FreeBank's blocks record only when it is paid or fails.
+      <ng-container *ngIf="view.explorerHost">eCash transactions link to {{ view.explorerHost }} and open in a new tab.</ng-container>
+    </p>
+  </ng-container>
+
+  <ng-template #skeleton5>
+    <tbody aria-busy="true">
+      <tr *ngFor="let i of skeletonRows">
+        <td><span class="skeleton-loader"></span></td>
+        <td><span class="skeleton-loader"></span></td>
+        <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+        <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+        <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+      </tr>
+    </tbody>
+  </ng-template>
+  <ng-template #skeletonWithdrawals>
+    <tbody aria-busy="true">
+      <tr *ngFor="let i of skeletonRows">
+        <td><span class="skeleton-loader"></span></td>
+        <td><span class="skeleton-loader"></span></td>
+        <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+        <td><span class="skeleton-loader"></span></td>
+        <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+      </tr>
+    </tbody>
+  </ng-template>
+  <ng-template #skeleton6>
+    <tbody aria-busy="true">
+      <tr *ngFor="let i of skeletonRows">
+        <td><span class="skeleton-loader"></span></td>
+        <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+        <td><span class="skeleton-loader"></span></td>
+        <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+        <td><span class="skeleton-loader"></span></td>
+        <td class="d-none d-lg-table-cell"><span class="skeleton-loader"></span></td>
+      </tr>
+    </tbody>
+  </ng-template>
+</div>

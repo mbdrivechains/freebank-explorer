@@ -20,6 +20,8 @@ import { PreloadService } from '@app/services/preload.service';
 import { identifyPrioritizedTransactions } from '@app/shared/transaction.utils';
 import { BmmRow, bmmRow, bmmWaiting } from '@app/freebank/bmm-view';
 import { blockProducer, unknownProducerHelp } from '@app/freebank/producer';
+import { PegRow, blockHasPegEvents, blockPegRows } from '@app/freebank/peg-view';
+import { FreebankPegService } from '@app/freebank/peg.service';
 
 // FreeBank: how often, and how far apart, the block page asks again for a block the BMM view has
 // not looked up yet (asking moves it to the front of the backend's queue)
@@ -114,6 +116,8 @@ export class BlockComponent implements OnInit, OnDestroy {
   priceSubscription: Subscription;
   bmmSubscription: Subscription;
   bmmCarried: BmmRow | null = null;     // FreeBank: the "Carried by eCash block" row; null hides it
+  pegSubscription: Subscription;
+  pegRows: PegRow[] = [];               // FreeBank: producer earnings, deposits from eCash, refunds, bundles
   readonly producerOf = blockProducer;  // FreeBank: the "Produced by" row (the block's coinbase tag)
   readonly unknownHelp = unknownProducerHelp;
   blockConversion: Price;
@@ -141,6 +145,7 @@ export class BlockComponent implements OnInit, OnDestroy {
     private servicesApiService: ServicesApiServices,
     private cd: ChangeDetectorRef,
     private preloadService: PreloadService,
+    private pegService: FreebankPegService,
   ) {
     this.webGlEnabled = this.stateService.isBrowser && detectWebGL();
   }
@@ -468,6 +473,24 @@ export class BlockComponent implements OnInit, OnDestroy {
       }),
     ).subscribe((carried) => this.bmmCarried = carried);
 
+    // FreeBank: the rows under Total fees: what the producer earned, the deposits from eCash, the
+    // withdrawal refunds and the withdrawal bundle events. The counts come with the block; the
+    // per-item lines (eCash tx links) ask /api/v1/freebank/peg/block/:hash, only for a block that
+    // has peg events (block extras pegRecords, refundCount).
+    this.pegSubscription = this.block$.pipe(
+      switchMap((block: BlockExtended) => {
+        const rows = blockPegRows(block?.extras, null);
+        if (!block?.id || !blockHasPegEvents(block.extras)) {
+          return of(rows);
+        }
+        return this.pegService.block$(block.id).pipe(
+          map((view) => blockPegRows(block.extras, view)),
+          catchError(() => of(rows)),
+          startWith(rows),
+        );
+      }),
+    ).subscribe((rows) => this.pegRows = rows);
+
     this.networkChangedSubscription = this.stateService.networkChanged$
       .subscribe((network) => this.network = network);
 
@@ -544,6 +567,7 @@ export class BlockComponent implements OnInit, OnDestroy {
     this.oobSubscription?.unsubscribe();
     this.priceSubscription?.unsubscribe();
     this.bmmSubscription?.unsubscribe();
+    this.pegSubscription?.unsubscribe();
     this.blockGraphProjected.forEach(graph => {
       graph.destroy();
     });

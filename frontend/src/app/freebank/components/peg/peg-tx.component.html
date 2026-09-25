@@ -1,0 +1,24 @@
+<ng-container *ngIf="panels$ | async as panels">
+  <ng-container *ngFor="let panel of panels">
+    <div class="title float-left">
+      <h2>{{ panel.title }}</h2>
+    </div>
+    <div class="clearfix"></div>
+    <div class="box peg-panel">
+      <table class="table table-borderless table-striped">
+        <tbody>
+          <tr *ngFor="let row of panel.rows">
+            <td>
+              <span *ngIf="row.help; else plainLabel" class="help" [ngbTooltip]="row.help" placement="bottom">{{ row.label }}</span>
+              <ng-template #plainLabel>{{ row.label }}</ng-template>
+            </td>
+            <td>
+              <div *ngFor="let line of row.lines"><app-freebank-peg-line [line]="line"></app-freebank-peg-line></div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <br>
+  </ng-container>
+</ng-container>

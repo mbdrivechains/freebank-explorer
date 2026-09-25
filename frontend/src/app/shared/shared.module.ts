@@ -53,6 +53,9 @@ import { RouterModule } from '@angular/router';
 import { CapAddressPipe } from '@app/shared/pipes/cap-address-pipe/cap-address-pipe';
 import { StartComponent } from '@components/start/start.component';
 import { TransactionsListComponent } from '@components/transactions-list/transactions-list.component';
+import { FreebankPegLineComponent } from '@app/freebank/components/peg/peg-line.component';
+import { FreebankPegOutputComponent } from '@app/freebank/components/peg/peg-output.component';
+import { FreebankPegTxComponent } from '@app/freebank/components/peg/peg-tx.component';
 import { BlockOverviewGraphComponent } from '@components/block-overview-graph/block-overview-graph.component';
 import { BlockOverviewTooltipComponent } from '@components/block-overview-tooltip/block-overview-tooltip.component';
 import { BlockFiltersComponent } from '@components/block-filters/block-filters.component';
@@ -181,6 +184,9 @@ import { GithubLogin } from '@components/github-login.component/github-login.com
     BlockOverviewTooltipComponent,
     BlockFiltersComponent,
     TransactionsListComponent,
+    FreebankPegLineComponent, // FreeBank: the eCash peg notes and panels
+    FreebankPegOutputComponent,
+    FreebankPegTxComponent,
     AddressGroupComponent,
     SearchFormComponent,
     AddressLabelsComponent,
@@ -333,6 +339,9 @@ import { GithubLogin } from '@components/github-login.component/github-login.com
     BlockOverviewTooltipComponent,
     BlockFiltersComponent,
     TransactionsListComponent,
+    FreebankPegLineComponent, // FreeBank: the eCash peg notes and panels
+    FreebankPegOutputComponent,
+    FreebankPegTxComponent,
     AddressGroupComponent,
     SearchFormComponent,
     AddressLabelsComponent,
