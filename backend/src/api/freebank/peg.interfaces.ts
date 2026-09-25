@@ -88,14 +88,14 @@ export interface PegRefundRequest {
 }
 
 /**
- * A peg object in the wrong kind of transaction: a deposit record or a bundle outside the
- * coinbase, or a withdrawal or refund request inside it. The node does not treat these as peg
- * events (only block producers write deposits and bundles), so neither does the explorer.
+ * A deposit record or a withdrawal bundle outside the coinbase. Only block producers write real
+ * ones; the node's consensus still accepts one in an ordinary tx, but the explorer does not count
+ * it as a peg event.
  */
 export interface PegStray {
   kind: 'stray';
   vout: number;
-  object: 'deposit' | 'bundle' | 'withdrawal' | 'refund-request';
+  object: 'deposit' | 'bundle';
   note: string;
 }
 
@@ -265,6 +265,7 @@ export interface PegTxOutputView {
   bundle?: PegBundle; // a bundle record, or the bundle a commitment names
   withdrawal?: PegWithdrawal; // a withdrawal, or the one a refund request names
   refund?: PegRefund; // a refund request
+  node?: PegNodeWithdrawal | null; // a withdrawal or refund request: the node's getwithdrawal (null: not known yet)
 }
 
 /** GET peg/tx/:txid */

@@ -12,7 +12,8 @@ import {
 //   bundle paid (commitment)     its withdrawals are paid
 //   bundle record                a new bundle; its withdrawals are in it
 //   deposit records              deposits from eCash, and a bundle's eCash payment (dest 'D')
-//   withdrawals, refund requests (ordinary txs)
+//   withdrawals, refund requests in block order (the coinbase first: the node reads them from
+//                                every tx, and a block producer may make them too)
 // A bundle counts as paid on eCash, with a link, only when a payment record's outputs match the
 // bundle's payouts. A 'paid' commitment alone is only the block producer's word: freebankd can
 // mark a bundle paid from an old event (the D2 flaw), so such a bundle is 'marked-paid'.
@@ -86,7 +87,7 @@ export function extractBlockEvents(block: any): StoredEvents | undefined {
     pegins: coinbase.some((o) => o.kind === 'deposit') ? splitFreebankCoinbase(cbVout).pegIns : [],
     txs: others,
   };
-  if (others.some((t) => t.outputs.some((o) => o.kind === 'refund-request'))) {
+  if ([coinbase, ...others.map((t) => t.outputs)].some((outputs) => outputs.some((o) => o.kind === 'refund-request'))) {
     events.cb = cbVout.map((o) => [o.value, o.scriptpubkey_address ?? null]);
   }
   return events;
@@ -202,9 +203,9 @@ function applyBlock(state: PegState, block: StoredBlock, ev: StoredEvents): void
     };
   }
 
-  // 4. withdrawals and refund requests
+  // 4. withdrawals and refund requests, in block order
   const claimed = new Set<number>([0, ...ev.pegins.filter((p) => p.payout_vout !== null).map((p) => p.payout_vout as number)]);
-  for (const tx of ev.txs) {
+  for (const tx of [{ txid: ev.coinbase_txid, outputs: ev.coinbase }, ...ev.txs]) {
     for (const out of tx.outputs) {
       if (out.kind === 'withdrawal' && !state.withdrawals.has(out.id)) {
         const w: PegWithdrawal = {

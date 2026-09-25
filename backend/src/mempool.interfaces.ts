@@ -336,6 +336,7 @@ export interface BlockExtension {
   pegInUnpaidCount?: number; // deposits recorded with nothing paid (dust, or not a FreeBank address)
   refundCount?: number; // withdrawal refunds paid
   refundAmt?: number;
+  pegRecords?: number; // coinbase outputs that make peg events (records, bundle paid/failed): see /api/v1/freebank/peg/block/:hash
 }
 
 /**

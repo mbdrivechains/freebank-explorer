@@ -68,6 +68,7 @@ interface DatabaseBlock {
   pegInUnpaidCount: number;
   refundCount: number;
   refundAmt: number;
+  pegRecords: number;
 }
 
 const BLOCK_DB_FIELDS = `
@@ -119,7 +120,8 @@ const BLOCK_DB_FIELDS = `
   blocks.pegin_fees AS pegInFees,
   blocks.pegin_unpaid AS pegInUnpaidCount,
   blocks.refund_count AS refundCount,
-  blocks.refund_amt AS refundAmt
+  blocks.refund_amt AS refundAmt,
+  blocks.peg_records AS pegRecords
 `;
 
 class BlocksRepository {
@@ -147,7 +149,7 @@ class BlocksRepository {
         median_fee_amt,     coinbase_signature_ascii, definition_hash,   index_version,
         stale,              first_seen,
         pegin_count,        pegin_amt,                pegin_fees,        pegin_unpaid,
-        refund_count,       refund_amt
+        refund_count,       refund_amt,               peg_records
       ) VALUE (
         ?, ?, FROM_UNIXTIME(?), ?,
         ?, ?, ?, ?,
@@ -161,7 +163,7 @@ class BlocksRepository {
         ?, ?, ?, ?,
         ?, FROM_UNIXTIME(?),
         ?, ?, ?, ?,
-        ?, ?
+        ?, ?, ?
       )`;
 
       const poolDbId = await PoolsRepository.$getPoolByUniqueId(block.extras.pool.id);
@@ -219,6 +221,7 @@ class BlocksRepository {
         block.extras.pegInUnpaidCount ?? 0,
         block.extras.refundCount ?? 0,
         block.extras.refundAmt ?? 0,
+        block.extras.pegRecords ?? 0,
       ];
 
       await DB.query(query, params);
@@ -1308,6 +1311,7 @@ class BlocksRepository {
     extras.pegInUnpaidCount = dbBlk.pegInUnpaidCount;
     extras.refundCount = dbBlk.refundCount;
     extras.refundAmt = dbBlk.refundAmt;
+    extras.pegRecords = dbBlk.pegRecords;
 
     extras.firstSeen = null;
     if (config.CORE_RPC.DEBUG_LOG_PATH) {

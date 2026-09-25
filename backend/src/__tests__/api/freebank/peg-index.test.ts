@@ -195,6 +195,20 @@ describe('FreeBank peg state', () => {
     expect(view.outputs.map((o) => o.output.kind)).toEqual(['withdrawal', 'stray']);
   });
 
+  test('a block producer may withdraw from its own coinbase, and refund it from a later one', () => {
+    const blocks = chain();
+    const W3 = withdrawalObject({ dest: 'ecash:qcarol', refund: 'XCarolRefund', amount: 204_000, fee: 4000 });
+    const b6 = nodeBlock(6, blocks[5].hash, [nodeTx(hash32('cb6'), [
+      ZERO_FEE_PRODUCER, { value: 204_000, hex: '6a' }, { value: 0, hex: W3.script },
+    ], true)]);
+    const b7 = nodeBlock(7, b6.hash, [nodeTx(hash32('cb7'), [
+      ZERO_FEE_PRODUCER, { value: 0, hex: refundRequestScript(W3.id) }, payTo(204_000, 'XCarolRefund'),
+    ], true)]);
+    const state = derivePegState(stored([...blocks, b6, b7]).filter((b) => b.ev));
+    expect(state.withdrawals.get(W3.id)).toMatchObject({ txid: hash32('cb6'), vout: 2, freebank_height: 6, status: 'refunded' });
+    expect(state.refunds.get(W3.id)).toMatchObject({ request_txid: hash32('cb7'), request_vout: 1, payout_vout: 2, amount: 204_000 });
+  });
+
   test('the tx view joins outputs with their status', () => {
     const state = derivePegState(stored(chain()).filter((b) => b.ev));
     const cb1 = pegTxView(state, hash32('cb1'), 'https://ex')!;

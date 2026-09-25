@@ -13,10 +13,11 @@ import {
 //                                GenerateWithdrawalRefundRequest (102 bytes)
 //   miner.cpp                    which of them a block producer writes into the coinbase
 //
-// Deposit records and bundles are written by block producers and count only in a coinbase;
-// withdrawals and refund requests are made by users and count only outside it. Consensus still
-// accepts a deposit or bundle object in an ordinary tx (only the mempool refuses them since
-// v0.2.14), so one found there is returned as 'stray', never as a deposit.
+// Deposit records and bundles are written by block producers and count only in a coinbase.
+// Consensus still accepts a deposit or bundle object in an ordinary tx (only the mempool refuses
+// them since v0.2.14), so one found there is returned as 'stray', never as a deposit. Withdrawals
+// and refund requests count in any tx, the coinbase included, as the node reads them from every
+// tx of a block (validation.cpp ConnectBlock).
 //
 // Pure: no node calls, never throws. A tagged output whose contents do not decode is returned
 // as 'unreadable'; an output that is not a peg output gives null.
@@ -158,13 +159,7 @@ export function parsePegOutput(scriptHex: string, vout: number, inCoinbase: bool
       return null; // script.cpp IsWithdrawalRefundRequest: exactly 102 bytes
     }
     const withdrawal_id = reverseHex(Buffer.from(scriptHex.slice(10, 74), 'hex'));
-    if (withdrawal_id === ZERO_HASH) {
-      return null;
-    }
-    if (inCoinbase) {
-      return { kind: 'stray', vout, object: 'refund-request', note: 'a withdrawal refund request in a coinbase is not a real one' };
-    }
-    return { kind: 'refund-request', vout, withdrawal_id };
+    return withdrawal_id === ZERO_HASH ? null : { kind: 'refund-request', vout, withdrawal_id };
   }
 
   if (tag !== OBJECT_TAG || scriptHex.length < 12) {
@@ -173,9 +168,6 @@ export function parsePegOutput(scriptHex: string, vout: number, inCoinbase: bool
   const object = OBJECT_NAMES[parseInt(scriptHex.slice(10, 12), 16)];
   if (!object) {
     return null; // ParseSidechainObj: not an object
-  }
-  if (object === 'withdrawal' && inCoinbase) {
-    return { kind: 'stray', vout, object, note: 'a withdrawal in a coinbase is not a real one' };
   }
   if (object !== 'withdrawal' && !inCoinbase) {
     return {

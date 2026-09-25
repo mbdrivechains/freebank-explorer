@@ -24,7 +24,7 @@ function pay(value: number, address: string): CoinbaseOutput {
 describe('FreeBank coinbase split', () => {
   test('the live beta tip: four zero outputs, nothing earned', () => {
     const split = splitFreebankCoinbase([{ value: 0, scriptpubkey: PRODUCER_P2PK }, PREV_COMMIT, VERSION_COMMIT, WITNESS_COMMIT]);
-    expect(split).toMatchObject({ total: 0, producerAmt: 0, pegInCount: 0, pegInAmt: 0, pegInFees: 0, refundCount: 0, refundAmt: 0 });
+    expect(split).toMatchObject({ total: 0, producerAmt: 0, pegInCount: 0, pegInAmt: 0, pegInFees: 0, refundCount: 0, refundAmt: 0, pegRecords: 0 });
   });
 
   test('fees only: the producer earns them', () => {
@@ -86,7 +86,13 @@ describe('FreeBank coinbase split', () => {
 
   test('a bundle payment ("D") is no deposit and pays nobody', () => {
     const split = splitFreebankCoinbase([pay(500, 'XProducer'), commitScriptOutput(), record('D', 0)]);
-    expect(split).toMatchObject({ bundleReturnCount: 1, pegInCount: 0, pegInUnpaidCount: 0, producerAmt: 500 });
+    expect(split).toMatchObject({ bundleReturnCount: 1, pegInCount: 0, pegInUnpaidCount: 0, producerAmt: 500, pegRecords: 2 });
+  });
+
+  test('peg records: records and bundle status commitments count, the current-bundle commitment does not', () => {
+    const current: CoinbaseOutput = { value: 0, scriptpubkey: commitScript('bundle-hash', hash32('bundle')) };
+    expect(splitFreebankCoinbase([pay(0, 'XProducer'), PREV_COMMIT, current, VERSION_COMMIT, WITNESS_COMMIT]).pegRecords).toEqual(0);
+    expect(splitFreebankCoinbase([pay(0, 'XProducer'), current, record('XAlice', 10)]).pegRecords).toEqual(1);
   });
 
   test('a withdrawal refund in a zero-fee block', () => {
@@ -97,6 +103,12 @@ describe('FreeBank coinbase split', () => {
   test('a refund worth exactly a deposit payout, before a deposit that paid nothing, stays a refund', () => {
     const split = splitFreebankCoinbase([pay(0, 'XProducer'), pay(9000, 'XRefund'), record('garbage', 10_000)]);
     expect(split).toMatchObject({ refundCount: 1, refundAmt: 9000, pegInCount: 0, pegInUnpaidCount: 1 });
+  });
+
+  test('a burn in the coinbase (a withdrawal the producer makes from its earnings) is no refund', () => {
+    const burn: CoinbaseOutput = { value: 4000, scriptpubkey: '6a' };
+    const split = splitFreebankCoinbase([pay(1000, 'XProducer'), burn, PREV_COMMIT]);
+    expect(split).toMatchObject({ total: 5000, producerAmt: 5000, refundCount: 0, refundAmt: 0 });
   });
 
   test('the depositor is the producer: vout[0] is never claimed for the deposit', () => {

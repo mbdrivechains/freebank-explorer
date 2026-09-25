@@ -1231,7 +1231,8 @@ class DatabaseMigration {
 
     // FreeBank: `reward` becomes what the block producer earns (fees + 1,000 szats per deposit from
     // eCash paid out) instead of the whole coinbase, and the deposit and refund payouts get their own
-    // columns (api/freebank/coinbase-split.ts). Every block is indexed again.
+    // columns (api/freebank/coinbase-split.ts), with a count of the coinbase's peg records. Every
+    // block is indexed again.
     if (databaseSchemaVersion < 108) {
       this.uniqueLog(logger.notice, this.blocksTruncatedMessage);
       await this.$executeQuery('TRUNCATE blocks;'); // Need to re-index
@@ -1241,7 +1242,8 @@ class DatabaseMigration {
         ADD pegin_fees BIGINT UNSIGNED NOT NULL DEFAULT 0,
         ADD pegin_unpaid INT UNSIGNED NOT NULL DEFAULT 0,
         ADD refund_count INT UNSIGNED NOT NULL DEFAULT 0,
-        ADD refund_amt BIGINT UNSIGNED NOT NULL DEFAULT 0
+        ADD refund_amt BIGINT UNSIGNED NOT NULL DEFAULT 0,
+        ADD peg_records INT UNSIGNED NOT NULL DEFAULT 0
       `);
       await this.updateToSchemaVersion(108);
     }

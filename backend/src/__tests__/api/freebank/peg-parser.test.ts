@@ -145,13 +145,15 @@ describe('FreeBank peg parser', () => {
       expect((parsePegOutput(spent.script, 0, false) as PegWithdrawalObject).id).toEqual(unspent.id);
     });
 
-    test('a withdrawal in a coinbase is not a real one', () => {
-      expect(parsePegOutput(withdrawalObject({ dest: 'd', refund: 'r', amount: 10, fee: 1 }).script, 0, true)?.kind).toEqual('stray');
+    test('a withdrawal in a coinbase is a real one (the node reads every tx of a block)', () => {
+      const w = withdrawalObject({ dest: 'd', refund: 'r', amount: 10, fee: 1 });
+      expect(parsePegOutput(w.script, 0, true)).toMatchObject({ kind: 'withdrawal', id: w.id });
     });
 
-    test('a refund request names the withdrawal id', () => {
+    test('a refund request names the withdrawal id, in any tx', () => {
       const id = hash32('withdrawal');
       expect(parsePegOutput(refundRequestScript(id), 0, false)).toEqual({ kind: 'refund-request', vout: 0, withdrawal_id: id });
+      expect(parsePegOutput(refundRequestScript(id), 3, true)).toEqual({ kind: 'refund-request', vout: 3, withdrawal_id: id });
       expect(parsePegOutput(refundRequestScript(id).slice(0, -2), 0, false)).toBeNull(); // 101 bytes: not one
     });
   });

@@ -3,9 +3,9 @@ import config from '../../config';
 import logger from '../../logger';
 import { handleError } from '../../utils/api';
 import bitcoinClient from '../bitcoin/bitcoin-client';
-import freebankApi from './freebank-api';
+import freebankApi, { Tip } from './freebank-api';
 import pegIndex, { pegExplorerUrl } from './peg-index';
-import { PegListType, PegWithdrawalView } from './peg.interfaces';
+import { PegListType, PegTxView, PegWithdrawalView } from './peg.interfaces';
 
 // /api/v1/freebank/peg* - FreeBank's two-way peg with eCash (peg-index.ts): deposits from
 // eCash, withdrawals to eCash, withdrawal bundles and refunds. Read-only JSON; every answer
@@ -15,7 +15,8 @@ import { PegListType, PegWithdrawalView } from './peg.interfaces';
 //   GET peg/summary          PegSummary: the eCash treasury, counts, the bundle waiting on eCash
 //   GET pegs?type=&limit=    PegList: type deposit | withdrawal | bundle, newest first;
 //                            limit 1-200, default 25
-//   GET peg/tx/:txid         PegTxView: the tx's peg outputs with their status        404 none
+//   GET peg/tx/:txid         PegTxView: the tx's peg outputs with their status, and the node's
+//                            getwithdrawal for each withdrawal it names                404 none
 //   GET peg/block/:hash      PegBlockView: the block's peg events (empty lists when none) 404 unknown
 //   GET peg/ecash-tx/:txid   PegEcashTxView: the FreeBank block that recorded an eCash deposit
 //                            or bundle payment                                         404 unknown
@@ -47,9 +48,24 @@ function hashParam(req: Request, name: string): string | null {
 }
 
 /** Let a block that just arrived (or replaced the tip) into the answer. @asyncUnsafe */
-async function $caughtUp(): Promise<void> {
+async function $caughtUp(): Promise<Tip> {
   const tip = await freebankApi.$getTip();
   await pegIndex.$waitForTip(tip, WAIT_MS);
+  return tip;
+}
+
+/**
+ * The node's getwithdrawal for each withdrawal a tx view names: the eCash address in its eCash
+ * form (the node decodes the carrier form) and the node's own status. Null when it cannot say.
+ * @asyncSafe
+ */
+async function $addNodeWithdrawals(view: PegTxView, tip: Tip): Promise<void> {
+  for (const out of view.outputs) {
+    const id = out.output.kind === 'withdrawal' ? out.output.id : out.output.kind === 'refund-request' ? out.output.withdrawal_id : null;
+    if (id) {
+      out.node = await pegIndex.$getNodeWithdrawal(id, tip.hash).catch(() => null);
+    }
+  }
 }
 
 class PegRoutes {
@@ -97,9 +113,10 @@ class PegRoutes {
       return;
     }
     try {
-      await $caughtUp();
+      const tip = await $caughtUp();
       const indexed = pegIndex.getTx(txid);
       if (indexed) {
+        await $addNodeWithdrawals(indexed, tip);
         res.json(indexed);
         return;
       }
@@ -130,6 +147,7 @@ class PegRoutes {
         handleError(req, res, 404, 'No FreeBank peg outputs in this transaction');
         return;
       }
+      await $addNodeWithdrawals(view, tip);
       res.json(view);
     } catch (e) {
       nodeError(req, res, 'tx', e);

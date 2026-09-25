@@ -1536,6 +1536,7 @@ class Blocks {
         pegin_unpaid: block.extras.pegInUnpaidCount ?? null,
         refund_count: block.extras.refundCount ?? null,
         refund_amt: block.extras.refundAmt ?? null,
+        peg_records: block.extras.pegRecords ?? null,
         total_fee_amt: block.extras.totalFees ?? null,
         avg_fee_amt: block.extras.avgFee ?? null,
         median_fee_amt: block.extras.medianFeeAmt ?? null,

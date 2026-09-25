@@ -16,8 +16,9 @@ import { PegInUnpaidReason } from './peg.interfaces';
 //   the witness commitment
 // Pure: reads output values, scripts and addresses only; the refund amounts are not in the block
 // (the node keeps them in its withdrawal database), so refunds are the positive outputs left
-// after vout[0] and the deposit payouts. That is exact for the stock builder; a modified builder's
-// extra outputs would count as refunds.
+// after vout[0] and the deposit payouts, OP_RETURNs aside (a burn there backs a withdrawal the
+// producer made in its own coinbase, from what it earned). That is exact for the stock builder;
+// a modified builder's extra outputs would count as refunds.
 
 export interface CoinbaseOutput {
   value: number; // szats
@@ -42,10 +43,16 @@ export interface CoinbaseSplit {
   pegInFees: number; // 1,000 szats x pegInCount, to the producer
   pegInUnpaidCount: number; // deposits recorded with nothing to pay (dust, or not a FreeBank address)
   bundleReturnCount: number; // withdrawal bundle payments recorded (destination 'D')
+  pegRecords: number; // deposit and bundle records, and bundle paid/failed commitments: the block has peg events
   refundCount: number;
   refundAmt: number;
   pegIns: PegInPayout[]; // in record order
   refundVouts: number[];
+}
+
+/** A coinbase output that makes a peg event (a record or a bundle status change; not the current-bundle commitment). */
+function isPegRecord(script: string): boolean {
+  return /^6aacdcf66f(44|50)/.test(script) || (script.length === 74 && /^6a(fb5345de|fa86c689)/.test(script));
 }
 
 /** bech32 is case-insensitive (a depositor may type it in capitals); base58 is not. */
@@ -77,6 +84,7 @@ export function splitFreebankCoinbase(vout: CoinbaseOutput[]): CoinbaseSplit {
     pegInFees: 0,
     pegInUnpaidCount: 0,
     bundleReturnCount: 0,
+    pegRecords: outputs.filter((o) => isPegRecord(o?.scriptpubkey || '')).length,
     refundCount: 0,
     refundAmt: 0,
     pegIns: [],
@@ -124,7 +132,7 @@ export function splitFreebankCoinbase(vout: CoinbaseOutput[]): CoinbaseSplit {
   });
 
   outputs.forEach((output, i) => {
-    if (!claimed.has(i) && output?.value > 0) {
+    if (!claimed.has(i) && output?.value > 0 && !(output.scriptpubkey || '').startsWith('6a')) {
       split.refundCount++;
       split.refundAmt += output.value;
       split.refundVouts.push(i);
@@ -144,6 +152,7 @@ export interface FreebankRewardExtras {
   pegInUnpaidCount: number;
   refundCount: number;
   refundAmt: number;
+  pegRecords: number;
 }
 
 export function freebankRewardExtras(coinbaseVout: CoinbaseOutput[]): FreebankRewardExtras {
@@ -156,6 +165,7 @@ export function freebankRewardExtras(coinbaseVout: CoinbaseOutput[]): FreebankRe
     pegInUnpaidCount: split.pegInUnpaidCount,
     refundCount: split.refundCount,
     refundAmt: split.refundAmt,
+    pegRecords: split.pegRecords,
   };
 }
 
