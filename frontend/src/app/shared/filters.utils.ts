@@ -88,16 +88,18 @@ export function toFilters(flags: bigint): Filter[] {
 // filters) or Coinjoin (no coinjoin tools exist for FreeBank: the heuristic only gives false
 // positives). Their TransactionFlags bits stay reserved, and the classifiers may still set them.
 // The credit filters stay out of the tooltip and the tx page, which name the credit type already.
+// A tx is one credit family at most, so the seven family filters share a toggle group (not 'Any
+// credit'); see pickFilter below for when it applies.
 export const TransactionFilters: { [key: string]: Filter } = {
     /* FreeBank: credit families (tx versions 11-17) */
     credit: { key: 'credit', label: 'Any credit', flag: TransactionFlags.credit, important: true, tooltip: false, txPage: false, },
-    bill: { key: 'bill', label: 'Bill', flag: TransactionFlags.bill, important: true, tooltip: false, txPage: false, },
-    house: { key: 'house', label: 'House', flag: TransactionFlags.house, important: true, tooltip: false, txPage: false, },
-    note: { key: 'note', label: 'Note', flag: TransactionFlags.note, important: true, tooltip: false, txPage: false, },
-    term_deposit: { key: 'term_deposit', label: 'Term deposit', flag: TransactionFlags.term_deposit, important: true, tooltip: false, txPage: false, },
-    pool: { key: 'pool', label: 'Pool', flag: TransactionFlags.pool, important: true, tooltip: false, txPage: false, },
-    settlement: { key: 'settlement', label: 'Settlement', flag: TransactionFlags.settlement, important: true, tooltip: false, txPage: false, },
-    oracle: { key: 'oracle', label: 'Oracle', flag: TransactionFlags.oracle, important: true, tooltip: false, txPage: false, },
+    bill: { key: 'bill', label: 'Bill', flag: TransactionFlags.bill, toggle: 'credit_family', important: true, tooltip: false, txPage: false, },
+    house: { key: 'house', label: 'House', flag: TransactionFlags.house, toggle: 'credit_family', important: true, tooltip: false, txPage: false, },
+    note: { key: 'note', label: 'Note', flag: TransactionFlags.note, toggle: 'credit_family', important: true, tooltip: false, txPage: false, },
+    term_deposit: { key: 'term_deposit', label: 'Term deposit', flag: TransactionFlags.term_deposit, toggle: 'credit_family', important: true, tooltip: false, txPage: false, },
+    pool: { key: 'pool', label: 'Pool', flag: TransactionFlags.pool, toggle: 'credit_family', important: true, tooltip: false, txPage: false, },
+    settlement: { key: 'settlement', label: 'Settlement', flag: TransactionFlags.settlement, toggle: 'credit_family', important: true, tooltip: false, txPage: false, },
+    oracle: { key: 'oracle', label: 'Oracle', flag: TransactionFlags.oracle, toggle: 'credit_family', important: true, tooltip: false, txPage: false, },
     /* FreeBank: transfers to and from eCash */
     deposit_from_ecash: { key: 'deposit_from_ecash', label: 'Deposit from eCash', flag: TransactionFlags.deposit_from_ecash, important: true, tooltip: true, txPage: true, },
     withdrawal_to_ecash: { key: 'withdrawal_to_ecash', label: 'Withdrawal to eCash', flag: TransactionFlags.withdrawal_to_ecash, important: true, tooltip: true, txPage: true, },
@@ -142,3 +144,32 @@ export const FilterGroups: { label: string, filters: Filter[]}[] = [
   { label: $localize`Heuristics`, filters: ['consolidation', 'batch_payout'] },
   { label: $localize`Sighash Flags`, filters: ['sighash_all', 'sighash_none', 'sighash_single', 'sighash_acp'] },
 ].map(group => ({ label: group.label, filters: group.filters.map(filter => TransactionFilters[filter] || null).filter(f => f != null) }));
+
+// FreeBank: toggle groups whose filters rule each other out only when all must match ('and').
+// A tx is one credit family at most: 'Bill and Note' matches nothing, while 'Bill or Note' (any)
+// and 'neither Bill nor Note' (none) are useful. The other group left in the menu, RBF
+// enabled/disabled (one of the two on every tx), always toggles, as upstream: together they match
+// every tx or none, whatever the mode.
+const AND_ONLY_TOGGLES = ['credit_family'];
+
+/**
+ * FreeBank: the active filters after `key` is picked (the block filters' toggle rule, here so it
+ * can be tested): the other filters of its toggle group are dropped, a credit family's only in
+ * 'and' mode.
+ */
+export function pickFilter(active: string[], key: string, mode: FilterMode): string[] {
+  const toggle = TransactionFilters[key]?.toggle;
+  const exclusive = !!toggle && (mode === 'and' || !AND_ONLY_TOGGLES.includes(toggle));
+  return [...active.filter(f => f !== key && !(exclusive && TransactionFilters[f]?.toggle === toggle)), key];
+}
+
+/** FreeBank: the active filters kept on a switch to `mode`: in 'and', the latest pick of each and-only toggle group. */
+export function filtersForMode(active: string[], mode: FilterMode): string[] {
+  if (mode !== 'and') {
+    return active;
+  }
+  return active.filter((f, i) => {
+    const toggle = TransactionFilters[f]?.toggle;
+    return !toggle || !AND_ONLY_TOGGLES.includes(toggle) || !active.slice(i + 1).some(g => TransactionFilters[g]?.toggle === toggle);
+  });
+}

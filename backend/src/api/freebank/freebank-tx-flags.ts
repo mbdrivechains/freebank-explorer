@@ -51,7 +51,7 @@ const COINBASE_TAGS = ['fd7ad1ef', 'a7e67e1f', 'ef5d1dfe', 'fa86c689', 'fb5345de
 const SIDECHAIN_OBJECT_TAG = 'acdcf66f'; // then one byte: the object type
 const COINBASE_OBJECTS = ['44', '50']; // 'D' deposit record, 'P' withdrawal bundle
 const DEPOSIT_RECORD = '6a' + SIDECHAIN_OBJECT_TAG + '44';
-const WITHDRAWAL = '6a' + SIDECHAIN_OBJECT_TAG + '57'; // 'W', in an ordinary tx
+const WITHDRAWAL = '6a' + SIDECHAIN_OBJECT_TAG + '57'; // 'W', in any tx (the coinbase too)
 const WITHDRAWAL_REFUND_REQUEST = '6afcd2e546';
 // BIP 141 witness commitment: OP_RETURN, then a 36-byte push of aa21a9ed and the commitment hash
 const WITNESS_COMMITMENT = /^6a24aa21a9ed[0-9a-f]{64}/;
@@ -125,12 +125,32 @@ function readDepositHead(script: string): { dest: string, amount: number } | nul
   }
 }
 
-/** bech32 is case-insensitive (a depositor may type it in capitals); base58 is not. */
-function sameAddress(output: string | undefined, dest: string): boolean {
+// the node's own spelling of a bech32 address: lower case, the HRP, '1', then 6 or more symbols
+const BECH32_ADDRESS = /^[a-z0-9]+1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,}$/;
+// C isspace, which base58.cpp skips; String.trim() would strip more (NBSP, U+FEFF, ...)
+const C_SPACE_AT_ENDS = /^[ \t\n\v\f\r]+|[ \t\n\v\f\r]+$/g;
+
+/**
+ * Whether a destination string names the address an output pays, as the node reads the string
+ * (freebank base58.cpp DecodeDestination). `output` is the node's own spelling of the output's
+ * address. bech32 (bech32.cpp Decode) takes the whole string: printable ASCII in one case, lower
+ * or upper. base58 (DecodeBase58Check on str.c_str()) stops at the first NUL and skips C
+ * whitespace at both ends; whitespace left inside is no address.
+ */
+export function sameAddress(output: string | undefined, dest: string): boolean {
   if (!output || !dest) {
     return false;
   }
-  return output === dest || (/^[a-z0-9]+1[a-z0-9]+$/i.test(dest) && output.toLowerCase() === dest.toLowerCase());
+  if (BECH32_ADDRESS.test(output)) {
+    return /^[\x21-\x7e]+$/.test(dest) && (dest === dest.toLowerCase() || dest === dest.toUpperCase()) && dest.toLowerCase() === output;
+  }
+  return dest.split('\0')[0].replace(C_SPACE_AT_ENDS, '') === output;
+}
+
+/** A withdrawal refund request in the node's exact shape (script.cpp IsWithdrawalRefundRequest,
+ *  as peg-parser.ts parsePegOutput): 102 bytes, the tag, then a withdrawal id that is not zero. */
+function isRefundRequest(script: string): boolean {
+  return script.length === 204 && script.startsWith(WITHDRAWAL_REFUND_REQUEST) && script.slice(10, 74) !== '0'.repeat(64);
 }
 
 // Whether a coinbase pays out a deposit from eCash, by the node's claim rule (sidechain.cpp
@@ -171,19 +191,17 @@ export function getFreebankTxFlags(tx: FreebankFlagsTx): bigint {
     flags |= FREEBANK_TX_FLAGS.credit | family;
   }
   const vout = tx.vout || [];
-  if (tx.vin?.[0]?.is_coinbase) {
-    if (hasDepositPayout(vout)) {
-      flags |= FREEBANK_TX_FLAGS.deposit_from_ecash;
-    }
-  } else {
-    // a look-alike output in a coinbase is not a request: only ordinary txs carry these
-    for (const out of vout) {
-      const script = out?.scriptpubkey || '';
-      if (script.startsWith(WITHDRAWAL)) {
-        flags |= FREEBANK_TX_FLAGS.withdrawal_to_ecash;
-      } else if (script.startsWith(WITHDRAWAL_REFUND_REQUEST)) {
-        flags |= FREEBANK_TX_FLAGS.withdrawal_refund;
-      }
+  if (tx.vin?.[0]?.is_coinbase && hasDepositPayout(vout)) {
+    flags |= FREEBANK_TX_FLAGS.deposit_from_ecash;
+  }
+  // the node reads withdrawals and refund requests from every tx, the coinbase included
+  // (validation.cpp ConnectBlock). A 'W' that does not parse, or has no burn, fails the block.
+  for (const out of vout) {
+    const script = out?.scriptpubkey || '';
+    if (script.startsWith(WITHDRAWAL)) {
+      flags |= FREEBANK_TX_FLAGS.withdrawal_to_ecash;
+    } else if (isRefundRequest(script)) {
+      flags |= FREEBANK_TX_FLAGS.withdrawal_refund;
     }
   }
   return flags;

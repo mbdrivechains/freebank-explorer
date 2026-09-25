@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Output, HostListener, Input, ChangeDetectorRef, OnChanges, SimpleChanges, OnInit, OnDestroy } from '@angular/core';
-import { ActiveFilter, FilterGroups, FilterMode, GradientMode, TransactionFilters } from '@app/shared/filters.utils';
+import { ActiveFilter, FilterGroups, FilterMode, GradientMode, TransactionFilters, filtersForMode, pickFilter } from '@app/shared/filters.utils';
 import { StateService } from '@app/services/state.service';
 import { Subscription } from 'rxjs';
 
@@ -60,6 +60,8 @@ export class BlockFiltersComponent implements OnInit, OnChanges, OnDestroy {
 
   setFilterMode(mode): void {
     this.filterMode = mode;
+    // FreeBank: two credit families never match together, so 'All' keeps the latest one picked
+    this.setActiveFilters(filtersForMode(this.activeFilters, this.filterMode));
     this.onFilterChanged.emit({ mode: this.filterMode, filters: this.activeFilters, gradient: this.gradientMode });
     this.stateService.activeGoggles$.next({ mode: this.filterMode, filters: [...this.activeFilters], gradient: this.gradientMode });
   }
@@ -71,20 +73,11 @@ export class BlockFiltersComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   toggleFilter(key): void {
-    const filter = this.filters[key];
     this.filterFlags[key] = !this.filterFlags[key];
     if (this.filterFlags[key]) {
-      // remove any other flags in the same toggle group
-      if (filter.toggle) {
-        this.activeFilters.forEach(f => {
-          if (this.filters[f].toggle === filter.toggle) {
-            this.filterFlags[f] = false;
-          }
-        });
-        this.activeFilters = this.activeFilters.filter(f => this.filters[f].toggle !== filter.toggle);
-      }
-      // add new active filter
-      this.activeFilters.push(key);
+      // add new active filter, and remove any other flags in the same toggle group
+      // (FreeBank: pickFilter; the credit families rule each other out in 'All' mode only)
+      this.setActiveFilters(pickFilter(this.activeFilters, key, this.filterMode));
     } else {
       // remove active filter
       this.activeFilters = this.activeFilters.filter(f => f != key);
@@ -92,6 +85,16 @@ export class BlockFiltersComponent implements OnInit, OnChanges, OnDestroy {
     const booleanFlags = this.getBooleanFlags();
     this.onFilterChanged.emit({ mode: this.filterMode, filters: this.activeFilters, gradient: this.gradientMode });
     this.stateService.activeGoggles$.next({ mode: this.filterMode, filters: [...this.activeFilters], gradient: this.gradientMode });
+  }
+
+  // FreeBank: the active filters, clearing the flags of those left out
+  setActiveFilters(filters: string[]): void {
+    this.activeFilters.forEach(f => {
+      if (!filters.includes(f)) {
+        this.filterFlags[f] = false;
+      }
+    });
+    this.activeFilters = filters;
   }
 
   getBooleanFlags(): bigint | null {

@@ -4,7 +4,7 @@ import { Common } from '../../api/common';
 import { TransactionFlags } from '../../mempool.interfaces';
 import { parseFreebankTx, FreebankParsedTx } from '../../api/freebank/freebank-tx-parser';
 import {
-  FREEBANK_TX_FLAGS, FREEBANK_CREDIT_FLAG_BY_VERSION, creditVersionFromFlags, getFreebankTxFlags, isCoinbaseCommitment, isOpReturnData,
+  FREEBANK_TX_FLAGS, FREEBANK_CREDIT_FLAG_BY_VERSION, creditVersionFromFlags, getFreebankTxFlags, isCoinbaseCommitment, isOpReturnData, sameAddress,
 } from '../../api/freebank/freebank-tx-flags';
 
 // Goggles flags for FreeBank txs (api/freebank/freebank-tx-flags.ts), run on real txs of the
@@ -108,6 +108,7 @@ const ordinary = (scripts: string[], version = 3) => ({
   vout: scripts.map((scriptpubkey, i) => ({ scriptpubkey, value: i ? 0 : 1000, scriptpubkey_address: '' })),
 });
 const ADDR = 'XDPTdcwkAe8ToyugJaNxU8BXoLcyUVaZK5';
+const BECH32 = 'fbkrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
 
 describe('FreeBank Goggles flags', () => {
   describe('credit txs (v11-v17), real', () => {
@@ -177,7 +178,6 @@ describe('FreeBank Goggles flags', () => {
   describe('deposits from eCash (a coinbase output pays the record its amount less the 1,000-szat fee)', () => {
     const payout = { scriptpubkey: P2PKH(1), value: 150_000_000, scriptpubkey_address: ADDR };
     const flagsOf = (vout) => getFreebankTxFlags(coinbase(vout));
-    const BECH32 = 'fbkrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
 
     test('a payout right before its record', () => {
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: PREV_BLOCK_COMMIT }, payout, { scriptpubkey: depositRecord(ADDR) }]))
@@ -225,9 +225,52 @@ describe('FreeBank Goggles flags', () => {
     test('a cut-short record', () => {
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(ADDR).slice(0, 90) }])).toEqual(0n);
     });
+
+    // the destination is the depositor's bytes; the node pays what DecodeDestination makes of them
+    test('a base58 destination with C whitespace at either end, or cut by a NUL, is paid (base58.cpp)', () => {
+      for (const dest of [ADDR + ' ', ' ' + ADDR, ADDR + '\n', '\t' + ADDR + '\r\n', '\v\f' + ADDR + ' \v', ADDR + '\0junk', ' ' + ADDR + ' \0 x', ADDR + '\0']) {
+        expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(dest) }])).toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
+      }
+    });
+    test('a base58 destination with other padding, or whitespace inside, is not an address', () => {
+      const [head, tail] = [ADDR.slice(0, 10), ADDR.slice(10)];
+      for (const dest of [ADDR + '\xa0', '\xa0' + ADDR, ADDR + '\x1c', head + ' ' + tail, head + '\n' + tail, '\0' + ADDR, ADDR + 'x', ADDR + '1']) {
+        expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(dest) }])).toEqual(0n);
+      }
+    });
+    test('a bech32 destination is the whole string, in one case (bech32.cpp)', () => {
+      const bech32Payout = { ...payout, scriptpubkey: '0014' + '75'.repeat(20), scriptpubkey_address: BECH32 };
+      const flagsFor = (dest: string) => flagsOf([{ scriptpubkey: P2PKH(9) }, bech32Payout, { scriptpubkey: depositRecord(dest) }]);
+      expect(flagsFor(BECH32)).toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
+      expect(flagsFor(BECH32.toUpperCase())).toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
+      for (const dest of ['F' + BECH32.slice(1), BECH32.slice(0, -4) + BECH32.slice(-4).toUpperCase(), BECH32 + ' ', ' ' + BECH32, BECH32 + '\n',
+        BECH32 + '\0junk', BECH32 + '\0']) {
+        expect(flagsFor(dest)).toEqual(0n);
+      }
+    });
   });
 
-  describe('withdrawals to eCash and refund requests (ordinary txs)', () => {
+  describe('sameAddress (a destination string against the node\'s spelling of an output address)', () => {
+    test('base58: exact, after a NUL cut and C whitespace at the ends; String.trim() would strip more', () => {
+      expect(sameAddress(ADDR, ADDR)).toBe(true);
+      expect(sameAddress(ADDR, ' \t\n\v\f\r' + ADDR + '\r\f\v\n\t \0\u00a0\ufeff')).toBe(true);
+      for (const dest of [ADDR + '\u00a0', '\ufeff' + ADDR, ADDR + '\u2028', '\u3000' + ADDR, ADDR.toLowerCase(), ADDR.toUpperCase(), '\0' + ADDR, '']) {
+        expect(sameAddress(ADDR, dest)).toBe(false);
+      }
+      expect(sameAddress(undefined, ADDR)).toBe(false);
+      expect(sameAddress('', '')).toBe(false);
+    });
+    test('bech32: all lower or all upper case, nothing trimmed, printable ASCII only', () => {
+      expect(sameAddress(BECH32, BECH32)).toBe(true);
+      expect(sameAddress(BECH32, BECH32.toUpperCase())).toBe(true);
+      // the last: in capitals with a KELVIN SIGN, which toLowerCase() turns into 'k' (the node takes bytes 33-126 only)
+      for (const dest of ['fbkrT' + BECH32.slice(5), BECH32 + ' ', '\t' + BECH32, BECH32 + '\0', BECH32.toUpperCase().replace('K', '\u212a')]) {
+        expect(sameAddress(BECH32, dest)).toBe(false);
+      }
+    });
+  });
+
+  describe('withdrawals to eCash and refund requests (any tx, the coinbase included)', () => {
     const W = '6aacdcf66f57' + '82' + '00'.repeat(60);
     const REFUND = '6afcd2e546' + '33'.repeat(32) + '44'.repeat(65);
 
@@ -235,10 +278,20 @@ describe('FreeBank Goggles flags', () => {
       expect(getFreebankTxFlags(ordinary([P2PKH(1), W]))).toEqual(FREEBANK_TX_FLAGS.withdrawal_to_ecash);
     });
     test('a refund request', () => {
+      expect(REFUND.length).toEqual(204);
       expect(getFreebankTxFlags(ordinary([REFUND, P2PKH(1)]))).toEqual(FREEBANK_TX_FLAGS.withdrawal_refund);
     });
-    test('not in a coinbase', () => {
-      expect(getFreebankTxFlags(coinbase([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: W }, { scriptpubkey: REFUND }]))).toEqual(0n);
+    test('in a coinbase too (the node reads them from every tx)', () => {
+      expect(getFreebankTxFlags(coinbase([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: W }, { scriptpubkey: REFUND }])))
+        .toEqual(FREEBANK_TX_FLAGS.withdrawal_to_ecash | FREEBANK_TX_FLAGS.withdrawal_refund);
+      expect(getFreebankTxFlags(coinbase([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: REFUND }]))).toEqual(FREEBANK_TX_FLAGS.withdrawal_refund);
+    });
+    test('a refund request only in the node\'s shape: 102 bytes and an id that is not zero (script.cpp)', () => {
+      for (const script of ['6afcd2e546abababab', REFUND.slice(0, 202), REFUND + '44', '6afcd2e546' + '00'.repeat(32) + '44'.repeat(65), REFUND.slice(0, 10)]) {
+        expect(getFreebankTxFlags(ordinary([script, P2PKH(1)]))).toEqual(0n);
+        expect(getFreebankTxFlags(coinbase([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: script }]))).toEqual(0n);
+      }
+      expect(getFreebankTxFlags(ordinary(['6afcd2e546' + '00'.repeat(31) + '01' + '44'.repeat(65)]))).toEqual(FREEBANK_TX_FLAGS.withdrawal_refund);
     });
     test('the other sidechain objects are not withdrawals', () => {
       expect(getFreebankTxFlags(ordinary([P2PKH(1), '6aacdcf66f50' + '00'.repeat(20), '6aacdcf66f44' + '00'.repeat(20)]))).toEqual(0n);
