@@ -569,7 +569,7 @@ export function pegTxPanels(view: PegTxView | null): PegPanel[] {
     const out = found.output;
     if (out.kind === 'withdrawal') {
       const rows: PegRow[] = [
-        { label: 'Paid on eCash', help: 'What the eCash address receives: the amount burned here, less the eCash fee', lines: [pegLine(null, formatPegAmount(out.payout))] },
+        { label: 'eCash payout', help: 'What the eCash address receives when the withdrawal is paid: the amount burned here, less the eCash fee', lines: [pegLine(null, formatPegAmount(out.payout))] },
         {
           label: 'eCash address',
           lines: [found.node?.destination
