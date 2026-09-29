@@ -66,6 +66,16 @@ describe('FreeBank coinbase split', () => {
     expect(split).toMatchObject({ total: 0, producerAmt: 0, pegInCount: 0, pegInAmt: 0, pegInFees: 0, refundCount: 0, refundAmt: 0, pegRecords: 0 });
   });
 
+  test('a deposit made out to the full deposit address is paid to its address (v0.2.17, beta block 211)', () => {
+    const dest = 's130_XCA6v5sypMCL8MVK1Ludm67zSqAhW6fnGn_e8cc6c';
+    const split = splitFreebankCoinbase([pay(1000, 'XProducer'), pay(999_999_000, 'XCA6v5sypMCL8MVK1Ludm67zSqAhW6fnGn'),
+      record(dest, 1_000_000_000), WITNESS_COMMIT]);
+    expect(split).toMatchObject({ pegInCount: 1, pegInAmt: 999_999_000, pegInUnpaidCount: 0, producerAmt: 1000 });
+    expect(split.pegIns[0]).toMatchObject({ dest, payout_vout: 1, unpaid_reason: null });
+    const before = splitFreebankCoinbase([pay(0, 'XProducer'), record(dest, 1_000_000_000), WITNESS_COMMIT]);
+    expect(before.pegIns[0]).toMatchObject({ payout_vout: null, unpaid_reason: 'not-a-freebank-address' });
+  });
+
   test('fees only: the producer earns them', () => {
     const split = splitFreebankCoinbase([pay(12_345, 'XProducer'), PREV_COMMIT, VERSION_COMMIT, WITNESS_COMMIT]);
     expect(split).toMatchObject({ total: 12_345, producerAmt: 12_345, refundCount: 0 });

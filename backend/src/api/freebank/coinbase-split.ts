@@ -1,6 +1,7 @@
 import logger from '../../logger';
 import { isBundlePayment, parsePegOutput, readDepositHead, SIDECHAIN_DEPOSIT_FEE } from './peg-parser';
 import { PegInUnpaidReason } from './peg.interfaces';
+import { unwrapFullDepositAddress } from './deposit-address';
 
 // What a FreeBank coinbase pays, split by who gets it: the block producer, depositors from
 // eCash, and withdrawal refunds. FreeBank has no block subsidy (validation.cpp GetBlockSubsidy
@@ -91,6 +92,16 @@ export function sameAddress(output: string | undefined | null, dest: string): bo
   return dest.split('\0')[0].replace(C_SPACE_AT_ENDS, '') === output;
 }
 
+/**
+ * Whether a payout output pays a deposit's destination. From v0.2.17 the full deposit address
+ * s130_<address>_<checksum> pays exactly <address> in its canonical spelling, which is how the output's address is
+ * written (deposit-address.ts, D-2026-09-30-1); any other destination is read as sameAddress reads it.
+ */
+export function depositPaysTo(output: string | undefined | null, dest: string): boolean {
+  const unwrapped = unwrapFullDepositAddress(dest);
+  return unwrapped !== null ? !!output && output === unwrapped : sameAddress(output, dest);
+}
+
 function isOpReturn(output: CoinbaseOutput | undefined): boolean {
   return (output?.scriptpubkey || '').startsWith('6a');
 }
@@ -140,7 +151,7 @@ export function splitFreebankCoinbase(vout: CoinbaseOutput[], refunds: RefundDue
       entry.unpaid_reason = 'at-or-below-fee';
     } else {
       const want = head.amount - SIDECHAIN_DEPOSIT_FEE;
-      const matches = (j: number): boolean => !claimed.has(j) && outputs[j]?.value === want && sameAddress(outputs[j]?.scriptpubkey_address, head.dest);
+      const matches = (j: number): boolean => !claimed.has(j) && outputs[j]?.value === want && depositPaysTo(outputs[j]?.scriptpubkey_address, head.dest);
       let found = i - 1 >= 1 && matches(i - 1) ? i - 1 : -1;
       for (let j = 1; found < 0 && j < outputs.length; j++) {
         if (matches(j)) {

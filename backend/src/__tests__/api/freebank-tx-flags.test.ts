@@ -183,6 +183,14 @@ describe('FreeBank Goggles flags', () => {
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, { scriptpubkey: PREV_BLOCK_COMMIT }, payout, { scriptpubkey: depositRecord(ADDR) }]))
         .toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
     });
+    test('a deposit made out to the full deposit address pays its address (v0.2.17)', () => {
+      const body = `s130_${ADDR}_`;
+      const fullDest = body + require('crypto').createHash('sha256').update(body).digest('hex').slice(0, 6);
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(fullDest) }])).toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: depositRecord(fullDest.slice(0, -1) + 'x') }])).toEqual(0n);
+      expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, // the address inside is ' X...': not the output's canonical spelling
+        { scriptpubkey: depositRecord(`s130_ ${ADDR}_` + require('crypto').createHash('sha256').update(`s130_ ${ADDR}_`).digest('hex').slice(0, 6)) }])).toEqual(0n);
+    });
     test('a payout elsewhere in the coinbase (the node claims any output)', () => {
       expect(flagsOf([{ scriptpubkey: P2PKH(9) }, payout, { scriptpubkey: PREV_BLOCK_COMMIT }, { scriptpubkey: depositRecord(ADDR) }]))
         .toEqual(FREEBANK_TX_FLAGS.deposit_from_ecash);
@@ -385,6 +393,11 @@ describe('FreeBank Goggles flags', () => {
     maybe('freebank-tx-flags.ts is byte-identical on both sides', () => {
       const backendCopy = fs.readFileSync(path.join(__dirname, '../../api/freebank/freebank-tx-flags.ts'), 'utf8');
       expect(fs.readFileSync(frontendFile('freebank/freebank-tx-flags.ts'), 'utf8')).toEqual(backendCopy);
+    });
+
+    maybe('deposit-address.ts is byte-identical on both sides', () => {
+      const backendCopy = fs.readFileSync(path.join(__dirname, '../../api/freebank/deposit-address.ts'), 'utf8');
+      expect(fs.readFileSync(frontendFile('freebank/deposit-address.ts'), 'utf8')).toEqual(backendCopy);
     });
 
     maybe('filters.utils.ts has the same TransactionFlags table', () => {

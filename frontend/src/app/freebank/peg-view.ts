@@ -4,6 +4,7 @@ import {
 } from '@interfaces/freebank-peg.interface';
 import { ecashExplorerUrl, shortTxid } from '@app/freebank/bmm-view';
 import { isRefundRequest } from '@app/freebank/freebank-tx-flags';
+import { unwrapFullDepositAddress } from '@app/freebank/deposit-address';
 import { formatSatsAsEcx, formatUnits, SATS_PER_ECX } from '@app/freebank/credit-units';
 
 // Display helpers for FreeBank's peg with eCash: the output labels of coinbases and peg txs, the
@@ -168,6 +169,16 @@ export function sameAddress(output: string | undefined | null, dest: string): bo
   return dest.split('\0')[0].replace(C_SPACE_AT_ENDS, '') === output;
 }
 
+/**
+ * Whether a payout output pays a deposit's destination. From v0.2.17 the full deposit address
+ * s130_<address>_<checksum> pays exactly <address> in its canonical spelling, which is how the output's address is
+ * written (deposit-address.ts, D-2026-09-30-1); any other destination is read as sameAddress reads it.
+ */
+export function depositPaysTo(output: string | undefined | null, dest: string): boolean {
+  const unwrapped = unwrapFullDepositAddress(dest);
+  return unwrapped !== null ? !!output && output === unwrapped : sameAddress(output, dest);
+}
+
 /** A deposit record that is a bundle's eCash payment: 'D' with nothing to pay (backend peg-parser.ts isBundlePayment). */
 function isBundlePayment(head: { dest: string, amount: number }): boolean {
   return head.dest === 'D' && head.amount <= 0;
@@ -208,7 +219,7 @@ function claimDepositPayouts(vout: CoinbaseOutputs): { records: { vout: number, 
     let payout = -1;
     if (head.dest !== 'D' && head.amount > DEPOSIT_FEE_SZATS) { // 'D' is never paid (sidechain.cpp)
       const want = head.amount - DEPOSIT_FEE_SZATS;
-      const matches = (j: number): boolean => !claimed.has(j) && vout[j]?.value === want && sameAddress(vout[j]?.scriptpubkey_address, head.dest);
+      const matches = (j: number): boolean => !claimed.has(j) && vout[j]?.value === want && depositPaysTo(vout[j]?.scriptpubkey_address, head.dest);
       payout = i - 1 >= 1 && matches(i - 1) ? i - 1 : -1;
       for (let j = 1; payout < 0 && j < vout.length; j++) {
         if (matches(j)) {

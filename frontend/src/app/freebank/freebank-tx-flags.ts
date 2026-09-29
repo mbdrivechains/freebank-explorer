@@ -1,3 +1,5 @@
+import { unwrapFullDepositAddress } from './deposit-address';
+
 // FreeBank Goggles flags: the credit families (tx versions 11-17) and the transfers to and from
 // eCash, as bits of the transaction flags that mempool's Goggles filters match on.
 //
@@ -147,6 +149,16 @@ export function sameAddress(output: string | undefined, dest: string): boolean {
   return dest.split('\0')[0].replace(C_SPACE_AT_ENDS, '') === output;
 }
 
+/**
+ * Whether a payout output pays a deposit's destination. From v0.2.17 the full deposit address
+ * s130_<address>_<checksum> pays exactly <address> in its canonical spelling, which is how the output's address is
+ * written (deposit-address.ts, D-2026-09-30-1); any other destination is read as sameAddress reads it.
+ */
+export function depositPaysTo(output: string | undefined | null, dest: string): boolean {
+  const unwrapped = unwrapFullDepositAddress(dest);
+  return unwrapped !== null ? !!output && output === unwrapped : sameAddress(output ?? undefined, dest);
+}
+
 /** A withdrawal refund request in the node's exact shape (script.cpp IsWithdrawalRefundRequest,
  *  as peg-parser.ts parsePegOutput): 102 bytes, the tag, then a withdrawal id that is not zero. */
 export function isRefundRequest(script: string): boolean {
@@ -168,7 +180,7 @@ function hasDepositPayout(vout: FreebankFlagsTx['vout']): boolean {
       return;
     }
     const want = head.amount - DEPOSIT_FEE;
-    const matches = (j: number): boolean => !claimed.has(j) && vout[j]?.value === want && sameAddress(vout[j]?.scriptpubkey_address, head.dest);
+    const matches = (j: number): boolean => !claimed.has(j) && vout[j]?.value === want && depositPaysTo(vout[j]?.scriptpubkey_address, head.dest);
     let found = i - 1 >= 1 && matches(i - 1) ? i - 1 : -1;
     for (let j = 1; found < 0 && j < vout.length; j++) {
       if (matches(j)) {
