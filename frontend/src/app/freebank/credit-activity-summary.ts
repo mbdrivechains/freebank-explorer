@@ -1,6 +1,7 @@
 import { FreebankActivityItem, FreebankDecodedPayload, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
 import { UNIT } from '@app/app.constants';
 import { CREDIT_FAMILIES, CREDIT_FAMILY_ORDER, CREDIT_OPS, HOUSE_TIER_LABELS, creditOpLabel } from '@app/freebank/credit-ops';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 import { formatBps, formatSatsAsEcx, formatUnits } from '@app/freebank/credit-units';
 import { formatGoldFixPrice } from '@app/freebank/gold-fix-format';
 
@@ -33,7 +34,9 @@ export interface CreditActivityRow {
 
 /** The families in filter order with their badge labels (the tx page's CREDIT_TX_LABELS wording). */
 export const CREDIT_FAMILY_FILTERS: { family: FreebankTxFamily; label: string }[] =
-  CREDIT_FAMILY_ORDER.map((family) => ({ family, label: CREDIT_FAMILIES[family].label }));
+  CREDIT_FAMILY_ORDER
+    .filter((family) => GOLD_SHOWN || family !== 'oracle') // FreeBank: the gold oracle only while gold is shown
+    .map((family) => ({ family, label: CREDIT_FAMILIES[family].label }));
 
 /** A family query parameter, or null when it is missing or not a credit family. */
 export function parseCreditFamily(value: string | null | undefined): FreebankTxFamily | null {
