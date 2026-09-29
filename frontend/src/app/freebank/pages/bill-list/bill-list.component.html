@@ -24,7 +24,7 @@
           <thead>
             <tr>
               <th class="col-id">Bill</th>
-              <th><span class="help" ngbTooltip="The sum the acceptor must pay the holder when the bill falls due. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Face</span></th>
+              <th><span class="help" [ngbTooltip]="goldShown ? 'The sum the acceptor must pay the holder when the bill falls due. Grams are the gold equivalent at the display scale of the node.' : 'The sum the acceptor must pay the holder when the bill falls due.'" placement="bottom" container="body">Face</span></th>
               <th class="d-none d-md-table-cell"><span class="help" ngbTooltip="The bond the acceptor locked when the bill was issued. If the bill is still unpaid after maturity and the grace period, the holder can claim it." placement="bottom" container="body">Escrow</span></th>
               <th><span class="help" ngbTooltip="Active: outstanding, held privately. Discounted: outstanding, bought by a house. Retired: paid. Defaulted: unpaid, escrow claimed." placement="bottom" container="body">Status</span></th>
               <th><span class="help" ngbTooltip="The block the bill falls due at (maturity). The grace period follows it; only after that can the escrow be claimed." placement="bottom" container="body">Due at block</span></th>

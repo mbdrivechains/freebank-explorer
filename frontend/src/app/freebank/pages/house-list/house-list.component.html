@@ -35,7 +35,7 @@
           <th class="col-ratio text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
             ngbTooltip="Reserves the house proved at its last attestation, divided by its notes outstanding. Shown up to 100%. The reserve floor is 10%.">Attested ratio</span></th>
           <th class="col-notes text-right"><span class="credit-term" tabindex="0" container="body" placement="bottom"
-            ngbTooltip="Notes outstanding. One unit redeems for 1 szat at the house. Grams of gold below, for reading only.">Notes issued</span></th>
+            [ngbTooltip]="goldShown ? 'Notes outstanding. One unit redeems for 1 szat at the house. Grams of gold below, for reading only.' : 'Notes outstanding. One unit redeems for 1 szat at the house.'">Notes issued</span></th>
           <th class="col-capital"><span class="credit-term" tabindex="0" container="body" placement="bottom"
             ngbTooltip="How much of the capital cap is used: notes plus term deposits, against the issuance multiplier times the partner capital locked. Point at a figure for the sum.">Capital cap used</span></th>
           <th class="col-last"><span class="credit-term" tabindex="0" container="body" placement="bottom"
@@ -131,8 +131,8 @@
   </div>
 
   <p class="credit-footnote" *ngIf="view.rows.length">
-    Figures are as of block {{ view.tip }}. Grams of gold use the chain's display rate and are for reading only:
-    notes redeem in ECX, one unit for 1 szat.
+    Figures are as of block {{ view.tip }}. <ng-container *ngIf="goldShown; else noGoldNote">Grams of gold use the chain's display rate and are for reading only:
+    notes redeem in ECX, one unit for 1 szat.</ng-container><ng-template #noGoldNote>Notes redeem in ECX, one unit for 1 szat.</ng-template>
     <span class="d-xl-none">Some columns are hidden on this screen; open a house for all its figures.</span>
   </p>
 </div>

@@ -10,6 +10,7 @@ import { CreditLoad, loadOnEachBlock } from '@app/freebank/credit-load';
 import { FreebankActivityResponse, FreebankHouse, FreebankPool, FreebankPoolResponse } from '@interfaces/freebank-credit.interface';
 import { houseHealth } from '@app/freebank/house-health';
 import { PoolActivityRow, PoolPrice, activityNamesPool, poolActivityRow, poolPrice } from '@app/freebank/pages/pool-list/pool-view';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 /** How many pool txs the page asks /activity for (the backend's maximum). */
 const POOL_ACTIVITY_LIMIT = 200;
@@ -56,6 +57,7 @@ interface PoolDetailView {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PoolDetailComponent implements OnInit {
+  goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
   poolId: number;
   idText = '';                        // the id as typed in the URL, for the title and the not-found line
   view$: Observable<PoolDetailView>;

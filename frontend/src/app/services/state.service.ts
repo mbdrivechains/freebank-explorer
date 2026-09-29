@@ -90,6 +90,7 @@ export interface Env {
   STRATUM_ENABLED: boolean;
   SERVICES_API?: string;
   SOURCE_URL?: string;
+  FREEBANK_GOLD?: boolean; // FreeBank: show gold views (freebank/gold-display.ts)
   customize?: Customization;
   PROD_DOMAINS: string[];
 }
@@ -137,6 +138,7 @@ const defaultEnv: Env = {
   'STRATUM_ENABLED': false,
   'SERVICES_API': '',
   'SOURCE_URL': '',
+  'FREEBANK_GOLD': false,
   'PROD_DOMAINS': [],
 };
 

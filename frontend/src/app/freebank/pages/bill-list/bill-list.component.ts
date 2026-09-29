@@ -13,6 +13,7 @@ import {
   BILL_FILTER_LABELS, BILL_FILTER_ORDER, BILL_STATUS_HELP, BillFilter, BillMaturity, BillStatusKey,
   billMaturity, billStatusKey, escrowPercentOfFace, parseBillFilter,
 } from '@app/freebank/pages/bill-list/bill-view';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 /** GET /bills plus GET /houses (for the owner house's badge), read at the same block. */
 interface BillListData {
@@ -57,6 +58,7 @@ interface BillListView {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BillListComponent implements OnInit {
+  goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
   view$: Observable<BillListView>;
   skeletonRows = [1, 2, 3, 4, 5];
 

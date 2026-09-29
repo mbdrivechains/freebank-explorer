@@ -78,7 +78,7 @@
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="The ECX the house proved it held at its last attestation. Grams of gold in brackets, for reading only.">Reserves last attested</span></td>
+                  [ngbTooltip]="goldShown ? 'The ECX the house proved it held at its last attestation. Grams of gold in brackets, for reading only.' : 'The ECX the house proved it held at its last attestation.'">Reserves last attested</span></td>
                 <td>
                   <app-credit-amount *ngIf="!d.neverAttested; else noReserves" [ecx]="d.house.lastattestreserves" [grams]="d.house.lastattestreserves_grams"></app-credit-amount>
                   <ng-template #noReserves><span class="muted">none yet</span></ng-template>
@@ -612,7 +612,7 @@
                   ngbTooltip="Partner signatures needed to approve the house's actions.">Signatures needed</span></td>
                 <td>{{ d.house.threshold }} of {{ d.partnersActive }} active {{ d.partnersActive === 1 ? 'partner' : 'partners' }}</td>
               </tr>
-              <tr>
+              <tr *ngIf="goldShown">
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
                   ngbTooltip="The gold weight the house declared for one note. It is not used by the current rules: notes redeem in ECX, one unit for 1 szat.">Declared denomination</span></td>
                 <td>{{ d.house.denominationmggold / 1000 | grams }} of gold per unit</td>
@@ -624,8 +624,8 @@
     </div>
 
     <p class="credit-footnote">
-      Figures are as of block <a [routerLink]="['/block/' | relativeUrl, d.tip]">{{ d.tip }}</a>. Grams of gold use the
-      chain's display rate and are for reading only: notes redeem in ECX, one unit for 1 szat.
+      Figures are as of block <a [routerLink]="['/block/' | relativeUrl, d.tip]">{{ d.tip }}</a>. <ng-container *ngIf="goldShown; else noGoldNote">Grams of gold use the
+      chain's display rate and are for reading only: notes redeem in ECX, one unit for 1 szat.</ng-container><ng-template #noGoldNote>Notes redeem in ECX, one unit for 1 szat.</ng-template>
       <a [routerLink]="['/houses' | relativeUrl]">See every house</a>.
     </p>
   </ng-container>

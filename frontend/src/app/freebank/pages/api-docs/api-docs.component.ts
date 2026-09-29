@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { SeoService } from '@app/services/seo.service';
 import { StateService } from '@app/services/state.service';
 import { API_DOC_GROUPS, API_DOCS_TIP, API_NOT_AVAILABLE, ApiDocEndpoint } from '@app/freebank/pages/api-docs/api-docs-data';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 // The FreeBank explorer's REST API documentation (/docs/api/rest). The endpoints, their descriptions and the example
 // answers are in api-docs-data.ts, written by explorer/build/make-api-docs.py from a live explorer, which calls every
@@ -15,7 +16,14 @@ import { API_DOC_GROUPS, API_DOCS_TIP, API_NOT_AVAILABLE, ApiDocEndpoint } from 
   standalone: false,
 })
 export class FreebankApiDocsComponent implements OnInit {
-  readonly groups = API_DOC_GROUPS;
+  // FreeBank: while gold is off (gold-display.ts), no gold-only endpoint and the wording without gold
+  readonly groups = API_DOC_GROUPS.map((group) => ({
+    ...group,
+    intro: GOLD_SHOWN && group.intro_gold ? group.intro_gold : group.intro,
+    endpoints: group.endpoints
+      .filter((endpoint) => GOLD_SHOWN || !endpoint.gold_only)
+      .map((endpoint) => ({ ...endpoint, description: GOLD_SHOWN && endpoint.description_gold ? endpoint.description_gold : endpoint.description })),
+  }));
   readonly notAvailable = API_NOT_AVAILABLE;
   readonly tip = API_DOCS_TIP;
   base = '';                      // this explorer: 'https://explorer.ecxfreebank.com'

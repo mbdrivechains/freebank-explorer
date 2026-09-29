@@ -11,6 +11,7 @@ import { CREDIT_FAMILY_FILTERS, CreditActivityRow, creditActivityRow, parseCredi
 import { CreditBadgeCount, creditBadgeCounts, creditBadgeCountsText } from '@app/freebank/credit-summary-view';
 import { formatGoldFixPrice } from '@app/freebank/gold-fix-format';
 import { FreebankActivityResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 // /credit - the credit layer at a glance: summary tiles from GET /summary, then the recent credit
 // txs from GET /activity with a family filter (?family=bill). The filter buttons rewrite the URL
@@ -43,6 +44,7 @@ interface ActivityView {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CreditOverviewComponent implements OnInit {
+  goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
   summary$: Observable<SummaryView>;
   activity$: Observable<ActivityView>;
 

@@ -33,7 +33,7 @@
                     <span [ngbTooltip]="credit.notesTooltip" placement="bottom">{{ credit.notesUnits }} <span class="credit-card-unit">units</span></span>
                   </div>
                 </div>
-                <div class="item">
+                <div class="item" *ngIf="goldShown">
                   <h5 class="card-title">Gold fix</h5>
                   <div class="card-text" *ngIf="!credit.loading; else loading">
                     <span [ngbTooltip]="credit.goldFixTooltip" placement="bottom">

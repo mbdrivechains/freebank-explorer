@@ -18,6 +18,7 @@ import {
   ActivityDetail, AttestationClock, BillMaturity, HouseCapacity, activityNamesHouse, attestationClock, billMaturity,
   describeActivity, ecxToGrams, formatPercent, houseCapacity, houseStatusLabel, houseTierLabel, unitsToGrams,
 } from '@app/freebank/pages/house-common/house-view';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 // The activity feed is chain-wide and newest first; the page asks for the most the backend
 // serves and keeps the transactions that name this house.
@@ -274,6 +275,7 @@ function toActivity(state: CreditLoad<FreebankActivityResponse>, houseId: number
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HouseDetailComponent implements OnInit {
+  goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
   houseId: number;
   idText: string;                 // the id as typed in the URL, for the header and the not-found line
   view$: Observable<HouseDetailView>;

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, Input, OnChanges } from '@angular/core';
 import { UNIT } from '@app/app.constants';
 import { formatEcx, formatGrams, formatSatsAsEcx, formatUnits } from '@app/freebank/credit-units';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 /**
  * A credit amount with its grams-of-gold equivalent. Set exactly one of ecx / sats / units,
@@ -15,7 +16,7 @@ import { formatEcx, formatGrams, formatSatsAsEcx, formatUnits } from '@app/freeb
  *   [unitLabel]="house.classid + ' notes'" -> 5,040,000 hone notes (1.05 g)
  *   [gramsFirst]="true"                   -> 1.05 g (5,040,000 units)
  *
- * With no grams input, only the amount shows. The grams come from the node's presentation scale
+ * With no grams input, or while gold is not shown (gold-display.ts), only the amount shows. The grams come from the node's presentation scale
  * (see interfaces/freebank-credit.interface.ts); they are not the gold fix.
  */
 @Component({
@@ -52,7 +53,7 @@ export class CreditAmountComponent implements OnChanges {
       this.amountText = '';
       this.symbol = '';
     }
-    this.gramsText = !this.hideGrams && isNumber(this.grams) ? formatGrams(this.grams) : '';
+    this.gramsText = GOLD_SHOWN && !this.hideGrams && isNumber(this.grams) ? formatGrams(this.grams) : '';
   }
 }
 

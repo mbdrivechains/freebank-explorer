@@ -15,6 +15,7 @@ import {
   BILL_STATUS_HELP, BillMaturity, BillStatusKey, billMaturity, billPayee, billStatusKey, escrowPercentOfFace,
 } from '@app/freebank/pages/bill-list/bill-view';
 import { BILL_ACTIVITY_LIMIT, BillEvent, buildBillHistory, parseOutpoint } from '@app/freebank/pages/bill-detail/bill-history';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 interface Outpoint {
   txid: string;
@@ -63,6 +64,7 @@ interface BillDetailView {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BillDetailComponent implements OnInit {
+  goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
   billId: number;
   idText = '';                        // the id as typed in the URL, for the title and the not-found line
   view$: Observable<BillDetailView>;

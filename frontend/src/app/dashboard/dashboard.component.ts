@@ -14,6 +14,7 @@ import { CreditBadgeCount, creditBadgeCounts } from '@app/freebank/credit-summar
 import { formatBlockCount, formatGrams, formatUnits } from '@app/freebank/credit-units';
 import { formatGoldFixGrams } from '@app/freebank/gold-fix-format';
 import { FreebankSummaryResponse } from '@interfaces/freebank-credit.interface';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 interface MempoolBlocksData {
   blocks: number;
@@ -51,6 +52,7 @@ interface CreditCardData {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
+  goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
   network$: Observable<string>;
   mempoolBlocksData$: Observable<MempoolBlocksData>;
   mempoolInfoData$: Observable<MempoolInfoData>;

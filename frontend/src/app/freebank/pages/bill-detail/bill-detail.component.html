@@ -44,7 +44,7 @@
           <table class="table table-borderless table-striped credit-detail-table">
             <tbody>
               <tr>
-                <td><span class="help" ngbTooltip="The sum the acceptor must pay to whoever holds the bill when it falls due. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Face value</span></td>
+                <td><span class="help" [ngbTooltip]="goldShown ? 'The sum the acceptor must pay to whoever holds the bill when it falls due. Grams are the gold equivalent at the display scale of the node.' : 'The sum the acceptor must pay to whoever holds the bill when it falls due.'" placement="bottom" container="body">Face value</span></td>
                 <td><app-credit-amount [ecx]="bill.amount" [grams]="bill.amount_grams"></app-credit-amount></td>
               </tr>
               <tr>

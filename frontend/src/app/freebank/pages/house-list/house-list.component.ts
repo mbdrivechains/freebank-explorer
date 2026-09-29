@@ -10,6 +10,7 @@ import { FreebankHouse, FreebankHousesResponse } from '@interfaces/freebank-cred
 import { formatEcx, formatUnits } from '@app/freebank/credit-units';
 import { HOUSE_BADGE_LABELS, HOUSE_BADGE_ORDER, HouseBadge, HouseHealth, formatAttestedRatio, houseHealth, houseNeverAttested } from '@app/freebank/house-health';
 import { AttestationClock, HouseCapacity, attestationClock, houseCapacity, houseStatusLabel } from '@app/freebank/pages/house-common/house-view';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 export interface HouseListRow {
   house: FreebankHouse;
@@ -54,6 +55,7 @@ function capitalCapTip(house: FreebankHouse, capacity: HouseCapacity): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HouseListComponent implements OnInit {
+  goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
   view$: Observable<HouseListView>;
   skeletonRows = [1, 2, 3];
 

@@ -64,6 +64,8 @@ __STRATUM_ENABLED__=${STRATUM_ENABLED:=false}
 # FreeBank: the public URL of this fork's source, for the AGPL "Source" link in the footer and
 # on /about (plain text while empty)
 __SOURCE_URL__=${SOURCE_URL:=}
+# FreeBank: show gold (grams, the gold fix, the oracle filter); off for the ECX-only launch (D-2026-09-29-5)
+__FREEBANK_GOLD__=${FREEBANK_GOLD:=false}
 
 # Export as environment variables to be used by envsubst
 export __MAINNET_ENABLED__
@@ -105,6 +107,7 @@ export __HISTORICAL_PRICE__
 export __ADDITIONAL_CURRENCIES__
 export __STRATUM_ENABLED__
 export __SOURCE_URL__
+export __FREEBANK_GOLD__
 
 folder=$(find /var/www/mempool -name "config.js" | xargs dirname)
 echo ${folder}

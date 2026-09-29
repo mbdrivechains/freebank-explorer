@@ -16,7 +16,7 @@
     <a class="btn btn-sm btn-outline-info" [routerLink]="['/houses' | relativeUrl]">Houses</a>
     <a class="btn btn-sm btn-outline-info" [routerLink]="['/bills' | relativeUrl]">Bills</a>
     <a class="btn btn-sm btn-outline-info" [routerLink]="['/pools' | relativeUrl]">Pools</a>
-    <a class="btn btn-sm btn-outline-info" [routerLink]="['/gold' | relativeUrl]">Gold fix</a>
+    <a *ngIf="goldShown" class="btn btn-sm btn-outline-info" [routerLink]="['/gold' | relativeUrl]">Gold fix</a>
   </nav>
 
   <!-- SUMMARY TILES -->
@@ -45,7 +45,7 @@
           {{ summary.minted_units_total | noteUnits }} <span class="credit-tile-unit">units</span>
         </div>
         <div class="credit-tile-line">
-          <span class="credit-grams" ngbTooltip="Grams of gold at the node's presentation scale, for reading only. It is not the gold fix." placement="bottom">{{ summary.minted_grams_total | grams }}</span>.
+          <ng-container *ngIf="goldShown"><span class="credit-grams" ngbTooltip="Grams of gold at the node's presentation scale, for reading only. It is not the gold fix." placement="bottom">{{ summary.minted_grams_total | grams }}</span>.</ng-container>
           Notes of every house in circulation. Each unit is a claim on 1 szat of ECX at the house that issued it.
         </div>
       </div>
@@ -62,7 +62,7 @@
           {{ summary.loanbook_face_total | satsAsEcx }} <span class="credit-tile-unit">ECX</span>
         </div>
         <div class="credit-tile-line">
-          <ng-container *ngIf="summary.loanbook_face_total_grams !== undefined && summary.loanbook_face_total_grams !== null">
+          <ng-container *ngIf="goldShown && summary.loanbook_face_total_grams !== undefined && summary.loanbook_face_total_grams !== null">
             <span class="credit-grams" ngbTooltip="Grams of gold at the node's presentation scale, for reading only. It is not the gold fix." placement="bottom">{{ summary.loanbook_face_total_grams | grams }}</span>.
           </ng-container>
           Face value of the bills the houses have discounted and hold until they fall due.
@@ -75,7 +75,7 @@
         <div class="credit-tile-line">Pools where a house's notes trade against ECX at a market price.</div>
       </div>
 
-      <div class="box credit-tile">
+      <div class="box credit-tile" *ngIf="goldShown">
         <a class="credit-tile-title" [routerLink]="['/gold' | relativeUrl]">Gold fix</a>
         <ng-container *ngIf="summary.gold_fix as fix; else noGoldFix">
           <div class="credit-tile-value">

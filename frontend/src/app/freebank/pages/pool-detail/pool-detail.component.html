@@ -49,7 +49,7 @@
           <table class="table table-borderless table-striped credit-detail-table">
             <tbody>
               <tr>
-                <td><span class="help" ngbTooltip="The house's notes held by the pool. One note unit redeems for 1 szat at the house. Grams are the gold equivalent at the node's display scale." placement="bottom" container="body">Notes</span></td>
+                <td><span class="help" [ngbTooltip]="goldShown ? 'The notes of the house held by the pool. One note unit redeems for 1 szat at the house. Grams are the gold equivalent at the display scale of the node.' : 'The notes of the house held by the pool. One note unit redeems for 1 szat at the house.'" placement="bottom" container="body">Notes</span></td>
                 <td>
                   <app-credit-amount [units]="pool.note_reserve" [grams]="pool.note_reserve_grams" [unitLabel]="view.noteLabel"></app-credit-amount>
                   <span class="sub" *ngIf="view.shareOfHouseNotes !== null">{{ view.shareOfHouseNotes | number: '1.0-2' }}% of the house's notes outstanding</span>

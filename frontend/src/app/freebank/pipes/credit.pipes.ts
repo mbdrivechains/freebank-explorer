@@ -4,15 +4,16 @@ import {
   formatBlockCount, formatBlocksFromTip, formatBps, formatEcx, formatGrams, formatSatsAsEcx, formatUnits,
 } from '@app/freebank/credit-units';
 import { billStatusLabel, creditOpLabel } from '@app/freebank/credit-ops';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 // Display pipes for the credit pages (declared and exported by CreditSharedModule).
 // All return plain text; none adds the coin symbol except where noted.
 
-/** {{ house.activeescrow_grams | grams }} -> '20.74 g'; below 1 g in mg: '435.4 mg' */
+/** {{ house.activeescrow_grams | grams }} -> '20.74 g'; below 1 g in mg: '435.4 mg'; '' while gold is not shown */
 @Pipe({ name: 'grams', standalone: false })
 export class GramsPipe implements PipeTransform {
   transform(grams: number): string {
-    return formatGrams(grams);
+    return GOLD_SHOWN ? formatGrams(grams) : '';
   }
 }
 

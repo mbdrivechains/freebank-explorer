@@ -1,6 +1,7 @@
-import { NgModule } from '@angular/core';
+import { NgModule, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Routes, RouterModule } from '@angular/router';
+import { Routes, RouterModule, Router } from '@angular/router';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 import { SharedModule } from '@app/shared/shared.module';
 import { CreditSharedModule } from '@app/freebank/credit-shared.module';
 import { CreditRawJsonComponent } from '@app/freebank/components/credit-raw-json/credit-raw-json.component';
@@ -54,6 +55,8 @@ const routes: Routes = [
   {
     path: 'gold',
     component: GoldFixComponent,
+    // FreeBank: no gold fix while gold is not shown (gold-display.ts); an old link lands on /credit
+    canActivate: [() => GOLD_SHOWN || inject(Router).parseUrl('/credit')],
   },
 ];
 

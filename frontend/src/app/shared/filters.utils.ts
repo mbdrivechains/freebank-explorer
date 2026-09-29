@@ -1,4 +1,5 @@
 import { FREEBANK_TX_FLAGS } from '@app/freebank/freebank-tx-flags';
+import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
 export interface Filter {
   key: string,
@@ -135,7 +136,8 @@ export const TransactionFilters: { [key: string]: Filter } = {
 };
 
 export const FilterGroups: { label: string, filters: Filter[]}[] = [
-  { label: 'Credit', filters: ['credit', 'bill', 'house', 'note', 'term_deposit', 'pool', 'settlement', 'oracle'] },
+  // FreeBank: the gold oracle's filter only while gold is shown (freebank/gold-display.ts)
+  { label: 'Credit', filters: ['credit', 'bill', 'house', 'note', 'term_deposit', 'pool', 'settlement', ...(GOLD_SHOWN ? ['oracle'] : [])] },
   { label: 'To and from eCash', filters: ['deposit_from_ecash', 'withdrawal_to_ecash', 'withdrawal_refund'] },
   { label: $localize`:@@885666551418fd59011ceb09d5c481095940193b:Features`, filters: ['rbf', 'no_rbf', 'nonstandard'] },
   { label: $localize`Address Types`, filters: ['p2pk', 'p2ms', 'p2pkh', 'p2sh', 'p2wpkh', 'p2wsh'] },
