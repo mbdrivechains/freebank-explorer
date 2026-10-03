@@ -267,7 +267,9 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
         } else if (op === 'transfer') {
           text = `Moved ${units(d.units)}${outputs}`;
         } else if (op === 'demand') {
-          text = `Presented ${units(d.units)} for redemption`;
+          const mode = d.demand_mode === 'plain' ? ' (queued)' : d.demand_mode === 'preauth' ? ' (pre-authorised)'
+            : d.demand_mode === 'preauth_queue' ? (d.prior_demand_height ? ' (upgraded to pre-authorised)' : ' (queued, pre-authorised)') : '';
+          text = `Presented ${units(d.units)} for redemption${mode}`;
         } else if (op === 'protest') {
           text = `Protested an unpaid demand for ${units(d.units)}`;
         } else {

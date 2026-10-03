@@ -12,12 +12,14 @@ import { unwrapFullDepositAddress } from './deposit-address';
 // Bits: free ones of mempool's layout, all at or below bit 52, because flags travel as plain JS
 // numbers (the API and the websocket send Number(flags); 2^53 is the limit).
 //   29-31  deposit from eCash, withdrawal to eCash, withdrawal refund (request)
+//   35     asset created (v10, v0.2.18); a transfer of asset coins is a plain-version tx and has no bit
 //   45     credit: any of v11-v17
 //   46-52  bill, house, note, term deposit, pool, settlement, oracle
 export const FREEBANK_TX_FLAGS = {
   deposit_from_ecash: 1n << 29n,
   withdrawal_to_ecash: 1n << 30n,
   withdrawal_refund: 1n << 31n,
+  asset_created: 1n << 35n,
   credit: 1n << 45n,
   bill: 1n << 46n,
   house: 1n << 47n,
@@ -28,8 +30,8 @@ export const FREEBANK_TX_FLAGS = {
   oracle: 1n << 52n,
 };
 
-// credit family bit by tx version (freebank primitives/transaction.h; v10, BitAsset create, is
-// retired and rejected by consensus). v14 is a TERM deposit, not a deposit from eCash.
+// credit family bit by tx version (freebank primitives/transaction.h; v10, the asset genesis, is not a
+// credit family: it has its own bit). v14 is a TERM deposit, not a deposit from eCash.
 export const FREEBANK_CREDIT_FLAG_BY_VERSION: { [version: number]: bigint } = {
   11: FREEBANK_TX_FLAGS.bill,
   12: FREEBANK_TX_FLAGS.house,
@@ -39,6 +41,8 @@ export const FREEBANK_CREDIT_FLAG_BY_VERSION: { [version: number]: bigint } = {
   16: FREEBANK_TX_FLAGS.settlement,
   17: FREEBANK_TX_FLAGS.oracle,
 };
+
+export const ASSET_GENESIS_VERSION = 10; // transaction.h TRANSACTION_BITASSET_CREATE_VERSION
 
 export interface FreebankFlagsTx {
   version: number;
@@ -201,6 +205,9 @@ export function getFreebankTxFlags(tx: FreebankFlagsTx): bigint {
   const family = FREEBANK_CREDIT_FLAG_BY_VERSION[tx.version];
   if (family) {
     flags |= FREEBANK_TX_FLAGS.credit | family;
+  }
+  if (tx.version === ASSET_GENESIS_VERSION) {
+    flags |= FREEBANK_TX_FLAGS.asset_created;
   }
   const vout = tx.vout || [];
   if (tx.vin?.[0]?.is_coinbase && hasDepositPayout(vout)) {

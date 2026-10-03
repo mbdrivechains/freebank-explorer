@@ -9,7 +9,6 @@ const open: HouseBadgeFields = {
   lastattestheight: 452,
   attest_deadline: 740,
   pareligible: true,
-  confidence_dead: false,
 };
 
 describe('FreeBank house health badge', () => {
@@ -45,18 +44,30 @@ describe('FreeBank house health badge', () => {
   test('missed attestation deadline is STRESSED (house 2 on the spike chain at 454)', () => {
     const b = houseBadge({
       status: 'open', effective_status: 'stressed', stress_since: 328, attestedratiobps: 10000,
-      lastattestheight: 39, attest_deadline: 327, pareligible: false, confidence_dead: false,
+      lastattestheight: 39, attest_deadline: 327, pareligible: false,
     }, 454);
     expect(b.badge).toEqual('stressed');
     expect(b.notes_impaired).toBe(false);
     expect(b.reason).toMatch(/missed its attestation deadline \(block 327\)/);
   });
 
-  test('a deferred house (option clause invoked) is STRESSED', () => {
-    const b = houseBadge({ ...open, effective_status: 'deferred', pareligible: false, defer_end_height: 900, confidence_dead: true }, 454);
+  test('a suspended house (option clause invoked, v0.2.18: no end date) is STRESSED, with the silence deadline', () => {
+    const b = houseBadge({
+      ...open, effective_status: 'deferred', pareligible: false, defer_invoked_height: 430,
+      defer_silence_insolvent_height: 781, defer_interest_bps: 1000, defer_activations: 2,
+    }, 454);
     expect(b.badge).toEqual('stressed');
-    expect(b.reason).toMatch(/until block 900/);
-    expect(b.reason).toMatch(/no longer invoke the option clause/);
+    expect(b.reason).toMatch(/^Suspended since block 430/);
+    expect(b.reason).toMatch(/earn 10% a year/);
+    expect(b.reason).toMatch(/insolvent at block 781 unless it attests/);
+    expect(b.reason).toMatch(/suspension number 2/);
+    expect(b.reason).not.toMatch(/until block/);
+  });
+
+  test('a first suspension does not count itself; missing v0.2.18 fields leave their sentences out', () => {
+    const b = houseBadge({ ...open, effective_status: 'deferred', pareligible: false, defer_activations: 1 }, 454);
+    expect(b.reason).toEqual('Suspended: the house invoked the option clause, so redemptions are queued, not paid at par. ' +
+      'It reopens when it attests reserves back above the floor.');
   });
 
   test('derived insolvency (effective_status) is INSOLVENT, with impaired notes', () => {

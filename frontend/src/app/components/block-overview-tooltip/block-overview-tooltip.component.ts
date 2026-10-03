@@ -9,7 +9,7 @@ import { Block } from '@interfaces/electrs.interface.js';
 import { CacheService } from '@app/services/cache.service';
 import { ElectrsApiService } from '@app/services/electrs-api.service';
 import { getCreditTxLabel } from '@app/shared/transaction.utils';
-import { creditVersionFromFlags } from '@app/freebank/freebank-tx-flags';
+import { ASSET_GENESIS_VERSION, FREEBANK_TX_FLAGS, creditVersionFromFlags } from '@app/freebank/freebank-tx-flags';
 
 // FreeBank: the stripped txs behind the block overview carry no tx version. The credit type badge
 // comes from the family bit in the tx's flags; only when a tx has no flags does it come from the
@@ -148,7 +148,9 @@ export class BlockOverviewTooltipComponent implements OnChanges, OnDestroy {
       return null;
     }
     if (tx.flags) {
-      return getCreditTxLabel({ version: creditVersionFromFlags(BigInt(tx.flags)) }) ?? null;
+      const flags = BigInt(tx.flags);
+      const version = flags & FREEBANK_TX_FLAGS.asset_created ? ASSET_GENESIS_VERSION : creditVersionFromFlags(flags);
+      return getCreditTxLabel({ version }) ?? null;
     }
     if (creditLabelByTxid.has(txid)) {
       return creditLabelByTxid.get(txid);

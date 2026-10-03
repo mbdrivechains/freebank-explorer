@@ -204,6 +204,28 @@ function houseSummary(op: string | null, d: FreebankDecodedPayload): string {
   }
 }
 
+/**
+ * The demand's mode (v0.2.18 NoteDemand.fPreAuth, decoded by the backend as demand_mode): plain demands exist only
+ * while the house is suspended and only the holder can cash them; a pre-authorised one lets the house pay alone; the
+ * queue mode is a pre-authorised demand filed while suspended, or the upgrade of a plain one (prior_demand_height
+ * keeps its clock). '' for an older node's payload without the field.
+ */
+export function demandModeText(d: FreebankDecodedPayload): string {
+  const prior = num(d, 'prior_demand_height');
+  switch (d?.demand_mode) {
+    case 'plain':
+      return 'queued while the house is suspended, earning interest; only the holder can cash it';
+    case 'preauth':
+      return 'pre-authorised: the house may pay it alone';
+    case 'preauth_queue':
+      return prior
+        ? `a queued demand from block ${prior} upgraded to pre-authorised, its interest clock kept`
+        : 'queued while the house is suspended, earning interest; pre-authorised, so the house may pay it alone';
+    default:
+      return '';
+  }
+}
+
 function noteSummary(op: string | null, d: FreebankDecodedPayload): string {
   const id = num(d, 'house_id');
   const count = num(d, 'units');
@@ -222,8 +244,10 @@ function noteSummary(op: string | null, d: FreebankDecodedPayload): string {
       return `${capitalize(houseNotes(id))} redeemed at the house for ${UNIT}`;
     case 'claim':
       return `A note holder claimed its share of insolvent ${house(id)}'s pot`;
-    case 'demand':
-      return `A holder demanded redemption` + (count !== null ? ` of ${units(count)}` : '') + ` from ${house(id)}`;
+    case 'demand': {
+      const mode = demandModeText(d);
+      return `A holder demanded redemption` + (count !== null ? ` of ${units(count)}` : '') + ` from ${house(id)}` + (mode ? ` (${mode})` : '');
+    }
     case 'protest':
       return `A holder protested an unpaid demand on ${house(id)}`;
     default:

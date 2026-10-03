@@ -151,7 +151,7 @@
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="The option clause lets a stressed house defer redemptions for a limited window. Holders who lodge a demand earn 5% a year from the date of demand. A house that used it too recently or for too long cannot invoke it again.">Option clause</span></td>
+                  ngbTooltip="The option clause lets a stressed house suspend redemptions, locking its reserves. Holders who demand payment earn interest (10% a year) from the demand. A suspension has no end date: it ends when the house attests reserves back above the floor, or in insolvency if the house stops attesting. A house may suspend again, so the count is shown.">Option clause</span></td>
                 <td>
                   <span [class.overdue]="d.optionClause.warn">{{ d.optionClause.text }}</span>
                   <div class="sub">{{ d.optionClause.sub }}</div>
@@ -159,7 +159,7 @@
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="Whether the option clause is in force now, and its history.">Deferral</span></td>
+                  ngbTooltip="Whether the house is suspended now, how often it has suspended, its last reopen and the blocks spent suspended.">Suspensions</span></td>
                 <td [class.overdue]="d.deferral.state === 'active'">{{ d.deferral.text }}</td>
               </tr>
               <tr *ngIf="d.house.protest_open !== undefined && d.house.protest_open !== null">

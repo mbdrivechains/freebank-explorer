@@ -54,7 +54,10 @@ import freebankApi from './api/freebank/freebank-api';
 import creditActivity from './api/freebank/credit-activity';
 import bmm from './api/freebank/bmm';
 import pegIndex from './api/freebank/peg-index';
+import assetIndex from './api/freebank/asset-index';
+import txidIndex from './api/freebank/txid-index';
 import pegRoutes from './api/freebank/peg.routes';
+import assetRoutes from './api/freebank/asset.routes';
 
 class Server {
   private wss: WebSocket.Server | undefined;
@@ -220,6 +223,10 @@ class Server {
     bmm.start();
     // FreeBank: the peg index (deposits from and withdrawals to eCash, /api/v1/freebank/peg*)
     pegIndex.kick();
+    // FreeBank: the asset index (v0.2.18 assets and the coins that carry them, /api/v1/freebank/asset*)
+    assetIndex.kick();
+    // FreeBank: the txid index (partial txid search, /api/v1/freebank/txid-prefix/:prefix)
+    txidIndex.kick();
 
     if (config.MEMPOOL.ENABLED) {
       void this.runMainUpdateLoop();
@@ -353,6 +360,8 @@ class Server {
       creditActivity.kick();
       bmm.onNewBlock(block.id);
       pegIndex.kick(); // FreeBank: the peg index
+      assetIndex.kick(); // FreeBank: the asset index
+      txidIndex.kick(); // FreeBank: the txid index
     });
     websocketHandler.setupConnectionHandling();
     if (config.MEMPOOL.ENABLED) {
@@ -407,6 +416,7 @@ class Server {
     }
     freebankRoutes.initRoutes(this.app); // FreeBank: credit pages API, /api/v1/freebank/*
     pegRoutes.initRoutes(this.app); // FreeBank: the eCash peg, /api/v1/freebank/peg* and withdrawal/:id
+    assetRoutes.initRoutes(this.app); // FreeBank: assets, /api/v1/freebank/asset*
     // FreeBank: no aboutRoutes - they proxy donations/contributors/translators/sponsors from mempool.space
   }
 

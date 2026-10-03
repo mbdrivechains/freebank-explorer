@@ -253,23 +253,31 @@ class FreebankApi {
     }
     let mintedUnits = 0;
     let mintedGrams = 0;
+    let gramsSent = false; // v0.2.17 dropped every *_grams field: report grams only when the node sends them
     for (const house of houses) {
       housesByBadge[houseBadge(house, tip.height).badge]++;
       mintedUnits += house.mintedunits || 0;
-      mintedGrams += house.mintedunits_grams || 0;
+      if (typeof house.mintedunits_grams === 'number') {
+        gramsSent = true;
+        mintedGrams += house.mintedunits_grams;
+      }
     }
     const summary: FreebankSummary = {
       tip_height: tip.height,
       houses: houses.length,
       houses_by_badge: housesByBadge,
       minted_units_total: mintedUnits,
-      minted_grams_total: Math.round(mintedGrams * 1e6) / 1e6, // the node prints grams to 6 places
       bills_active: bills.filter((b) => b.status === 'a').length, // bill.h BILL_STATUS_ACTIVE
       loanbook_face_total: loanbook.face_total,
-      loanbook_face_total_grams: loanbook.face_total_grams,
       pools: pools.length,
       gold_fix: fix || null,
     };
+    if (gramsSent) {
+      summary.minted_grams_total = Math.round(mintedGrams * 1e6) / 1e6; // the node prints grams to 6 places
+    }
+    if (typeof loanbook.face_total_grams === 'number') {
+      summary.loanbook_face_total_grams = loanbook.face_total_grams;
+    }
     return ok(summary);
   }
 }

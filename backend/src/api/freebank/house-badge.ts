@@ -15,13 +15,15 @@
 //                       - stressed:  stress_since = the earliest of (a) an attestation that
 //                                    showed reserves below the floor, (b) attest_deadline + 1
 //                                    with no attestation since, (c) an open noteholder protest.
-//                       - deferred:  a stressed house that invoked the option clause:
-//                                    redemptions are queued, not paid at par, until
-//                                    defer_end_height.
+//                       - deferred:  SUSPENDED: a stressed house that invoked the option
+//                                    clause. Redemptions are queued, not paid at par; a demanded
+//                                    note earns defer_interest_bps a year. From v0.2.18 a suspension
+//                                    has no end date: it ends by a reopen (an attestation at the
+//                                    floor plus a buffer) or by silence (defer_silence_insolvent_height).
 //                       - insolvent: stressed for HOUSE_STRESSED_WINDOW blocks (1008 on the
 //                                    real networks; regtest may override it) without recovering,
-//                                    or a deferral that ran out. Absorbing: every op that could
-//                                    change it is refused from then on.
+//                                    or a suspended house that stopped attesting (silence).
+//                                    Absorbing: every op that could change it is refused from then on.
 //   lastattestheight  height of the last accepted reserve attestation (registration starts
 //                     the clock: a new house has lastattestheight = registeredheight).
 //   attest_deadline   lastattestheight + HOUSE_ATTEST_MISS_N (2) x HOUSE_ATTEST_CADENCE. The
@@ -35,9 +37,12 @@
 //   pareligible       HouseParEligible: effective Open AND attestedratiobps >= 1000 AND the
 //                     last attestation within ONE cadence (tip - lastattestheight <= cadence).
 //                     This is what lets the house settle at par with other houses.
-//   confidence_dead   the house may no longer invoke the option clause (a second use inside
-//                     ~36 months, or ~9 months suspended in total). A guard, not a status: it
-//                     only matters to a stressed house, which then has only its stress clock.
+//   defer_silence_insolvent_height  (suspended houses only, v0.2.18) the first block at which the
+//                     house is insolvent unless it attests before then; every attestation moves it.
+//   defer_activations, defer_ended_height, defer_suspended_blocks  how often the house has suspended,
+//                     when the last suspension ended (the reopen) and the blocks spent suspended in
+//                     all. v0.2.18 dropped the limit on suspending (and with it confidence_dead and
+//                     defer_end_height), so these counts are what tells a holder about a repeat suspender.
 //   insolventheight   present once insolvency has been materialized.
 //
 // The badge:
@@ -45,7 +50,7 @@
 //   INSOLVENT        effective_status (or stored status) is 'insolvent', or insolventheight
 //                    is set. Its notes are impaired claims, paid out pro rata from the
 //                    house's escrow - NOT at par. The only "discount" a FreeBank holder sees.
-//   STRESSED         effective_status is 'stressed' or 'deferred'.
+//   STRESSED         effective_status is 'stressed' or 'deferred' (suspended; the reason says so).
 //   ATTESTATION DUE  effective_status is 'open' but the house is not par-eligible: its last
 //                    attestation is more than one cadence old (lastattestheight + cadence <
 //                    tip <= attest_deadline), or - which an Open house should never show - its
@@ -83,11 +88,13 @@ export interface HouseBadgeFields {
   lastattestheight?: number;
   attest_deadline?: number;
   pareligible?: boolean;
-  confidence_dead?: boolean;
   insolventheight?: number;
   stress_since?: number;
   protest_open?: number;
-  defer_end_height?: number;
+  defer_invoked_height?: number;
+  defer_silence_insolvent_height?: number;
+  defer_interest_bps?: number;
+  defer_activations?: number;
 }
 
 export interface HouseBadgeResult {
@@ -137,11 +144,20 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
   }
 
   if (status === 'stressed' || status === 'deferred') {
-    let reason = isNum(house.stress_since) ? `Stressed since block ${house.stress_since}` : 'Stressed';
     if (status === 'deferred') {
-      const until = isNum(house.defer_end_height) ? ` until block ${house.defer_end_height}` : '';
-      reason += `; the house has invoked the option clause, so redemptions are queued${until}, not paid at par`;
-    } else if (deadline !== null && house.stress_since === deadline + 1) {
+      const since = isNum(house.defer_invoked_height) && house.defer_invoked_height > 0 ? ` since block ${house.defer_invoked_height}` : '';
+      const rate = isNum(house.defer_interest_bps) ? ` and earn ${house.defer_interest_bps / 100}% a year` : '';
+      const silence = isNum(house.defer_silence_insolvent_height) && house.defer_silence_insolvent_height > 0
+        ? ` It becomes insolvent at block ${house.defer_silence_insolvent_height} unless it attests before then.`
+        : '';
+      const count = isNum(house.defer_activations) && house.defer_activations > 1
+        ? ` This is suspension number ${house.defer_activations}.`
+        : '';
+      return result('stressed', `Suspended${since}: the house invoked the option clause, so redemptions are queued${rate}, not paid at par. ` +
+        `It reopens when it attests reserves back above the floor.${silence}${count}`);
+    }
+    let reason = isNum(house.stress_since) ? `Stressed since block ${house.stress_since}` : 'Stressed';
+    if (deadline !== null && house.stress_since === deadline + 1) {
       reason += `: it missed its attestation deadline (block ${deadline})`;
     } else if (belowFloor) {
       reason += ': its last attestation showed reserves below the 10% floor';
@@ -151,9 +167,6 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
       reason += `: it is past its attestation deadline (block ${deadline})`;
     }
     reason += '. If it does not recover it becomes insolvent.';
-    if (house.confidence_dead) {
-      reason += ' It can no longer invoke the option clause.';
-    }
     return result('stressed', reason);
   }
 

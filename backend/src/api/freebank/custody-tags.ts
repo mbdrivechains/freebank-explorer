@@ -63,6 +63,7 @@ export interface CoinTag {
   poolId?: number;
   units?: number; // note units the coin carries (pool note reserve, notes)
   protested?: boolean; // note custody re-issued by a PROTEST
+  queued?: boolean; // note custody of a demand queued while the house was suspended (v0.2.18 QUEUE bit)
   submitterId?: number; // oracle BOND payload: 0 for a new submitter
   pubkey?: string; // oracle BOND: the submitter's key
   // The push the node requires in this output's script (hex, script byte order), when the tx
@@ -82,6 +83,8 @@ const V_ORACLE = 17;
 // note.h
 const NOTE_DEMAND_PREAUTH_BIT = 0x80000000;
 const NOTE_DEMAND_PROTESTED_BIT = 0x40000000;
+const NOTE_DEMAND_QUEUE_BIT = 0x20000000; // v0.2.18: a pre-auth demand filed while the house was suspended
+const NOTE_DEMAND_MODE_PREAUTH_QUEUE = 2; // NoteDemand.fPreAuth (0 plain, 1 pre-auth, 2 pre-auth queue)
 // pool.h
 const POOL_SWAP_NOTE_TO_BTX = 1;
 const POOL_SWAP_BTX_TO_NOTE = 2;
@@ -225,18 +228,22 @@ function readTags(tx: FreebankParsedTx, tags: (CoinTag | null)[]): void {
         r.varBytes(); // vchHolderSig
         let preAuth: boolean;
         let protested = false;
+        let queued = false;
         if (op === 7) {
-          preAuth = r.u8() !== 0; // fPreAuth
+          const mode = r.u8(); // fPreAuth: the demand mode; any non-zero mode is pre-authorised
+          preAuth = mode !== 0;
+          queued = mode === NOTE_DEMAND_MODE_PREAUTH_QUEUE;
         } else {
           const tag = r.u32(); // nDemandTag, re-issued unchanged
           preAuth = (tag & NOTE_DEMAND_PREAUTH_BIT) !== 0;
           protested = (tag & NOTE_DEMAND_PROTESTED_BIT) !== 0;
+          queued = (tag & NOTE_DEMAND_QUEUE_BIT) !== 0;
         }
         if (houseId !== 0) {
           // a pre-auth demand moves the notes onto the holder's custody script (note.cpp:212-226)
           const expectedPush = preAuth ? hash160(holder).toString('hex') : undefined;
           units.forEach((u, i) => set(i, preAuth
-            ? { kind: 'note_custody', houseId, units: u, protested, expectedPush }
+            ? { kind: 'note_custody', houseId, units: u, protested, queued, expectedPush }
             : { kind: 'note', houseId, units: u }));
         }
       } else if (op === 3 || op === 6) {
@@ -557,7 +564,8 @@ function houseText(kind: CustodyKind, tag: CoinTag, houseId: number | undefined,
       if (tag.protested) {
         label.protested = true;
       }
-      return `${tag.protested ? 'demanded and protested' : 'demanded'}, held in custody (${formatUnits(tag.units as number)})`;
+      const demanded = tag.queued ? 'demanded while suspended (queued, earning interest)' : 'demanded';
+      return `${tag.protested ? `${demanded} and protested` : demanded}, held in custody (${formatUnits(tag.units as number)})`;
     }
   }
 }

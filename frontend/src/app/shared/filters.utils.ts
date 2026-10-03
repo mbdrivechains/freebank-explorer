@@ -60,7 +60,7 @@ export const TransactionFlags = {
   sighash_single: 0b00000100_00000000_00000000_00000000_00000000_00000000n,
   sighash_default:0b00001000_00000000_00000000_00000000_00000000_00000000n,
   sighash_acp:    0b00010000_00000000_00000000_00000000_00000000_00000000n,
-  // FreeBank: credit families and transfers to and from eCash (bits 29-31, 45-52), kept in step
+  // FreeBank: credit families, transfers to and from eCash, assets (bits 29-31, 35, 45-52), kept in step
   // with the backend's mempool.interfaces.ts by sharing freebank-tx-flags.ts
   ...FREEBANK_TX_FLAGS,
 };
@@ -105,6 +105,8 @@ export const TransactionFilters: { [key: string]: Filter } = {
     deposit_from_ecash: { key: 'deposit_from_ecash', label: 'Deposit from eCash', flag: TransactionFlags.deposit_from_ecash, important: true, tooltip: true, txPage: true, },
     withdrawal_to_ecash: { key: 'withdrawal_to_ecash', label: 'Withdrawal to eCash', flag: TransactionFlags.withdrawal_to_ecash, important: true, tooltip: true, txPage: true, },
     withdrawal_refund: { key: 'withdrawal_refund', label: 'Withdrawal refund', flag: TransactionFlags.withdrawal_refund, important: true, tooltip: true, txPage: true, },
+    /* FreeBank: assets (v0.2.18) */
+    asset_created: { key: 'asset_created', label: 'Asset created', flag: TransactionFlags.asset_created, important: true, tooltip: false, txPage: false, },
     /* features */
     rbf: { key: 'rbf', label: 'RBF enabled', flag: TransactionFlags.rbf, toggle: 'rbf', important: true, tooltip: true, txPage: false, },
     no_rbf: { key: 'no_rbf', label: 'RBF disabled', flag: TransactionFlags.no_rbf, toggle: 'rbf', important: true, tooltip: true, txPage: false, },
@@ -139,6 +141,7 @@ export const FilterGroups: { label: string, filters: Filter[]}[] = [
   // FreeBank: the gold oracle's filter only while gold is shown (freebank/gold-display.ts)
   { label: 'Credit', filters: ['credit', 'bill', 'house', 'note', 'term_deposit', 'pool', 'settlement', ...(GOLD_SHOWN ? ['oracle'] : [])] },
   { label: 'To and from eCash', filters: ['deposit_from_ecash', 'withdrawal_to_ecash', 'withdrawal_refund'] },
+  { label: 'Assets', filters: ['asset_created'] },
   { label: $localize`:@@885666551418fd59011ceb09d5c481095940193b:Features`, filters: ['rbf', 'no_rbf', 'nonstandard'] },
   { label: $localize`Address Types`, filters: ['p2pk', 'p2ms', 'p2pkh', 'p2sh', 'p2wpkh', 'p2wsh'] },
   { label: $localize`Behavior`, filters: ['cpfp_parent', 'cpfp_child', 'replacement', 'acceleration'] },

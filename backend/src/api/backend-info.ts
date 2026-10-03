@@ -19,13 +19,15 @@ class BackendInfo {
       // Use dummy values if `versionFile` doesn't exist (e.g., during testing)
       versionInfo = {
         version: '?',
-        gitCommit: '?'
+        gitCommit: '?',
+        freebankVersion: '?',
       };
     }
     this.backendInfo = {
       hostname: 'freebank-explorer', // FreeBank: do not publish the host's name or kernel
       version: versionInfo.version,
       gitCommit: versionInfo.gitCommit,
+      freebankVersion: versionInfo.freebankVersion || '?', // FreeBank Explorer's release number (FREEBANK_EXPLORER_VERSION)
       lightning: config.LIGHTNING.ENABLED,
       backend: config.MEMPOOL.BACKEND,
       coreVersion: '?',

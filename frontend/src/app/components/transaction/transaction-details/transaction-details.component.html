@@ -103,7 +103,12 @@
     <tr>
       <td class="td-width">Type</td>
       <td class="wrap-cell">
-        <span class="badge badge-info mr-1" ngbTooltip="FreeBank credit transaction (version {{ tx.version }})" placement="bottom">{{ creditLabel }}</span>
+        @if (tx.version === 10) {
+          <span class="badge badge-info mr-1" ngbTooltip="A FreeBank asset was created here (version 10): the asset's id is this transaction's id" placement="bottom">{{ creditLabel }}</span>
+          <a [routerLink]="['/asset/' | relativeUrl, tx.txid]">View the asset</a>
+        } @else {
+          <span class="badge badge-info mr-1" ngbTooltip="FreeBank credit transaction (version {{ tx.version }})" placement="bottom">{{ creditLabel }}</span>
+        }
       </td>
     </tr>
   }

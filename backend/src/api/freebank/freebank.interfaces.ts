@@ -23,7 +23,7 @@ export interface FreebankHouse {
   lastattestheight: number;
   attest_deadline: number;
   pareligible: boolean;
-  confidence_dead: boolean;
+  defer_activations?: number; // suspensions, all time (v0.2.18: no limit, so the count is shown)
   insolventheight?: number;
   [field: string]: any;
 }
@@ -83,10 +83,10 @@ export interface FreebankSummary {
   houses: number;
   houses_by_badge: HouseBadgeCounts;
   minted_units_total: number;
-  minted_grams_total: number;
+  minted_grams_total?: number; // only from a node that still sends *_grams (before v0.2.17)
   bills_active: number;
   loanbook_face_total: number; // sats
-  loanbook_face_total_grams: number;
+  loanbook_face_total_grams?: number; // likewise
   pools: number;
   gold_fix: FreebankGoldFix | null;
 }

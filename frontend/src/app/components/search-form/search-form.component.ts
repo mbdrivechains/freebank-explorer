@@ -121,15 +121,21 @@ export class SearchFormComponent implements OnInit {
           return of([
             [],
             { nodes: [], channels: [] },
-            this.pools
+            this.pools,
+            [],
           ]);
         }
         this.isTypeaheading$.next(true);
+        // FreeBank: txids that start with the typed hex (6-63 characters), from the backend's txid index
+        const txidPrefix$ = /^[0-9a-fA-F]{6,63}$/.test(text)
+          ? this.apiService.getFreebankTxidPrefix$(text.toLowerCase()).pipe(map((r) => (r?.txids || []).map((t) => t.txid)), catchError(() => of([])))
+          : of([]);
         if (!this.stateService.networkSupportsLightning()) {
           return zip(
             this.electrsApiService.getAddressesByPrefix$(text).pipe(catchError(() => of([]))),
             [{ nodes: [], channels: [] }],
-            this.getMiningPools()
+            this.getMiningPools(),
+            txidPrefix$,
           );
         }
         return zip(
@@ -138,7 +144,8 @@ export class SearchFormComponent implements OnInit {
             nodes: [],
             channels: [],
           }))),
-          this.getMiningPools()
+          this.getMiningPools(),
+          txidPrefix$,
         );
       }),
       map((result: any[]) => {
@@ -159,7 +166,8 @@ export class SearchFormComponent implements OnInit {
             nodes: [],
             channels: [],
           },
-          this.pools
+          this.pools,
+          [],
         ]))
       ]
       ).pipe(
@@ -176,6 +184,7 @@ export class SearchFormComponent implements OnInit {
               address: false,
               otherNetworks: [],
               addresses: [],
+              txids: [],
               nodes: [],
               channels: [],
               liquidAsset: [],
@@ -186,6 +195,7 @@ export class SearchFormComponent implements OnInit {
           const result = latestData[1];
           const addressPrefixSearchResults = result[0];
           const lightningResults = result[1];
+          const txidPrefixResults: string[] = result[3] || [];
 
           // Do not show date and timestamp results for liquid
           const isNetworkBitcoin = this.network === '' || this.network === 'testnet' || this.network === 'testnet4' || this.network === 'signet';
@@ -223,6 +233,7 @@ export class SearchFormComponent implements OnInit {
             publicKey: publicKey,
             addresses: matchesAddress && addressPrefixSearchResults.length === 1 && searchText === addressPrefixSearchResults[0] ? [] : addressPrefixSearchResults, // If there is only one address and it matches the search text, don't show it in the dropdown
             otherNetworks: otherNetworks,
+            txids: txidPrefixResults,
             nodes: lightningResults.nodes,
             channels: lightningResults.channels,
             liquidAsset: liquidAsset,
@@ -260,6 +271,8 @@ export class SearchFormComponent implements OnInit {
       }
     } else if (result.slug) {
       this.navigate('/mining/pool/', result.slug);
+    } else if (result.freebankTxid) { // FreeBank: a txid found by its start (txid-prefix)
+      this.navigate('/tx/', result.freebankTxid);
     }
   }
 

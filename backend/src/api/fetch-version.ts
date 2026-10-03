@@ -26,9 +26,19 @@ function getGitCommit(): string {
   return '?';
 }
 
+// FreeBank: the explorer's own release number (git tag fbx-v<it>), from FREEBANK_EXPLORER_VERSION at the fork's root
+function getFreebankVersion(): string {
+  try {
+    return fs.readFileSync('../FREEBANK_EXPLORER_VERSION').toString().trim() || '?';
+  } catch {
+    return '?';
+  }
+}
+
 const versionInfo = {
   version: getVersion(),
-  gitCommit: getGitCommit()
+  gitCommit: getGitCommit(),
+  freebankVersion: getFreebankVersion(),
 };
 
 fs.writeFileSync(

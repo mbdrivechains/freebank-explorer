@@ -50,6 +50,18 @@ function sleep$(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const HOUSE_FIELDS = ['house_id', 'house_a_id', 'house_b_id', 'pool_id'] as const; // pool_id == house_id in v1
+
+/** Whether a decoded credit payload names this house (its own ops, its notes, its pool, a settlement it is in). */
+export function activityNamesHouse(item: FreebankActivityItem, houseId: number): boolean {
+  return HOUSE_FIELDS.some((f) => item.decoded?.[f] === houseId);
+}
+
+/** Whether a decoded credit payload names this bill (every bill op but the issue, which the node numbers). */
+export function activityNamesBill(item: FreebankActivityItem, billId: number): boolean {
+  return item.family === 'bill' && item.decoded?.bill_id === billId;
+}
+
 class CreditActivityIndex {
   private blocks = new Map<number, IndexedBlock>();
   private high = -1; // top of the indexed range, inclusive; -1 = not started
@@ -74,8 +86,8 @@ class CreditActivityIndex {
     return this.high < 0 ? { top: -1, scannedFrom: 0 } : { top: this.high, scannedFrom: this.low };
   }
 
-  /** Indexed credit txs, newest first, optionally of one family. */
-  public getItems(family: CreditFamily | null, limit: number): FreebankActivityItem[] {
+  /** Indexed credit txs, newest first, optionally of one family and only those `match` keeps. */
+  public getItems(family: CreditFamily | null, limit: number, match?: (item: FreebankActivityItem) => boolean): FreebankActivityItem[] {
     const out: FreebankActivityItem[] = [];
     if (this.high < 0) {
       return out;
@@ -86,7 +98,7 @@ class CreditActivityIndex {
         continue;
       }
       for (let i = block.items.length - 1; i >= 0 && out.length < limit; i--) {
-        if (family === null || block.items[i].family === family) {
+        if ((family === null || block.items[i].family === family) && (!match || match(block.items[i]))) {
           out.push(block.items[i]);
         }
       }

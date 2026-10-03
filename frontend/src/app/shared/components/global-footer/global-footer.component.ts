@@ -16,6 +16,7 @@ export class GlobalFooterComponent implements OnInit, OnDestroy {
 
   frontendGitCommitHash = this.stateService.env.GIT_COMMIT_HASH;
   packetJsonVersion = this.stateService.env.PACKAGE_JSON_VERSION;
+  freebankVersion = this.stateService.env.FREEBANK_VERSION || '';
   sourceUrl = this.stateService.env.SOURCE_URL || '';
   isServicesPage = false;
 

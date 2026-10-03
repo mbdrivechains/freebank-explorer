@@ -10,7 +10,7 @@ import { StorageService } from '@app/services/storage.service';
 import { WebsocketResponse } from '@interfaces/websocket.interface';
 import { TxAuditStatus } from '@components/transaction/transaction.component';
 import { FreebankActivityResponse, FreebankBillResponse, FreebankBillsResponse, FreebankGoldResponse, FreebankHouseResponse,
-  FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
+  FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankAssetsResponse, FreebankAssetResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
 import { FreebankBmmBlock, FreebankBmmConfig, FreebankBmmListResponse, FreebankBmmSummaryResponse } from '@interfaces/freebank-bmm.interface';
 
 @Injectable({
@@ -620,6 +620,20 @@ export class ApiService {
 
   getFreebankPool$(id: number): Observable<FreebankPoolResponse> {
     return this.httpClient.get<FreebankPoolResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/pool/' + encodeURIComponent(String(id)));
+  }
+
+  // FreeBank: txids starting with 6-63 hex characters (the backend's txid index plus its mempool)
+  getFreebankTxidPrefix$(prefix: string): Observable<{ tip_height: number, indexed_to: number, txids: { txid: string, height: number | null }[] }> {
+    return this.httpClient.get<{ tip_height: number, indexed_to: number, txids: { txid: string, height: number | null }[] }>(
+      this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/txid-prefix/' + encodeURIComponent(prefix));
+  }
+
+  getFreebankAssets$(): Observable<FreebankAssetsResponse> {
+    return this.httpClient.get<FreebankAssetsResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/assets');
+  }
+
+  getFreebankAsset$(id: string): Observable<FreebankAssetResponse> {
+    return this.httpClient.get<FreebankAssetResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/asset/' + encodeURIComponent(id));
   }
 
   getFreebankGold$(): Observable<FreebankGoldResponse> {

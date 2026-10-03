@@ -627,9 +627,10 @@ function isNonStandardVersion(tx: Transaction, height?: number, network?: string
   return false;
 }
 
-// FreeBank credit tx families by tx version (freebank primitives/transaction.h).
-// v10 (BitAsset create) is retired and rejected by consensus, so it never appears.
+// FreeBank credit tx families by tx version (freebank primitives/transaction.h), and v10, the asset
+// genesis (v0.2.18), which is not a credit family but is named the same way.
 export const CREDIT_TX_LABELS: { [version: number]: string } = {
+  10: 'Asset created',
   11: 'Bill',
   12: 'House',
   13: 'Note',

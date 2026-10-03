@@ -16,11 +16,13 @@ import { formatBlocksFromTip, formatBps, formatEcx, formatUnits } from '@app/fre
 //                  a below-floor attestation (stored stress_since),
 //                  missed attestations: no attestation by attest_deadline, stressed from
 //                  attest_deadline + 1, and an open note protest (protest_open > 0);
-//      'deferred'  the option clause is invoked (defer_invoked_height set): a substate of
-//                  stressed in which redemptions are deferred instead of paid at par;
+//      'deferred'  SUSPENDED: the option clause is invoked (defer_invoked_height set), a substate
+//                  of stressed in which redemptions are queued instead of paid at par. From
+//                  v0.2.18 it has no end date: it ends by a reopen (an attestation back above the
+//                  floor plus a buffer), and may repeat;
 //      'insolvent' when stressed for the whole stressed window (1008 blocks under the
 //                  consensus rules; regtest can shorten it and the RPC does not report it),
-//                  or when the deferral window ends (defer_end_height) without recovery.
+//                  or when a suspended house stops attesting (defer_silence_insolvent_height).
 //  - attest_deadline = lastattestheight + 2 * cadence (HOUSE_ATTEST_MISS_N = 2; cadence is
 //    144 blocks under the consensus rules, regtest can override it). So the cadence is
 //    (attest_deadline - lastattestheight) / 2, read from the node rather than hard-coded.
@@ -33,11 +35,13 @@ import { formatBlocksFromTip, formatBps, formatEcx, formatUnits } from '@app/fre
 //    floor, so an open house always redeems at par.
 //  - insolventheight / insolventunits / insolventpot are present once insolvency is
 //    materialized. An insolvent house's notes are claims on its pot, paid pro rata, not par.
-//  - confidence_dead: the house may not invoke the option clause again.
+//  - defer_activations / defer_ended_height / defer_suspended_blocks: how often the house has
+//    suspended, the last reopen, and the blocks spent suspended. Nothing limits suspending from
+//    v0.2.18, so these are always shown (the operator's condition for repeat suspensions).
 //
 // THE BADGE RULES, first match wins (tip = the tip_height the API returned):
 //  1. INSOLVENT        effective_status or status is 'insolvent', or insolventheight is set,
-//                      or a deferral whose defer_end_height is at or below the tip.
+//                      or a suspended house whose defer_silence_insolvent_height is at or below the tip.
 //  2. WOUND DOWN       effective_status or status is 'wounddown' (not one of the four design-39
 //                      badges: a closed house, which could only wind down with no notes or
 //                      term deposits outstanding).
@@ -69,7 +73,7 @@ export const HOUSE_BADGE_ORDER: HouseBadge[] = ['sound', 'attestation_due', 'str
 export const HOUSE_RESERVE_FLOOR_BPS = 1000;     // HOUSE_RESERVE_FLOOR_PCT = 10
 export const HOUSE_ATTEST_MISS_N = 2;
 export const HOUSE_STRESSED_WINDOW_CONSENSUS = 1008;
-export const HOUSE_DEFER_INTEREST_BPS = 500;
+export const HOUSE_DEFER_INTEREST_BPS = 1000; // the v0.2.18 schedule's rate; the node's defer_interest_bps wins
 
 export interface HouseHealth {
   badge: HouseBadge;
@@ -129,8 +133,8 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
   const ratioBelowFloor = house.mintedunits > 0 && house.attestedratiobps < HOUSE_RESERVE_FLOOR_BPS;
   const protestsOpen = house.protest_open || 0;
   const deferred = effective === 'deferred' || (house.defer_invoked_height || 0) > 0;
-  const deferEnd = house.defer_end_height || 0;
-  const deferExpired = deferred && deferEnd > 0 && tip !== null && tip >= deferEnd;
+  const silenceAt = house.defer_silence_insolvent_height || 0;
+  const deferExpired = deferred && silenceAt > 0 && tip !== null && tip >= silenceAt;
   const lateForPar = tip !== null && nextDue !== null && tip > nextDue;
 
   const health: HouseHealth = {
@@ -162,8 +166,8 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
     health.summary = 'Insolvent: its notes are claims on the pot, not par.';
     if (house.insolventheight) {
       reasons.push(`Insolvent since block ${house.insolventheight}${relative(house.insolventheight, tip)}.`);
-    } else if (deferred && deferEnd) {
-      reasons.push(`The option clause ran out at block ${deferEnd} without a recovery, so the house is insolvent.`);
+    } else if (deferExpired) {
+      reasons.push(`The house was suspended and stopped attesting: it became insolvent at block ${silenceAt}.`);
     } else if (house.stress_since) {
       reasons.push(`Stressed since block ${house.stress_since} and did not recover within the stressed window, so the house is insolvent.`);
     } else {
@@ -188,12 +192,14 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
       reasons.push(`The node reports an unrecognised house status, '${effective}'.`);
     }
     if (deferred) {
-      health.summary = 'Option clause invoked: redemptions deferred.';
+      health.summary = 'Suspended: redemptions are queued, with interest.';
       const invoked = house.defer_invoked_height ? ` at block ${house.defer_invoked_height}` : '';
-      reasons.push(`The partners invoked the option clause${invoked}: redemptions are deferred, not paid at par. ` +
-        `A holder who lodges a demand earns ${formatBps(HOUSE_DEFER_INTEREST_BPS)} a year from the date of demand.`);
-      if (deferEnd) {
-        reasons.push(`If the house has not recovered by block ${deferEnd}${relative(deferEnd, tip)}, it becomes insolvent.`);
+      const rate = isNumber(house.defer_interest_bps) ? house.defer_interest_bps : HOUSE_DEFER_INTEREST_BPS;
+      reasons.push(`The partners invoked the option clause${invoked}: the house is suspended and redemptions are queued, not paid at par. ` +
+        `A holder who demands payment earns ${formatBps(rate)} a year from the demand, and the house may pay demanded notes with that interest while suspended.`);
+      reasons.push('A suspension has no end date: it ends when the house attests reserves back above the floor.');
+      if (silenceAt) {
+        reasons.push(`It must keep attesting: if it has not attested by block ${silenceAt - 1}${relative(silenceAt - 1, tip)}, it becomes insolvent.`);
       }
     } else {
       health.summary = house.stress_since ? `Stressed since block ${house.stress_since}.` : 'Stressed.';
@@ -247,12 +253,25 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
     reasons.push('Its notes redeem at par and are accepted at par in settlement between houses.');
   }
 
-  if (house.confidence_dead && (health.badge === 'sound' || health.badge === 'attestation_due' || health.badge === 'stressed')) {
-    reasons.push('It has used the option clause too recently or for too long, so it cannot invoke it again.');
+  const suspensions = house.defer_activations || 0;
+  if (suspensions > 0 && health.badge !== 'wound_down') {
+    reasons.push(suspensionHistory(house));
   }
 
   health.label = HOUSE_BADGE_LABELS[health.badge];
   return health;
+}
+
+/** How often the house has suspended (nothing limits it from v0.2.18, so it is always shown). */
+export function suspensionHistory(house: FreebankHouse): string {
+  const n = house.defer_activations || 0;
+  if (n === 0) {
+    return 'It has never suspended.';
+  }
+  const times = n === 1 ? 'once' : n === 2 ? 'twice' : `${formatUnits(n)} times`;
+  const reopened = house.defer_ended_height ? `; it last reopened at block ${house.defer_ended_height}` : '';
+  const blocks = house.defer_suspended_blocks ? `, ${formatUnits(house.defer_suspended_blocks)} blocks suspended in all` : '';
+  return `It has suspended ${times}${reopened}${blocks}.`;
 }
 
 /** Count houses per badge (the shape of /summary houses_by_badge, plus wound_down). */

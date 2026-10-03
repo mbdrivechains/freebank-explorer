@@ -1,0 +1,111 @@
+<div class="container-xl credit-page">
+  <div class="title-block">
+    <h1>Asset <ng-container *ngIf="(view$ | async)?.asset as a">{{ a.ticker }}</ng-container></h1>
+  </div>
+
+  <p *ngIf="!validId" class="credit-intro">Not an asset id: an asset is known by the 64-hex id of the transaction that created it.</p>
+
+  <ng-container *ngIf="validId && (view$ | async) as view">
+    <ng-container *ngIf="view.error; else body">
+      <p *ngIf="view.error.status === 404; else otherError" class="credit-intro">
+        No asset with this id on this chain<ng-container *ngIf="view.behindBy > 0">, as far as the explorer has read it ({{ view.behindBy }} blocks to go)</ng-container>.
+        <a [routerLink]="['/tx/' | relativeUrl, id]">Look the id up as a transaction</a>.
+      </p>
+      <ng-template #otherError><app-http-error [error]="view.error">Could not load the asset.</app-http-error></ng-template>
+    </ng-container>
+
+    <ng-template #body>
+      <div class="box" *ngIf="view.asset as a; else skeleton">
+        <table class="table table-borderless table-striped credit-facts">
+          <tbody>
+            <tr>
+              <td><span class="help" ngbTooltip="The asset's id is the transaction that created it. Tickers are not unique: check the id, not the ticker." placement="bottom" container="body">Asset id</span></td>
+              <td class="mono"><a [routerLink]="['/tx/' | relativeUrl, a.asset_id]">{{ a.asset_id }}</a> <app-clipboard [text]="a.asset_id"></app-clipboard></td>
+            </tr>
+            <tr><td>Ticker</td><td><span class="ticker">{{ a.ticker }}</span></td></tr>
+            <tr *ngIf="a.headline"><td>Headline</td><td class="wrap">{{ a.headline }}</td></tr>
+            <tr *ngIf="a.payload">
+              <td><span class="help" ngbTooltip="32 bytes the creator committed to, often the hash of a document." placement="bottom" container="body">Payload</span></td>
+              <td class="mono wrap">{{ a.payload }}</td>
+            </tr>
+            <tr>
+              <td><span class="help" ngbTooltip="Units in circulation: the supply created, less any burned. Shown with the creator's decimals; each unit is one szat of a coin's value." placement="bottom" container="body">Circulating</span></td>
+              <td>{{ view.fmt(a.circulating) }} {{ a.ticker }}
+                <span class="sub" *ngIf="a.burned > 0">{{ view.fmt(a.supply) }} created, {{ view.fmt(a.burned) }} burned</span></td>
+            </tr>
+            <tr><td>Decimals</td><td>{{ a.decimals }}</td></tr>
+            <tr><td>Holders</td><td>{{ a.holders | number }}</td></tr>
+            <tr>
+              <td><span class="help" ngbTooltip="Whoever holds the control coin controls the asset; it moves like any coin." placement="bottom" container="body">Control coin</span></td>
+              <td>
+                <ng-container *ngIf="a.control; else noControl">
+                  <span class="mono">{{ a.control.address || 'a script without an address' }}</span>
+                  <span class="sub"><a [routerLink]="['/tx/' | relativeUrl, a.control.txid]" [fragment]="'vout=' + a.control.vout">in tx {{ a.control.txid | shortenString : 16 }}</a></span>
+                </ng-container>
+                <ng-template #noControl><span class="sub">not found unspent</span></ng-template>
+              </td>
+            </tr>
+            <tr>
+              <td>Created</td>
+              <td><app-credit-height [height]="a.height" [tipHeight]="view.tipHeight"></app-credit-height></td>
+            </tr>
+            <tr><td>Transactions</td><td>{{ a.tx_count | number }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-container *ngIf="view.asset as a">
+        <div class="title"><h2>Holders</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-table">
+            <thead>
+              <tr>
+                <th>Address</th>
+                <th class="text-right">{{ a.ticker }}</th>
+                <th class="d-none d-sm-table-cell text-right"><span class="help" ngbTooltip="Coins carrying units at this address." placement="bottom" container="body">Coins</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let h of a.holders_list">
+                <td class="mono wrap">{{ h.address || 'a script without an address' }}</td>
+                <td class="text-right nowrap">{{ view.fmt(h.units) }}</td>
+                <td class="d-none d-sm-table-cell text-right">{{ h.coins }}</td>
+              </tr>
+              <tr *ngIf="!a.holders_list.length"><td colspan="3" class="empty-row">No units are held: every unit was burned.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="credit-footnote" *ngIf="a.holders_truncated">The 100 largest holders of {{ a.holders | number }}.</p>
+
+        <div class="title"><h2>Transactions</h2></div>
+        <div class="box">
+          <table class="table table-borderless table-striped credit-table">
+            <thead>
+              <tr>
+                <th>Transaction</th>
+                <th>What</th>
+                <th class="d-none d-sm-table-cell text-right">Block</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of view.rows; trackBy: trackByTx">
+                <td class="mono"><a [routerLink]="['/tx/' | relativeUrl, row.tx.txid]">{{ row.tx.txid | shortenString : 16 }}</a></td>
+                <td class="wrap">{{ row.what }}</td>
+                <td class="d-none d-sm-table-cell text-right">
+                  <app-credit-height [height]="row.tx.height" [tipHeight]="view.tipHeight" [showRelative]="false"></app-credit-height>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="credit-footnote" *ngIf="a.tx_count > view.rows.length">The newest {{ view.rows.length }} of {{ a.tx_count | number }} transactions.</p>
+        <p class="credit-footnote" *ngIf="view.behindBy > 0">Still reading the chain: {{ view.behindBy }} blocks to go.</p>
+        <p class="credit-footnote" *ngIf="view.refreshFailed">Could not refresh the asset; showing it as of block {{ view.tipHeight }}.</p>
+      </ng-container>
+
+      <ng-template #skeleton>
+        <div class="box"><span class="skeleton-loader"></span><span class="skeleton-loader"></span><span class="skeleton-loader"></span></div>
+      </ng-template>
+    </ng-template>
+  </ng-container>
+</div>

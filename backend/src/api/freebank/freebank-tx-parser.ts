@@ -14,7 +14,8 @@ import { createHash } from 'crypto';
 //   witness one stack per input, when flags & 1
 //   uint32  nLockTime
 //   trailer by version:
-//     10 (BitAsset create, retired): string ticker, string headline, uint256 payload
+//     10 (asset genesis):            string ticker, string headline, uint256 payload, uint8 decimals
+//                                     (the decimals byte is new in v0.2.18; earlier nodes had no v10 txs)
 //     11-17 (credit):                uint8 op, compact-size-length payload
 //
 // The txid is sha256d over the serialization WITHOUT the witness, and that serialization
@@ -241,7 +242,7 @@ export interface FreebankParsedTx {
   family: CreditFamily | null; // credit family for v11-v17, else null
   op: number | null; // credit op byte (v11-v17), else null
   payload: Buffer | null; // credit payload (v11-v17), else null
-  bitasset: { ticker: string, headline: string, payload: string } | null; // v10 trailer
+  bitasset: { ticker: string, headline: string, payload: string, decimals: number } | null; // v10 trailer
 }
 
 /** Parse a FreeBank transaction from raw hex (or bytes). Throws FreebankParseError. */
@@ -349,7 +350,8 @@ export function readFreebankTx(r: ByteReader, buf: Buffer): { tx: FreebankParsed
     const ticker = r.varString();
     const headline = r.varString();
     const bitassetPayload = r.hash256();
-    bitasset = { ticker, headline, payload: bitassetPayload };
+    const decimals = r.u8();
+    bitasset = { ticker, headline, payload: bitassetPayload, decimals };
   } else if (isCreditVersion(version)) {
     family = CREDIT_FAMILY_BY_VERSION[version];
     op = r.u8();
@@ -511,12 +513,27 @@ function decodeHouse(r: ByteReader, op: number): DecodedPayload {
   }
 }
 
+// note.h NOTE_DEMAND_MODE_* (v0.2.18; the byte was 0/1 before): plain demands exist only while the house is suspended
+// (deferred); pre-authorised ones at open or stressed; the queue mode is a pre-authorised demand filed while
+// suspended, or the upgrade of a plain one.
+export const NOTE_DEMAND_MODES: Readonly<Record<number, string>> = { 0: 'plain', 1: 'preauth', 2: 'preauth_queue' };
+
 function decodeNote(r: ByteReader, op: number): DecodedPayload {
   const house_id = r.u32(); // every note payload leads with nHouseID
   switch (op) {
+    case 7: { // NoteDemand: vUnits, holder pubkey and sig, then the mode byte and the prior demand height
+      const units = r.u64VectorSum();
+      r.varBytes(); // vchHolderPubKey
+      r.varBytes(); // vchHolderSig
+      const mode = r.u8(); // fPreAuth: NOTE_DEMAND_MODE_* (0 plain, 1 pre-authorised, 2 pre-authorised queue)
+      const prior_demand_height = r.u32(); // non-zero only on an upgrade of a plain demand (keeps its clock)
+      return {
+        house_id, units: units.sum, outputs: units.count,
+        demand_mode: NOTE_DEMAND_MODES[mode] || `mode_${mode}`, prior_demand_height,
+      };
+    }
     case 1: // NoteMint
     case 2: // NoteTransfer
-    case 7: // NoteDemand
     case 8: { // NoteProtest
       const units = r.u64VectorSum(); // vUnits, one per note output
       return { house_id, units: units.sum, outputs: units.count };

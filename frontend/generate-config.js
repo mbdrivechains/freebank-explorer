@@ -10,6 +10,7 @@ let settings = [];
 let configContent = {};
 let gitCommitHash = '';
 let packetJsonVersion = '';
+let freebankVersion = '?'; // FreeBank Explorer's own release number (FREEBANK_EXPLORER_VERSION at the fork's root)
 let customConfig;
 let customConfigContent;
 
@@ -70,6 +71,13 @@ try {
   throw new Error(e);
 }
 
+try {
+  freebankVersion = fs.readFileSync('../FREEBANK_EXPLORER_VERSION').toString().trim() || '?';
+  console.log(`FreeBank Explorer version ${freebankVersion}`);
+} catch (e) {
+  console.log('FREEBANK_EXPLORER_VERSION not found');
+}
+
 for (const setting in configContent) {
   settings.push({
     key: setting,
@@ -101,6 +109,7 @@ const newConfig = `(function (window) {
     window.__env.${obj.key} = ${typeof obj.value === 'string' ? `'${obj.value}'` : obj.value};`, '')}
     window.__env.GIT_COMMIT_HASH = '${gitCommitHash}';
     window.__env.PACKAGE_JSON_VERSION = '${packetJsonVersion}';
+    window.__env.FREEBANK_VERSION = '${freebankVersion}';
   }((typeof global !== 'undefined') ? global : this));`;
 
 const newConfigTemplate = `(function (window) {
@@ -108,6 +117,7 @@ const newConfigTemplate = `(function (window) {
     window.__env.${obj.key} = ${typeof obj.value === 'string' ? `'\${__${obj.key}__}'` : `\${__${obj.key}__}`};`, '')}
     window.__env.GIT_COMMIT_HASH = '${gitCommitHash}';
     window.__env.PACKAGE_JSON_VERSION = '${packetJsonVersion}';
+    window.__env.FREEBANK_VERSION = '${freebankVersion}';
   }(this));`;
 
 function readConfig(path) {

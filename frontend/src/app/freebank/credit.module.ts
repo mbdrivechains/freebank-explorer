@@ -13,6 +13,8 @@ import { BillDetailComponent } from '@app/freebank/pages/bill-detail/bill-detail
 import { PoolListComponent } from '@app/freebank/pages/pool-list/pool-list.component';
 import { PoolDetailComponent } from '@app/freebank/pages/pool-detail/pool-detail.component';
 import { GoldFixComponent } from '@app/freebank/pages/gold-fix/gold-fix.component';
+import { AssetListComponent } from '@app/freebank/pages/asset-list/asset-list.component';
+import { AssetDetailComponent } from '@app/freebank/pages/asset-detail/asset-detail.component';
 
 // The FreeBank credit pages. Lazy-loaded by master-page.module.ts, which mounts this module at
 // the root of the master page (so /credit, /regtest/credit, ...) and only for URLs whose first
@@ -53,6 +55,15 @@ const routes: Routes = [
     data: { networkSpecific: true },
   },
   {
+    path: 'assets',
+    component: AssetListComponent,
+  },
+  {
+    path: 'asset/:id',
+    component: AssetDetailComponent,
+    data: { networkSpecific: true },
+  },
+  {
     path: 'gold',
     component: GoldFixComponent,
     // FreeBank: no gold fix while gold is not shown (gold-display.ts); an old link lands on /credit
@@ -87,6 +98,8 @@ export class CreditRoutingModule { }
     PoolListComponent,
     PoolDetailComponent,
     GoldFixComponent,
+    AssetListComponent,
+    AssetDetailComponent,
   ]
 })
 export class CreditModule { }

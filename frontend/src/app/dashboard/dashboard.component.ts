@@ -457,7 +457,10 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       error: false,
       badges: creditBadgeCounts(summary.houses_by_badge),
       notesUnits: formatUnits(summary.minted_units_total),
-      notesTooltip: `Notes of every house in circulation (${formatGrams(summary.minted_grams_total)} at the node's presentation scale). ` +
+      // grams only while gold views are on and the node still sends them (v0.2.17 dropped *_grams)
+      notesTooltip: (GOLD_SHOWN && typeof summary.minted_grams_total === 'number'
+        ? `Notes of every house in circulation (${formatGrams(summary.minted_grams_total)} at the node's presentation scale). `
+        : 'Notes of every house in circulation. ') +
         'Each unit is a claim on 1 szat of ECX at the house that issued it.',
       goldFixGrams: fix ? formatGoldFixGrams(fix.raw) : '',
       goldFixTooltip: fix

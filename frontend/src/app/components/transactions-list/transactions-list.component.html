@@ -139,6 +139,9 @@
                   <ng-template #defaultOutput>
                     <span *ngIf="vin.lazy" class="skeleton-loader"></span>
                     <app-amount [blockConversion]="tx.price" *ngIf="vin.prevout" [satoshis]="vin.prevout.value"></app-amount>
+                    @if (vin['_asset']; as asset) {
+                      <ng-container *ngTemplateOutlet="freebankAsset; context: { $implicit: asset }"></ng-container>
+                    }
                   </ng-template>
                 </td>
               </tr>
@@ -420,6 +423,9 @@
                   </ng-template>
                   <ng-template #defaultOutput>
                     <app-amount [blockConversion]="tx.price" [satoshis]="vout.value"></app-amount>
+                    @if (vout['_asset']; as asset) {
+                      <ng-container *ngTemplateOutlet="freebankAsset; context: { $implicit: asset }"></ng-container>
+                    }
                   </ng-template>
                 </td>
                 <td class="arrow-td">
@@ -608,6 +614,10 @@
       {{ custody.text }}
     }
   </span>
+</ng-template>
+<!-- FreeBank: an asset coin (freebank/asset-coins.ts), linked to its asset page -->
+<ng-template #freebankAsset let-asset>
+  <div class="freebank-asset"><a [routerLink]="['/asset/' | relativeUrl, asset.asset_id]" [ngbTooltip]="asset.tooltip" placement="bottom">{{ asset.text }}</a></div>
 </ng-template>
 <ng-template #freebankCustodyDetails let-custody>
   <ng-container *ngTemplateOutlet="freebankCustody; context: { $implicit: custody }"></ng-container>

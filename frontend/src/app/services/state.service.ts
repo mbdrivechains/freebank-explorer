@@ -65,6 +65,7 @@ export interface Env {
   MEMPOOL_BLOCKS_AMOUNT: number;
   GIT_COMMIT_HASH: string;
   PACKAGE_JSON_VERSION: string;
+  FREEBANK_VERSION?: string; // FreeBank Explorer's own release number (generate-config.js)
   MEMPOOL_WEBSITE_URL: string;
   LIQUID_WEBSITE_URL: string;
   MINING_DASHBOARD: boolean;

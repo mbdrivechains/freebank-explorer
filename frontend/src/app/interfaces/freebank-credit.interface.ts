@@ -90,13 +90,14 @@ export interface FreebankHouse {
   insolventpot?: number;          // ECX: the pot note holders claim from pro rata
   escrowchangeoutputs: number;    // count
   reservelockoutputs: number;     // count
-  defer_invoked_height?: number;  // height the option clause was invoked; only during an episode
-  defer_end_height?: number;      // height the deferral window ends (insolvent then, unless recovered)
-  defer_renewals: number;         // count, this episode
-  defer_activations: number;      // count, all time
-  defer_ended_height: number;     // height the last deferral episode ended; 0 = none
-  defer_suspended_blocks: number; // blocks spent deferred, cumulative
-  confidence_dead: boolean;       // true = may not invoke the option clause again (used it too recently or too long)
+  // option clause (v0.2.18: a suspension has no end date and may repeat; defer_end_height and confidence_dead are gone)
+  defer_invoked_height?: number;  // height the option clause was invoked; only while suspended
+  defer_silence_insolvent_height?: number; // only while suspended: insolvent at this height unless it attests first
+  defer_interest_bps?: number;    // bps a year earned by demanded notes queued during a suspension (1000 = 10%)
+  defer_renewals: number;         // always 0 from v0.2.18 (renewal retired)
+  defer_activations: number;      // suspensions, all time
+  defer_ended_height: number;     // height the last suspension ended (the reopen); 0 = none
+  defer_suspended_blocks: number; // blocks spent suspended, all time (the current suspension included)
   registeredheight: number;       // height
   txidregister: string;           // txid of the registration (v12) tx
   partners: FreebankHousePartner[];
@@ -273,9 +274,12 @@ export interface FreebankDecodedPayload {
   partner_index?: number;
   as_of_height?: number;          // height the attested reserves are proven at
   reserves_sats?: number;         // sats: the attested reserves
-  // note: mint / transfer / demand / protest (house_id, units, outputs), redeem / claim (house_id)
+  // note: mint / transfer / demand / protest (house_id, units, outputs), redeem / claim (house_id);
+  // demand also (demand_mode, prior_demand_height), v0.2.18
   units?: number;                 // units, summed over the note outputs
   outputs?: number;               // count of note outputs
+  demand_mode?: string;           // 'plain' | 'preauth' | 'preauth_queue' (or 'mode_<n>' for an unknown byte)
+  prior_demand_height?: number;   // height: non-zero on an upgrade of a plain demand (its clock kept)
   // deposit: originate (house_id, principal_units, receipts), transfer (house_id,
   // principal_units, rate_bps, maturity_height), withdraw / claim (house_id)
   principal_units?: number;       // units
@@ -351,10 +355,67 @@ export interface FreebankSummaryResponse {
   houses: number;                 // count
   houses_by_badge: FreebankHouseBadgeCounts;
   minted_units_total: number;     // units: notes outstanding, all houses
-  minted_grams_total: number;     // grams
+  minted_grams_total?: number;    // grams; only from a node that still sends *_grams (before v0.2.17)
   bills_active: number;           // count of bills with status 'a'
   loanbook_face_total: number;    // sats: summed loanbookface of all houses
   loanbook_face_total_grams?: number; // grams (sent by the backend, not in the written contract)
   pools: number;                  // count
   gold_fix: FreebankGoldFix | null;
+}
+
+// ---- assets (v0.2.18, tx v10): GET /api/v1/freebank/assets, asset/:id (backend api/freebank/asset-index.ts) ----
+// Units are an asset's base units (a coin's value in szats); decimals say where the display point goes. An asset is its
+// asset_id (the genesis txid): tickers are not unique.
+
+export interface FreebankAsset {
+  asset_id: string;
+  ticker: string;
+  headline: string;
+  payload: string;                // '' when none
+  decimals: number;               // 0-8, display only
+  supply: number;                 // units created
+  burned: number;                 // units burned since
+  circulating: number;            // supply - burned
+  holders: number;                // addresses holding units now
+  control_address: string | null; // where the control coin is now
+  height: number;                 // the genesis block
+  block_hash: string;
+  time: number;
+  tx_count: number;               // txs that created or moved it
+  last_height: number;
+}
+
+export interface FreebankAssetHolder {
+  address: string | null;         // null: a script without an address
+  units: number;
+  coins: number;
+}
+
+export interface FreebankAssetTx {
+  txid: string;
+  height: number;
+  time: number;
+  kind: 'genesis' | 'transfer' | 'invalid';
+  units_moved: number;
+  burned: number;
+  control_moved: boolean;
+}
+
+export interface FreebankAssetDetail extends FreebankAsset {
+  holders_list: FreebankAssetHolder[]; // largest first, at most 100
+  holders_truncated: boolean;
+  control: { txid: string, vout: number, address: string | null } | null;
+  txs: FreebankAssetTx[];             // newest first, at most 50
+}
+
+export interface FreebankAssetsResponse {
+  tip_height: number;             // the index's top
+  behind_by: number;              // blocks the index has still to read
+  assets: FreebankAsset[];
+}
+
+export interface FreebankAssetResponse {
+  tip_height: number;
+  behind_by: number;
+  asset: FreebankAssetDetail;
 }

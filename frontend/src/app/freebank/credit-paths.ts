@@ -3,7 +3,7 @@ import { Route, UrlSegment } from '@angular/router';
 // The first URL segments served by the lazy CreditModule (freebank/credit.module.ts). Kept in
 // this tiny file because master-page.module.ts is eager: importing it from credit.module.ts would
 // pull every credit page into the main bundle. Keep in step with the routes in credit.module.ts.
-export const CREDIT_ROOT_SEGMENTS = ['credit', 'houses', 'house', 'bills', 'bill', 'pools', 'pool', 'gold'];
+export const CREDIT_ROOT_SEGMENTS = ['credit', 'houses', 'house', 'bills', 'bill', 'pools', 'pool', 'gold', 'assets', 'asset'];
 
 /**
  * canMatch for the credit module's empty-path mount in master-page.module.ts: matches only the

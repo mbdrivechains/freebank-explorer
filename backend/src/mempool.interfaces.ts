@@ -515,7 +515,8 @@ export interface ILoadingIndicators { [name: string]: number; }
 export interface IBackendInfo {
   hostname: string;
   gitCommit: string;
-  version: string;
+  version: string; // the mempool release this is based on
+  freebankVersion: string; // FreeBank Explorer's own release number
   lightning: boolean;
   coreVersion: string;
   osVersion: string;

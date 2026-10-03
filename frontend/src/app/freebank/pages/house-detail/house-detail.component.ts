@@ -13,7 +13,7 @@ import {
 } from '@interfaces/freebank-credit.interface';
 import { HouseHealth, formatAttestedRatio, houseHealth, houseNeverAttested } from '@app/freebank/house-health';
 import { CREDIT_FAMILIES } from '@app/freebank/credit-ops';
-import { SATS_PER_ECX, formatBlockCount, formatBlocksFromTip, poolSpotSatsPerUnit } from '@app/freebank/credit-units';
+import { SATS_PER_ECX, formatBlockCount, formatBlocksFromTip, formatBps, poolSpotSatsPerUnit } from '@app/freebank/credit-units';
 import {
   ActivityDetail, AttestationClock, BillMaturity, HouseCapacity, activityNamesHouse, attestationClock, billMaturity,
   describeActivity, ecxToGrams, formatPercent, houseCapacity, houseStatusLabel, houseTierLabel, unitsToGrams,
@@ -121,22 +121,24 @@ function partnerStatusText(partner: FreebankHousePartner, tip: number): string {
 }
 
 function deferralView(house: FreebankHouse, tip: number): HouseDeferral {
+  // v0.2.18: no end date and no limit on repeats, so the count is always shown (the operator's condition)
+  const n = house.defer_activations || 0;
+  const count = `${n} ${n === 1 ? 'suspension' : 'suspensions'}`;
+  const ended = house.defer_ended_height ? `; last reopened at block ${house.defer_ended_height}` : '';
+  const blocks = house.defer_suspended_blocks ? `, ${formatBlockCount(house.defer_suspended_blocks)} suspended in all` : '';
   if (house.defer_invoked_height) {
-    const end = house.defer_end_height
-      ? ` The window ends at block ${house.defer_end_height} (${formatBlocksFromTip(house.defer_end_height, tip)}); without a recovery by then the house is insolvent.`
+    const silence = house.defer_silence_insolvent_height
+      ? ` Insolvent at block ${house.defer_silence_insolvent_height} (${formatBlocksFromTip(house.defer_silence_insolvent_height, tip)}) unless it attests first.`
       : '';
-    const renewals = house.defer_renewals ? ` Renewed ${house.defer_renewals} ${house.defer_renewals === 1 ? 'time' : 'times'}.` : '';
-    return { state: 'active', text: `Invoked at block ${house.defer_invoked_height}: redemptions are deferred.${end}${renewals}` };
-  }
-  if (house.defer_activations > 0) {
-    const ended = house.defer_ended_height ? `; the last one ended at block ${house.defer_ended_height}` : '';
-    const blocks = house.defer_suspended_blocks ? `, ${formatBlockCount(house.defer_suspended_blocks)} deferred in all` : '';
     return {
-      state: 'past',
-      text: `Not in force. Invoked ${house.defer_activations} ${house.defer_activations === 1 ? 'time' : 'times'}${ended}${blocks}.`,
+      state: 'active',
+      text: `Suspended since block ${house.defer_invoked_height}: redemptions are queued, no end date.${silence} ${count}${ended}${blocks}.`,
     };
   }
-  return { state: 'never', text: 'Never invoked' };
+  if (n > 0) {
+    return { state: 'past', text: `Not suspended now. ${count}${ended}${blocks}.` };
+  }
+  return { state: 'never', text: 'Never suspended' };
 }
 
 /**
@@ -175,10 +177,8 @@ function optionClauseView(house: FreebankHouse, health: HouseHealth): HouseOptio
     return { text: 'not available', sub: health.badge === 'insolvent' ? 'the house is insolvent' : 'the house is wound down', warn: false };
   }
   if (effective === 'deferred' || house.defer_invoked_height) {
-    return { text: 'in force', sub: 'redemptions are deferred', warn: true };
-  }
-  if (house.confidence_dead) {
-    return { text: 'not available', sub: 'used too recently or for too long', warn: true };
+    const rate = house.defer_interest_bps !== undefined ? formatBps(house.defer_interest_bps) : 'interest';
+    return { text: 'in force', sub: `redemptions are queued; demanded notes earn ${rate} a year`, warn: true };
   }
   if (effective === 'stressed') {
     return { text: 'available', sub: 'the partners may invoke it after a fresh attestation, locking the reserves in escrow', warn: false };

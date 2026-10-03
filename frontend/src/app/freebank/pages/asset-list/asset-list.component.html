@@ -1,0 +1,65 @@
+<div class="container-xl credit-page">
+  <div class="title-block">
+    <h1>Assets</h1>
+  </div>
+
+  <p class="credit-intro">
+    Anyone can create an asset on FreeBank: a token with a ticker, a headline and a fixed supply, carried by ordinary
+    coins (one unit per szat of the coin's value). Its creator holds a control coin. Tickers are not unique, so an asset
+    is known by its id, the transaction that created it. A token is only as good as its issuer.
+  </p>
+
+  <ng-container *ngIf="view$ | async as view">
+    <app-http-error *ngIf="view.error && !view.rows; else assetTable" [error]="view.error">Could not load the assets.</app-http-error>
+
+    <ng-template #assetTable>
+      <p class="credit-footnote" *ngIf="view.behindBy > 0">Still reading the chain: {{ view.behindBy }} blocks to go, so the list may be incomplete.</p>
+      <div class="box">
+        <table class="table table-borderless table-striped credit-table" [class.reloading]="view.loading && !!view.rows">
+          <thead>
+            <tr>
+              <th><span class="help" ngbTooltip="The ticker its creator chose, and the start of its id. Two assets may share a ticker; the id tells them apart." placement="bottom" container="body">Asset</span></th>
+              <th class="d-none d-md-table-cell">Headline</th>
+              <th class="text-right"><span class="help" ngbTooltip="Units in circulation: the supply created, less any burned (sent to an unspendable output)." placement="bottom" container="body">Circulating</span></th>
+              <th class="d-none d-sm-table-cell text-right"><span class="help" ngbTooltip="Addresses holding units now." placement="bottom" container="body">Holders</span></th>
+              <th class="d-none d-sm-table-cell text-right">Created</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="view.rows; else skeleton">
+            <tr *ngFor="let row of view.rows; trackBy: trackByAsset">
+              <td>
+                <a [routerLink]="['/asset/' | relativeUrl, row.asset.asset_id]"><span class="ticker">{{ row.asset.ticker }}</span></a>
+                <span class="sub asset-id">{{ row.asset.asset_id | shortenString : 16 }}<span *ngIf="row.sameTicker" class="same-ticker"> · ticker shared</span></span>
+              </td>
+              <td class="d-none d-md-table-cell headline">{{ row.asset.headline }}</td>
+              <td class="text-right">
+                <span class="nowrap">{{ row.circulating }}</span>
+                <span class="sub" *ngIf="row.asset.burned > 0">of {{ row.supply }} created</span>
+              </td>
+              <td class="d-none d-sm-table-cell text-right">{{ row.asset.holders | number }}</td>
+              <td class="d-none d-sm-table-cell text-right">
+                <app-credit-height [height]="row.asset.height" [tipHeight]="view.tipHeight" [showRelative]="false"></app-credit-height>
+              </td>
+            </tr>
+            <tr *ngIf="!view.rows.length">
+              <td colspan="5" class="empty-row">No asset has been created on this chain yet.</td>
+            </tr>
+          </tbody>
+          <ng-template #skeleton>
+            <tbody>
+              <tr *ngFor="let i of skeletonRows">
+                <td><span class="skeleton-loader"></span></td>
+                <td class="d-none d-md-table-cell"><span class="skeleton-loader"></span></td>
+                <td><span class="skeleton-loader"></span></td>
+                <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+                <td class="d-none d-sm-table-cell"><span class="skeleton-loader"></span></td>
+              </tr>
+            </tbody>
+          </ng-template>
+        </table>
+      </div>
+
+      <p class="credit-footnote" *ngIf="view.error && view.rows">Could not refresh the assets; showing them as of block {{ view.tipHeight }}.</p>
+    </ng-template>
+  </ng-container>
+</div>

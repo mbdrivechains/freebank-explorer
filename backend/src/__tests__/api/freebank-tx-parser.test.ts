@@ -134,6 +134,40 @@ describe('FreeBank tx parser', () => {
     });
   });
 
+  describe('v0.2.18 transactions (ecash/credit-cycle.sh on the v0.2.18 release)', () => {
+    const v0218: { label: string, txid: string, version: number, hex: string, asset_genesis: any }[] = require('./test-data/freebank-v0218-txs.json').txs;
+    const get = (label: string): any => v0218.find((t) => t.label === label);
+
+    test.each(v0218.map((t): [string, any] => [t.label, t]))('%s: txid and the whole tx read', (_label, t) => {
+      const tx = parseFreebankTx(t.hex);
+      expect(tx.txid).toEqual(t.txid);
+      expect(tx.version).toEqual(t.version);
+    });
+
+    test('an asset genesis (v10) carries the decimals byte after the payload', () => {
+      const t = get('asset-gold');
+      const tx = parseFreebankTx(t.hex);
+      expect(tx.bitasset).toEqual({
+        ticker: 'GOLD', headline: t.asset_genesis.headline, payload: t.asset_genesis.payload, decimals: 3,
+      });
+      expect(tx.vout[1].value).toEqual(t.asset_genesis.supply);
+    });
+
+    test('note demands decode their mode (0 plain, 1 pre-authorised, 2 queue) and an upgrade its prior height', () => {
+      const mode = (label: string): any => {
+        const tx = parseFreebankTx(get(label).hex);
+        const d = decodeCreditPayload(tx.family, tx.op, tx.payload);
+        return [d.demand_mode, d.prior_demand_height];
+      };
+      expect(mode('demand-plain-b')).toEqual(['plain', 0]);
+      expect(mode('demand-preauth')).toEqual(['preauth', 0]);
+      expect(mode('demand-queue')).toEqual(['preauth_queue', 0]);
+      const [upgrade, prior] = mode('demand-upgrade-d');
+      expect(upgrade).toEqual('preauth_queue');
+      expect(prior).toBeGreaterThan(0);
+    });
+  });
+
   describe('malformed input', () => {
     const settleHex: string = byKind('settle', 'exchange')[0].hex;
 
