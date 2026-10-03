@@ -136,7 +136,8 @@ describe('FreeBank Goggles flags', () => {
         11: FREEBANK_TX_FLAGS.bill, 12: FREEBANK_TX_FLAGS.house, 13: FREEBANK_TX_FLAGS.note, 14: FREEBANK_TX_FLAGS.term_deposit,
         15: FREEBANK_TX_FLAGS.pool, 16: FREEBANK_TX_FLAGS.settlement, 17: FREEBANK_TX_FLAGS.oracle,
       });
-      expect(getFreebankTxFlags({ version: 10, vin: [{}], vout: [] })).toEqual(0n); // BitAsset create, retired
+      // an asset genesis (v10, v0.2.18): its own bit, no credit bit
+      expect(getFreebankTxFlags({ version: 10, vin: [{}], vout: [] })).toEqual(FREEBANK_TX_FLAGS.asset_created);
     });
   });
 
