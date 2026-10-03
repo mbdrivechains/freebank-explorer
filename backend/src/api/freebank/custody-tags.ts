@@ -564,7 +564,7 @@ function houseText(kind: CustodyKind, tag: CoinTag, houseId: number | undefined,
       if (tag.protested) {
         label.protested = true;
       }
-      const demanded = tag.queued ? 'demanded while suspended (queued, earning interest)' : 'demanded';
+      const demanded = tag.queued ? 'demanded while suspended (queued)' : 'demanded';
       return `${tag.protested ? `${demanded} and protested` : demanded}, held in custody (${formatUnits(tag.units as number)})`;
     }
   }

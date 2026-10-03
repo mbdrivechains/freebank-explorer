@@ -20,7 +20,8 @@ export const HOUSE_BADGE_EXPLAINERS: { [badge in HouseBadge]: string } = {
   attestation_due: 'Open and still redeeming at par, but late with its reserve attestation, so its notes do not settle at par ' +
     'between houses until it attests again.',
   stressed: 'Missed its attestations, attested reserves below the floor, had an unpaid demand protested by a holder, ' +
-    'or invoked the option clause (redemptions deferred). It becomes insolvent if it does not recover in time.',
+    'or suspended under the option clause (redemptions queued, with interest). A stressed house becomes insolvent if it does ' +
+    'not recover in time; a suspended one if it stops attesting.',
   insolvent: 'Its notes are claims on the house\'s pot, paid pro rata, not at par.',
   wound_down: 'Closed by its partners with no notes or term deposits outstanding.',
 };

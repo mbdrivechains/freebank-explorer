@@ -16,7 +16,7 @@ import { HOUSE_TIER_LABELS } from '@app/freebank/credit-ops';
 export const HOUSE_STATUS_LABELS: { [status: string]: string } = {
   open: 'Open',
   stressed: 'Stressed',
-  deferred: 'Deferred (option clause invoked)',
+  deferred: 'Suspended (option clause invoked)',
   insolvent: 'Insolvent',
   wounddown: 'Wound down',
   unknown: 'Unknown',

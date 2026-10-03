@@ -1,26 +1,26 @@
 <div class="container-xl credit-page">
-  <div class="title-block">
-    <h1>Asset <ng-container *ngIf="(view$ | async)?.asset as a">{{ a.ticker }}</ng-container></h1>
-  </div>
-
   <p *ngIf="!validId" class="credit-intro">Not an asset id: an asset is known by the 64-hex id of the transaction that created it.</p>
 
   <ng-container *ngIf="validId && (view$ | async) as view">
+    <div class="title-block">
+      <h1>Asset <ng-container *ngIf="view.asset as a">{{ a.ticker }}</ng-container></h1>
+    </div>
+    <p *ngIf="view.notYet" class="credit-intro">Still reading the chain ({{ view.behindBy }} blocks to go): this asset may not be reached yet.</p>
     <ng-container *ngIf="view.error; else body">
       <p *ngIf="view.error.status === 404; else otherError" class="credit-intro">
-        No asset with this id on this chain<ng-container *ngIf="view.behindBy > 0">, as far as the explorer has read it ({{ view.behindBy }} blocks to go)</ng-container>.
+        No asset with this id on this chain.
         <a [routerLink]="['/tx/' | relativeUrl, id]">Look the id up as a transaction</a>.
       </p>
       <ng-template #otherError><app-http-error [error]="view.error">Could not load the asset.</app-http-error></ng-template>
     </ng-container>
 
     <ng-template #body>
-      <div class="box" *ngIf="view.asset as a; else skeleton">
-        <table class="table table-borderless table-striped credit-facts">
+      <div class="box" *ngIf="view.asset as a; else (view.notYet ? null : skeleton)">
+        <table class="table table-borderless table-striped credit-detail-table">
           <tbody>
             <tr>
               <td><span class="help" ngbTooltip="The asset's id is the transaction that created it. Tickers are not unique: check the id, not the ticker." placement="bottom" container="body">Asset id</span></td>
-              <td class="mono"><a [routerLink]="['/tx/' | relativeUrl, a.asset_id]">{{ a.asset_id }}</a> <app-clipboard [text]="a.asset_id"></app-clipboard></td>
+              <td class="mono wrap"><a [routerLink]="['/tx/' | relativeUrl, a.asset_id]">{{ a.asset_id }}</a> <app-clipboard [text]="a.asset_id"></app-clipboard></td>
             </tr>
             <tr><td>Ticker</td><td><span class="ticker">{{ a.ticker }}</span></td></tr>
             <tr *ngIf="a.headline"><td>Headline</td><td class="wrap">{{ a.headline }}</td></tr>
@@ -39,7 +39,7 @@
               <td><span class="help" ngbTooltip="Whoever holds the control coin controls the asset; it moves like any coin." placement="bottom" container="body">Control coin</span></td>
               <td>
                 <ng-container *ngIf="a.control; else noControl">
-                  <span class="mono">{{ a.control.address || 'a script without an address' }}</span>
+                  <span class="mono wrap">{{ a.control.address || 'a script without an address' }}</span>
                   <span class="sub"><a [routerLink]="['/tx/' | relativeUrl, a.control.txid]" [fragment]="'vout=' + a.control.vout">in tx {{ a.control.txid | shortenString : 16 }}</a></span>
                 </ng-container>
                 <ng-template #noControl><span class="sub">not found unspent</span></ng-template>

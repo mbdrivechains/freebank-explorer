@@ -197,7 +197,7 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
       const rate = isNumber(house.defer_interest_bps) ? house.defer_interest_bps : HOUSE_DEFER_INTEREST_BPS;
       reasons.push(`The partners invoked the option clause${invoked}: the house is suspended and redemptions are queued, not paid at par. ` +
         `A holder who demands payment earns ${formatBps(rate)} a year from the demand, and the house may pay demanded notes with that interest while suspended.`);
-      reasons.push('A suspension has no end date: it ends when the house attests reserves back above the floor.');
+      reasons.push('A suspension has no end date: it ends when the house attests reserves back above the floor plus a buffer.');
       if (silenceAt) {
         reasons.push(`It must keep attesting: if it has not attested by block ${silenceAt - 1}${relative(silenceAt - 1, tip)}, it becomes insolvent.`);
       }

@@ -106,4 +106,5 @@ module.exports = {
   getPool: 'getpool',
   getGoldFix: 'getgoldfix',
   listOracleSubmitters: 'listoraclesubmitters',
+  listAssets: 'listassets', // v0.2.18: every asset on the active chain (asset-index.ts skips to the first genesis)
 };

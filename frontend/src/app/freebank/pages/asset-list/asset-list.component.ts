@@ -6,6 +6,7 @@ import { StateService } from '@app/services/state.service';
 import { WebsocketService } from '@app/services/websocket.service';
 import { SeoService } from '@app/services/seo.service';
 import { loadOnEachBlock } from '@app/freebank/credit-load';
+import { whileIndexing } from '@app/freebank/peg-retry';
 import { formatAssetUnits } from '@app/freebank/asset-coins';
 import { FreebankAsset } from '@interfaces/freebank-credit.interface';
 
@@ -47,7 +48,8 @@ export class AssetListComponent implements OnInit {
     this.seoService.setTitle('Assets');
     this.seoService.setDescription('FreeBank assets: tokens anyone can create, with their supply, holders and transfers.');
     this.websocketService.want(['blocks']);
-    this.view$ = loadOnEachBlock(this.stateService, () => this.apiService.getFreebankAssets$()).pipe(
+    // while the asset index is still reading the chain (after a deploy), ask again every few seconds
+    this.view$ = loadOnEachBlock(this.stateService, () => whileIndexing(() => this.apiService.getFreebankAssets$())).pipe(
       map((state): AssetListView => {
         const assets = state.data?.assets || [];
         const tickers = new Map<string, number>();

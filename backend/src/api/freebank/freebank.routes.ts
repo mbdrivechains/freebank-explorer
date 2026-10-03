@@ -30,7 +30,8 @@ import { FreebankActivityItem } from './freebank.interfaces';
 //   GET activity?family=&limit=&house=&bill_id=
 //                     { tip_height, scanned_from_height, items: [ { txid, height, time,
 //                       version, family, op, op_name, fee, decoded } ] }, newest first; house= keeps the
-//                       txs whose payload names that house (its ops, notes, pool, settlements), bill_id=
+//                       txs whose payload names that house (its ops but the register, which the node numbers;
+//                       its notes, pool, settlements), bill_id=
 //                       the bill's ops after its issue (the node numbers a bill when it is issued)
 //   GET txid-prefix/:prefix   txids starting with 6-63 hex characters: { tip_height, indexed_to, txids:
 //                     [ { txid, height (null: unconfirmed) } ] }, unconfirmed first, then newest; at most 10
@@ -241,7 +242,10 @@ class FreebankRoutes {
         }
       }
       if (txids.length < TXID_PREFIX_RESULTS) {
-        txids.push(...await txidIndex.$match(prefix, TXID_PREFIX_RESULTS - txids.length));
+        // a tx that just confirmed may still be in the backend's mempool map: list it once, as unconfirmed
+        const seen = new Set(txids.map((t) => t.txid));
+        const confirmed = await txidIndex.$match(prefix, TXID_PREFIX_RESULTS);
+        txids.push(...confirmed.filter((t) => !seen.has(t.txid)).slice(0, TXID_PREFIX_RESULTS - txids.length));
       }
       res.json({ tip_height: tip.height, indexed_to: txidIndex.getTop(), txids });
     } catch (e) {

@@ -12,6 +12,7 @@ import assetIndex from './asset-index';
 //   GET assets                      { assets: every asset, oldest first: supply, burned, circulating, holders, ... }
 //   GET asset/:id                   the asset, its holders (largest first, at most 100), where its control coin is,
 //                                   and its newest 50 transactions                                       404 unknown
+//                                   (a JSON 404 with behind_by while the index is still reading the chain)
 //   GET asset-holdings/:address     the asset coins an address holds now, per asset
 //   GET asset-coins?txids=a,b,...   for up to 50 confirmed txs: the asset coins each spends (by outpoint) and
 //                                   creates (by output index), with the asset's ticker and decimals; a tx that
@@ -67,7 +68,13 @@ class AssetRoutes {
       const tip = await $caughtUp();
       const asset = assetIndex.get(id);
       if (!asset) {
-        handleError(req, res, 404, 'Asset not found');
+        // while the index is still reading the chain the asset may yet turn up: say how far it has to go
+        const info = assetIndex.tipInfo(tip.height);
+        if (info.behind_by > 0) {
+          res.status(404).json({ error: 'Asset not found yet', ...info });
+        } else {
+          handleError(req, res, 404, 'Asset not found');
+        }
         return;
       }
       res.json({ ...assetIndex.tipInfo(tip.height), asset });

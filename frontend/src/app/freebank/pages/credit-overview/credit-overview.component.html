@@ -46,7 +46,7 @@
           {{ summary.minted_units_total | noteUnits }} <span class="credit-tile-unit">units</span>
         </div>
         <div class="credit-tile-line">
-          <ng-container *ngIf="goldShown"><span class="credit-grams" ngbTooltip="Grams of gold at the node's presentation scale, for reading only. It is not the gold fix." placement="bottom">{{ summary.minted_grams_total | grams }}</span>.</ng-container>
+          <ng-container *ngIf="goldShown && summary.minted_grams_total !== undefined && summary.minted_grams_total !== null"><span class="credit-grams" ngbTooltip="Grams of gold at the node's presentation scale, for reading only. It is not the gold fix." placement="bottom">{{ summary.minted_grams_total | grams }}</span>.</ng-container>
           Notes of every house in circulation. Each unit is a claim on 1 szat of ECX at the house that issued it.
         </div>
       </div>

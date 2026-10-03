@@ -47,6 +47,7 @@ export class TxidIndex {
   private again = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private saving = false;
 
   constructor(
     private readonly node: TxidIndexNode = bitcoinClient,
@@ -98,8 +99,12 @@ export class TxidIndex {
       if (out.length >= limit) {
         break;
       }
-      const hash = await this.node.getBlockHash(h);
-      const block = await this.node.getBlock(hash, 1);
+      let block: any;
+      try {
+        block = await this.node.getBlock(await this.node.getBlockHash(h), 1);
+      } catch {
+        continue; // the block left the chain (or the node is behind a reorg the index has not seen yet)
+      }
       for (const txid of [...(block?.tx || [])].reverse()) {
         if (typeof txid === 'string' && txid.startsWith(p) && out.length < limit) {
           out.push({ txid, height: h });
@@ -285,6 +290,11 @@ export class TxidIndex {
     if (!this.cacheBase || this.top < 0) {
       return;
     }
+    if (this.saving) {
+      this.scheduleSave();
+      return;
+    }
+    this.saving = true;
     try {
       await fs.promises.mkdir(path.dirname(this.cacheBase), { recursive: true });
       const n = this.count;
@@ -305,6 +315,8 @@ export class TxidIndex {
       await fs.promises.rename(this.cacheBase + '.json' + tmp, this.cacheBase + '.json');
     } catch (e) {
       logger.warn(`FreeBank txid index: cannot write its cache: ${errMsg(e)}`);
+    } finally {
+      this.saving = false;
     }
   }
 }

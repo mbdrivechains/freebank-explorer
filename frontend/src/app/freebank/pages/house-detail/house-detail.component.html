@@ -68,7 +68,7 @@
               </tr>
               <tr *ngIf="d.storedStatusLabel">
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="The status last written on chain. Stressed, deferred and insolvent are worked out from block heights without a write, so this can still read Open.">Recorded status</span></td>
+                  ngbTooltip="The status last written on chain. Stressed, suspended and insolvent are worked out from block heights without a write, so this can still read Open.">Recorded status</span></td>
                 <td>{{ d.storedStatusLabel }}</td>
               </tr>
               <tr>
@@ -151,7 +151,7 @@
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="The option clause lets a stressed house suspend redemptions, locking its reserves. Holders who demand payment earn interest (10% a year) from the demand. A suspension has no end date: it ends when the house attests reserves back above the floor, or in insolvency if the house stops attesting. A house may suspend again, so the count is shown.">Option clause</span></td>
+                  ngbTooltip="The option clause lets a stressed house suspend redemptions, locking its reserves. Holders who demand payment earn interest (10% a year) from the demand. A suspension has no end date: it ends when the house attests reserves back above the floor plus a buffer, or in insolvency if the house stops attesting. A house may suspend again, so the count is shown.">Option clause</span></td>
                 <td>
                   <span [class.overdue]="d.optionClause.warn">{{ d.optionClause.text }}</span>
                   <div class="sub">{{ d.optionClause.sub }}</div>

@@ -8,6 +8,7 @@
   white-space: normal;
   word-break: break-all;
 }
-.credit-facts td:first-child {
-  width: 30%;
+span.wrap {
+  display: inline-block;
+  max-width: 100%;
 }

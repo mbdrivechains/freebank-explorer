@@ -67,7 +67,7 @@ describe('FreeBank house health badge', () => {
   test('a first suspension does not count itself; missing v0.2.18 fields leave their sentences out', () => {
     const b = houseBadge({ ...open, effective_status: 'deferred', pareligible: false, defer_activations: 1 }, 454);
     expect(b.reason).toEqual('Suspended: the house invoked the option clause, so redemptions are queued, not paid at par. ' +
-      'It reopens when it attests reserves back above the floor.');
+      'It reopens when it attests reserves back above the floor plus a buffer.');
   });
 
   test('derived insolvency (effective_status) is INSOLVENT, with impaired notes', () => {

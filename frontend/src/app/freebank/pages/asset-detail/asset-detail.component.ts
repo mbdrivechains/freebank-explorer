@@ -1,14 +1,18 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
-import { Observable, map, switchMap, tap } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
 import { ApiService } from '@app/services/api.service';
 import { StateService } from '@app/services/state.service';
 import { WebsocketService } from '@app/services/websocket.service';
 import { SeoService } from '@app/services/seo.service';
 import { loadOnEachBlock } from '@app/freebank/credit-load';
+import { whileIndexing } from '@app/freebank/peg-retry';
 import { formatAssetUnits } from '@app/freebank/asset-coins';
-import { FreebankAssetDetail, FreebankAssetTx } from '@interfaces/freebank-credit.interface';
+import { FreebankAssetDetail, FreebankAssetResponse, FreebankAssetTx } from '@interfaces/freebank-credit.interface';
+
+/** The answer while the asset index has not reached the asset yet (the backend's JSON 404 with behind_by). */
+type AssetAnswer = FreebankAssetResponse | { tip_height: number, behind_by: number, asset: null };
 
 interface AssetTxRow {
   tx: FreebankAssetTx;
@@ -19,6 +23,7 @@ interface AssetDetailView {
   loading: boolean;
   error: HttpErrorResponse | null;
   refreshFailed: boolean;
+  notYet: boolean;                // not found yet, while the asset index is still reading the chain
   tipHeight: number;
   behindBy: number;
   asset: FreebankAssetDetail | null;
@@ -60,7 +65,12 @@ export class AssetDetailComponent implements OnInit {
         this.seoService.setTitle(`Asset ${this.id.slice(0, 16)}`);
         this.seoService.setDescription('A FreeBank asset: its supply, holders, control coin and transfers.');
       }),
-      switchMap(() => loadOnEachBlock(this.stateService, () => this.apiService.getFreebankAsset$(this.id))),
+      switchMap(() => loadOnEachBlock<AssetAnswer>(this.stateService, () => whileIndexing<AssetAnswer>(() =>
+        this.apiService.getFreebankAsset$(this.id).pipe(
+          catchError((e: HttpErrorResponse) => e.status === 404 && e.error?.behind_by > 0
+            ? of({ tip_height: e.error.tip_height, behind_by: e.error.behind_by, asset: null })
+            : throwError(() => e)),
+        )))),
       map((state): AssetDetailView => {
         const asset = state.data?.asset || null;
         if (asset) {
@@ -70,6 +80,7 @@ export class AssetDetailComponent implements OnInit {
         return {
           loading: state.loading,
           error: !asset && state.error ? state.error : null,
+          notYet: !asset && !state.error && (state.data?.behind_by || 0) > 0,
           refreshFailed: !!asset && !!state.error,
           tipHeight: state.data ? state.data.tip_height : this.stateService.latestBlockHeight,
           behindBy: state.data?.behind_by || 0,

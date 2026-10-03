@@ -146,7 +146,7 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
   if (status === 'stressed' || status === 'deferred') {
     if (status === 'deferred') {
       const since = isNum(house.defer_invoked_height) && house.defer_invoked_height > 0 ? ` since block ${house.defer_invoked_height}` : '';
-      const rate = isNum(house.defer_interest_bps) ? ` and earn ${house.defer_interest_bps / 100}% a year` : '';
+      const rate = isNum(house.defer_interest_bps) && house.defer_interest_bps > 0 ? ` and earn ${house.defer_interest_bps / 100}% a year` : '';
       const silence = isNum(house.defer_silence_insolvent_height) && house.defer_silence_insolvent_height > 0
         ? ` It becomes insolvent at block ${house.defer_silence_insolvent_height} unless it attests before then.`
         : '';
@@ -154,7 +154,7 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
         ? ` This is suspension number ${house.defer_activations}.`
         : '';
       return result('stressed', `Suspended${since}: the house invoked the option clause, so redemptions are queued${rate}, not paid at par. ` +
-        `It reopens when it attests reserves back above the floor.${silence}${count}`);
+        `It reopens when it attests reserves back above the floor plus a buffer.${silence}${count}`);
     }
     let reason = isNum(house.stress_since) ? `Stressed since block ${house.stress_since}` : 'Stressed';
     if (deadline !== null && house.stress_since === deadline + 1) {

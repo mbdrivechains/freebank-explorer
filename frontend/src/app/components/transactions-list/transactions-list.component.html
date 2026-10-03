@@ -6,7 +6,7 @@
       <app-truncate [text]="tx.txid"></app-truncate>
     </a>
     @if (creditTxLabels[tx.version]; as creditLabel) {
-      <span class="badge badge-info mr-3" ngbTooltip="FreeBank credit transaction (version {{ tx.version }})" placement="bottom">{{ creditLabel }}</span>
+      <span class="badge badge-info mr-3" [ngbTooltip]="tx.version === 10 ? 'A FreeBank asset was created here (version 10)' : 'FreeBank credit transaction (version ' + tx.version + ')'" placement="bottom">{{ creditLabel }}</span>
     }
     <div>
       <ng-template [ngIf]="tx.status.confirmed"><app-timestamp [customFormat]="'yyyy-MM-dd HH:mm:ss'" [unixTime]="tx.status.block_time" [hideTimeSince]="true"></app-timestamp></ng-template>

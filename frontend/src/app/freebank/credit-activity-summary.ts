@@ -194,9 +194,9 @@ function houseSummary(op: string | null, d: FreebankDecodedPayload): string {
         (asOf !== null && asOf > 0 ? ` (as of block ${asOf})` : '');
     }
     case 'defer':
-      return `${capitalize(house(id))} invoked the option clause: redemptions deferred`;
+      return `${capitalize(house(id))} invoked the option clause: suspended, redemptions queued`;
     case 'renew':
-      return `${capitalize(house(id))} renewed the option clause`;
+      return `${capitalize(house(id))} renewed the option clause (an old operation, retired in v0.2.18)`;
     case 'release':
       return `${capitalize(house(id))} released its locked reserves`;
     default:

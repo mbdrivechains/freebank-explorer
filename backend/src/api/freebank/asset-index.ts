@@ -14,6 +14,10 @@ import { AssetCoinKind, AssetLedger, AssetRecord, AssetTxEvent, StoredAssetBlock
 // reorg forks). Reorgs drop the blocks above the fork and rebuild the ledger from the kept events; a reorg deeper than
 // the window starts over. Kept in <CACHE_DIR>/freebank/asset-index.json with the chain's genesis hash. index.ts kicks
 // it at startup and on each new block; answers carry behind_by.
+//
+// While the chain holds no asset, the index reads no blocks: it asks the node's listassets for the height of the first
+// genesis and jumps to just below it, keeping only the window of block hashes it needs for reorgs. A node without
+// listassets (before v0.2.18) has no assets either, so the index then reads nothing until it has.
 
 const KEEP_RECENT = 2016;
 const RETRY_MS = 30_000;
@@ -31,7 +35,10 @@ export interface AssetNode {
   getBlockCount(): Promise<number>;
   getBlockHash(height: number): Promise<string>;
   getBlock(hash: string, verbosity: number): Promise<any>;
+  listAssets?(fromAssetId: string, count: number): Promise<any[]>;
 }
+
+const LIST_ASSETS_PAGE = 1000; // listassets' maximum count
 
 export interface AssetTipInfo {
   tip_height: number; // the index's top
@@ -374,6 +381,14 @@ export class AssetIndex {
       }
     }
 
+    if (this.top < tip && this.current().assets.size === 0) {
+      const first = await this.$firstGenesisHeight();
+      const target = first === null ? tip : Math.min(tip, first - 1);
+      if (target > this.top) {
+        await this.$skipTo(target);
+      }
+    }
+
     while (this.top < tip) {
       const next = this.top + 1;
       const hash: string = await this.node.getBlockHash(next);
@@ -405,6 +420,63 @@ export class AssetIndex {
     if (this.scannedSinceSave > 0) {
       this.scheduleSave();
     }
+  }
+
+  /**
+   * The lowest genesis height on the node's active chain (listassets, paged), or null when the chain has no asset or
+   * the node cannot list them (a node before v0.2.18, which has no assets). @asyncUnsafe
+   */
+  private async $firstGenesisHeight(): Promise<number | null> {
+    if (!this.node.listAssets) {
+      return null;
+    }
+    let lowest: number | null = null;
+    let from = '';
+    for (;;) {
+      let rows: any[];
+      try {
+        rows = await this.node.listAssets(from, LIST_ASSETS_PAGE);
+      } catch (e: any) {
+        if (e?.code === -32601 || /method not found/i.test(e?.message ?? '')) {
+          return null; // a node without listassets
+        }
+        throw e;
+      }
+      const page = from ? rows.slice(1) : rows; // from_asset_id is inclusive
+      for (const a of page) {
+        if (typeof a?.height === 'number' && (lowest === null || a.height < lowest)) {
+          lowest = a.height;
+        }
+      }
+      if (rows.length < LIST_ASSETS_PAGE || !page.length) {
+        return lowest;
+      }
+      from = rows[rows.length - 1].asset_id;
+    }
+  }
+
+  /** Jump the index to `target` without reading blocks (no asset below it): keep only the reorg window's hashes. */
+  private async $skipTo(target: number): Promise<void> {
+    if (this.top < 0) {
+      this.genesis = await this.node.getBlockHash(0);
+    }
+    for (let h = Math.max(this.top + 1, target - KEEP_RECENT + 1); h <= target; h++) {
+      const hash = await this.node.getBlockHash(h);
+      const prev = this.blocks.get(h - 1)?.hash ?? '';
+      this.blocks.set(h, { height: h, hash, prev, time: 0 });
+      if (this.again) {
+        this.top = h;
+        return;
+      }
+      this.top = h;
+    }
+    this.top = target;
+    for (const [h, b] of this.blocks) {
+      if (h <= target - KEEP_RECENT && !b.ev) {
+        this.blocks.delete(h);
+      }
+    }
+    this.scheduleSave();
   }
 
   private trim(): void {
