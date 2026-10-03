@@ -91,6 +91,17 @@ describe('FreeBank asset index', () => {
     }
   });
 
+  test('after a skip, a reorg below it that brings an asset in is found (the index starts over)', async () => {
+    const node = new FakeNode(chain(30, 999));
+    const index = new AssetIndex(node, null);
+    await settle(index, node);
+    expect(index.list()).toEqual([]);
+    node.blocks = chain(31, 15, 'c', node.blocks.slice(0, 10)); // a longer branch from block 10, GOLD at 15
+    index.kick();
+    await settle(index, node);
+    expect(index.list().map((a) => [a.ticker, a.height])).toEqual([['GOLD', 15]]);
+  });
+
   test('a reorg that drops the transfer rolls the holdings back', async () => {
     const node = new FakeNode(chain(25, 20));
     const index = new AssetIndex(node, null);

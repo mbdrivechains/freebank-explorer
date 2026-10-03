@@ -16,7 +16,7 @@ import { AssetCoinKind, AssetLedger, AssetRecord, AssetTxEvent, StoredAssetBlock
 // it at startup and on each new block; answers carry behind_by.
 //
 // While the chain holds no asset, the index reads no blocks: it asks the node's listassets for the height of the first
-// genesis and jumps to just below it, keeping only the window of block hashes it needs for reorgs. A node without
+// genesis and jumps to just below it, keeping only that block's hash (a reorg below it makes the index start over). A node without
 // listassets (before v0.2.18) has no assets either, so the index then reads nothing until it has.
 
 const KEEP_RECENT = 2016;
@@ -455,27 +455,23 @@ export class AssetIndex {
     }
   }
 
-  /** Jump the index to `target` without reading blocks (no asset below it): keep only the reorg window's hashes. */
+  /**
+   * Jump the index to `target` without reading blocks (no asset below it). Only the target's hash is kept: a later
+   * reorg below it changes that hash, the walk-back then finds no kept block and the index starts over (cheap: it
+   * skips again). @asyncUnsafe
+   */
   private async $skipTo(target: number): Promise<void> {
     if (this.top < 0) {
       this.genesis = await this.node.getBlockHash(0);
     }
-    for (let h = Math.max(this.top + 1, target - KEEP_RECENT + 1); h <= target; h++) {
-      const hash = await this.node.getBlockHash(h);
-      const prev = this.blocks.get(h - 1)?.hash ?? '';
-      this.blocks.set(h, { height: h, hash, prev, time: 0 });
-      if (this.again) {
-        this.top = h;
-        return;
-      }
-      this.top = h;
-    }
-    this.top = target;
+    const hash = await this.node.getBlockHash(target);
     for (const [h, b] of this.blocks) {
-      if (h <= target - KEEP_RECENT && !b.ev) {
-        this.blocks.delete(h);
+      if (!b.ev) {
+        this.blocks.delete(h); // eventless blocks below the jump are of no use for the walk-back any more
       }
     }
+    this.blocks.set(target, { height: target, hash, prev: '', time: 0 });
+    this.top = target;
     this.scheduleSave();
   }
 
