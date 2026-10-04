@@ -124,8 +124,8 @@
         </a>
       </li>
     </ul>
-    <!-- FreeBank: the desktop app's latest release (freebank/app-link.ts); phones get the footer link -->
-    <a class="btn btn-sm get-app d-none d-lg-inline-block" [href]="freebankAppUrl" target="_blank" rel="noopener"
+    <!-- FreeBank: the desktop app's latest release (freebank/app-link.ts); from 1200 px (narrower, it squeezes the search box), the footer link everywhere -->
+    <a class="btn btn-sm get-app d-none d-xl-inline-block" [href]="freebankAppUrl" target="_blank" rel="noopener"
       title="Download the FreeBank desktop app (Linux, macOS)">Get the FreeBank app</a>
     <app-search-form [hamburgerOpen]="enterpriseInfo === null && user != null" class="search-form-container" location="top" (searchTriggered)="collapse()"></app-search-form>
   </div>
