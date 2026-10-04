@@ -54,6 +54,8 @@
           <td class="col-house">
             <a class="house-name" [routerLink]="['/house/' | relativeUrl, row.house.id]">{{ row.house.classid }}</a>
             <span class="house-number">#{{ row.house.id }}</span>
+            <span class="badge house-type-badge" *ngIf="row.house.type && row.house.type !== 'open'"
+              [ngbTooltip]="houseTypeTooltips[row.house.type]" placement="bottom">{{ houseTypeLabels[row.house.type] || row.house.type }}</span>
           </td>
           <td class="col-health">
             <app-house-health-badge [house]="row.house" [tipHeight]="view.tip" placement="bottom"></app-house-health-badge>

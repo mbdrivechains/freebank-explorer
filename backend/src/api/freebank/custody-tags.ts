@@ -179,8 +179,8 @@ function readTags(tx: FreebankParsedTx, tags: (CoinTag | null)[]): void {
       break;
     }
     case V_HOUSE: {
-      // coins.cpp AddCoins, fHouseTx: REGISTER vout[0..N-1], TOPUP / ADMIT / DEFER vout[0]
-      if (op === 1) {
+      // coins.cpp AddCoins, fHouseTx: REGISTER (and v0.2.19 REGISTER_MO) vout[0..N-1], TOPUP / ADMIT / DEFER vout[0]
+      if (op === 1 || op === 11) {
         // HouseRegister. The house hash is HouseDeclarationDigest: sha256d over a tag and the
         // payload's fields before the partner signatures (house.cpp:19-39).
         r.u8(); // nTier
@@ -196,7 +196,19 @@ function readTags(tx: FreebankParsedTx, tags: (CoinTag | null)[]): void {
         const pledges = r.compactSize();
         r.skip(8 * pledges);
         const declaration = (tx.payload as Buffer).subarray(0, r.pos);
-        const hash = sha256d(Buffer.concat([serString('FreeBankHouse/declaration'), declaration])).toString('hex');
+        // v0.2.19 REGISTER_MO: the payload goes on with the partner signatures and the house-type flags; its digest has
+        // its own tag and ends with the flags (house.cpp HouseDeclarationDigest), so an open house's id is unchanged
+        let flags = 0;
+        if (op === 11) {
+          const sigs = r.compactSize();
+          for (let i = 0; i < sigs; i++) {
+            r.varBytes();
+          }
+          flags = r.u8();
+        }
+        const hash = (flags
+          ? sha256d(Buffer.concat([serString('FreeBankHouse/declaration-mo'), declaration, Buffer.from([flags])]))
+          : sha256d(Buffer.concat([serString('FreeBankHouse/declaration'), declaration]))).toString('hex');
         partners.forEach((partnerPubkey, i) => {
           set(i, { kind: 'house_pledge', houseHash: reverseHex(hash), partnerIndex: i, partnerPubkey, expectedPush: hash });
         });

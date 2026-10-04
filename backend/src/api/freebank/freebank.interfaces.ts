@@ -24,6 +24,8 @@ export interface FreebankHouse {
   attest_deadline: number;
   pareligible: boolean;
   defer_activations?: number; // suspensions, all time (v0.2.18: no limit, so the count is shown)
+  type?: string; // v0.2.19: 'open' | 'members' | 'redeem', fixed at registration
+  member_records?: number; // v0.2.19: member records of a members-only house
   insolventheight?: number;
   [field: string]: any;
 }

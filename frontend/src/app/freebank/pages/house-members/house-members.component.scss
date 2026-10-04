@@ -1,0 +1,16 @@
+.mono {
+  font-family: monospace;
+}
+.wrap {
+  white-space: normal;
+  word-break: break-all;
+}
+.removed {
+  color: var(--transparent-fg, #9a9788);
+}
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}

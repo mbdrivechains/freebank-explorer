@@ -1,0 +1,54 @@
+<div class="container-xl credit-page">
+  <div class="title-block">
+    <h1>House {{ idText }} members</h1>
+  </div>
+  <p class="credit-intro">
+    Only members may hold a members-only house's notes, and the list is public on the chain. A removal takes effect a
+    few blocks after it is made. The house's own keys (its partners and its redemption address) are members too, and are
+    not listed. <a [routerLink]="['/house/' | relativeUrl, idText]">Back to the house</a>.
+  </p>
+
+  <ng-container *ngIf="view$ | async as view">
+    <ng-container *ngIf="view.error; else table">
+      <p class="credit-intro" *ngIf="view.error.status === 400 || view.error.status === 404; else otherError">
+        {{ view.error.status === 404 ? 'There is no house ' + idText + ' on this chain, or this node keeps no member lists.' : 'This house is open: anyone may hold its notes, so it has no member list.' }}
+      </p>
+      <ng-template #otherError><app-http-error [error]="view.error">Could not load the members.</app-http-error></ng-template>
+    </ng-container>
+
+    <ng-template #table>
+      <div class="box">
+        <table class="table table-borderless table-striped credit-table" [class.reloading]="view.loading">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th class="text-right">Added</th>
+              <th class="text-right">Status</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="view.data as d; else skeleton">
+            <tr *ngFor="let m of d.members">
+              <td class="mono wrap">{{ m.address }}</td>
+              <td class="text-right"><app-credit-height [height]="m.added_height" [tipHeight]="d.tip_height" [showRelative]="false"></app-credit-height></td>
+              <td class="text-right">
+                <ng-container *ngIf="m.removal_height; else member">
+                  <span [class.removed]="!m.active">{{ m.active ? 'leaving at block ' + m.removal_height : 'removed at block ' + m.removal_height }}</span>
+                </ng-container>
+                <ng-template #member><span *ngIf="m.active; else notYet">member</span><ng-template #notYet>member from the next block</ng-template></ng-template>
+              </td>
+            </tr>
+            <tr *ngIf="!d.members.length"><td colspan="3" class="empty-row">No members listed{{ pageNumber > 1 ? ' on this page' : '' }}.</td></tr>
+          </tbody>
+          <ng-template #skeleton>
+            <tbody><tr *ngFor="let i of [1, 2, 3]"><td colspan="3"><span class="skeleton-loader"></span></td></tr></tbody>
+          </ng-template>
+        </table>
+      </div>
+      <div class="pager" *ngIf="view.data as d">
+        <button class="btn btn-sm btn-outline-info" [disabled]="pageNumber === 1" (click)="previousPage()">Previous</button>
+        <span class="sub">page {{ pageNumber }}</span>
+        <button class="btn btn-sm btn-outline-info" [disabled]="!d.next" (click)="nextPage(d.next)">Next</button>
+      </div>
+    </ng-template>
+  </ng-container>
+</div>

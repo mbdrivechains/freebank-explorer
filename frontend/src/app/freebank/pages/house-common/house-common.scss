@@ -81,3 +81,12 @@
   color: var(--transparent-fg);
   margin-left: 0.35em;
 }
+
+// v0.2.19: a members-only or redeem-only house (house-view.ts HOUSE_TYPE_LABELS)
+.house-type-badge {
+  margin-left: 0.4rem;
+  color: var(--mainnet-alt);
+  border: 1px solid var(--mainnet-alt);
+  font-weight: normal;
+  vertical-align: middle;
+}

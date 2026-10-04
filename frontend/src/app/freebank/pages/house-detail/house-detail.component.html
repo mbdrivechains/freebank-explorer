@@ -8,6 +8,8 @@
       <ng-template #titleNumber><span class="house-classid">{{ idText }}</span></ng-template>
     </h1>
     <span class="house-number" *ngIf="view.data">#{{ view.data.house.id }}</span>
+    <span class="badge house-type-badge" *ngIf="view.data && view.data.house.type && view.data.house.type !== 'open'"
+      [ngbTooltip]="houseTypeTooltips[view.data.house.type]" placement="bottom">{{ houseTypeLabels[view.data.house.type] || view.data.house.type }}</span>
     <div class="spinner-border" role="status" *ngIf="view.refreshing"><span class="sr-only">Loading</span></div>
     <div class="grow"></div>
     <app-house-health-badge *ngIf="view.data" class="house-title-badge" [house]="view.data.house" [tipHeight]="view.data.tip" placement="bottom-right"></app-house-health-badge>
@@ -597,6 +599,17 @@
         <div class="col-md">
           <table class="table table-borderless table-striped house-facts">
             <tbody>
+              <tr *ngIf="d.house.type">
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Who may hold the house's notes, fixed when it registered.">Type</span></td>
+                <td>{{ houseTypeLabels[d.house.type] || d.house.type }}
+                  <div class="sub">{{ houseTypeTooltips[d.house.type] }}</div>
+                  <div class="sub" *ngIf="hasMembers(d.house)">
+                    {{ d.house.member_records ?? 0 | number }} member records ·
+                    <a [routerLink]="['/house/' | relativeUrl, d.house.id, 'members']">see the members</a>
+                  </div>
+                </td>
+              </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
                   ngbTooltip="How the house is owned and governed. The tier also sets the issuance multiplier.">Tier</span></td>

@@ -47,7 +47,11 @@ export const BITASSET_CREATE_VERSION = 10;
 //   oracle.h ORACLE_OP_*
 export const CREDIT_OP_NAMES: Readonly<Record<CreditFamily, Readonly<Record<number, string>>>> = {
   bill: { 1: 'issue', 2: 'endorse', 3: 'retire', 4: 'claim', 5: 'discount', 6: 'recourse', 7: 'hretire', 8: 'hclaim' },
-  house: { 1: 'register', 2: 'topup', 3: 'admit', 4: 'exit', 5: 'winddown', 6: 'reclaim', 7: 'attest', 8: 'defer', 9: 'renew', 10: 'release' },
+  house: {
+    1: 'register', 2: 'topup', 3: 'admit', 4: 'exit', 5: 'winddown', 6: 'reclaim', 7: 'attest', 8: 'defer', 9: 'renew', 10: 'release',
+    // v0.2.19 members-only houses
+    11: 'register_mo', 12: 'member_add', 13: 'member_remove', 14: 'member_purge',
+  },
   note: { 1: 'mint', 2: 'transfer', 3: 'redeem', 4: 'lock', 5: 'unlock', 6: 'claim', 7: 'demand', 8: 'protest' },
   deposit: { 1: 'originate', 2: 'transfer', 3: 'withdraw', 4: 'claim' },
   pool: { 1: 'create', 2: 'add_liq', 3: 'remove_liq', 4: 'swap', 5: 'retire' },
@@ -463,8 +467,60 @@ function decodeBill(r: ByteReader, op: number): DecodedPayload {
   }
 }
 
+// house.h HOUSE_FLAG_* (v0.2.19), fixed at registration: members-only (notes only between members) and redeem-only
+// (notes only between the house and the holder)
+export function houseTypeOfFlags(flags: number): string {
+  return flags & 2 ? 'redeem' : flags & 1 ? 'members' : 'open';
+}
+
+const FREEBANK_ADDRESS_VERSION = 75; // chainparams PUBKEY_ADDRESS: 'X...'
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+/** The base58check address of a 20-byte key id (EncodeDestination(CKeyID)). */
+export function keyIdToAddress(keyId: Buffer): string {
+  const body = Buffer.concat([Buffer.from([FREEBANK_ADDRESS_VERSION]), keyId]);
+  const full = Buffer.concat([body, sha256d(body).subarray(0, 4)]);
+  let n = BigInt('0x' + full.toString('hex'));
+  let out = '';
+  while (n > 0n) {
+    out = B58[Number(n % 58n)] + out;
+    n /= 58n;
+  }
+  for (const byte of full) {
+    if (byte !== 0) {
+      break;
+    }
+    out = '1' + out;
+  }
+  return out;
+}
+
+const MEMBER_ADDRESSES_SHOWN = 20; // a member op may name many keys: the decode lists the first 20
+
 function decodeHouse(r: ByteReader, op: number): DecodedPayload {
   switch (op) {
+    case 11: { // HouseRegisterMO (v0.2.19): a HouseRegister, then the house-type flags
+      const reg = decodeHouse(r, 1);
+      const sigs = r.compactSize(); // vPartnerSig
+      for (let i = 0; i < sigs; i++) {
+        r.varBytes();
+      }
+      return { ...reg, house_type: houseTypeOfFlags(r.u8()) };
+    }
+    case 12: // HouseMemberOp: MEMBER_ADD
+    case 13: // MEMBER_REMOVE (takes effect MEMBER_REMOVE_DELAY blocks out)
+    case 14: { // MEMBER_PURGE (deletes records whose removal is final)
+      const house_id = r.u32();
+      const count = r.compactSize(); // vKeyID
+      const addresses: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const keyId = r.bytes(20);
+        if (addresses.length < MEMBER_ADDRESSES_SHOWN) {
+          addresses.push(keyIdToAddress(keyId));
+        }
+      }
+      return { house_id, members: count, member_addresses: addresses.join(',') };
+    }
     case 1: { // HouseRegister: the house id is assigned by the node
       const tier = r.u8();
       const threshold = r.u32();

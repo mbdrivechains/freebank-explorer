@@ -10,7 +10,7 @@ import { StorageService } from '@app/services/storage.service';
 import { WebsocketResponse } from '@interfaces/websocket.interface';
 import { TxAuditStatus } from '@components/transaction/transaction.component';
 import { FreebankActivityResponse, FreebankBillResponse, FreebankBillsResponse, FreebankGoldResponse, FreebankHouseResponse,
-  FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankAssetsResponse, FreebankAssetResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
+  FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankAssetsResponse, FreebankAssetResponse, FreebankHouseMembersResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
 import { FreebankBmmBlock, FreebankBmmConfig, FreebankBmmListResponse, FreebankBmmSummaryResponse } from '@interfaces/freebank-bmm.interface';
 
 @Injectable({
@@ -604,6 +604,12 @@ export class ApiService {
 
   getFreebankHouse$(id: number): Observable<FreebankHouseResponse> {
     return this.httpClient.get<FreebankHouseResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/house/' + encodeURIComponent(String(id)));
+  }
+
+  // v0.2.19: a members-only house's public member list, paged by address
+  getFreebankHouseMembers$(id: number, start: string, count: number): Observable<FreebankHouseMembersResponse> {
+    return this.httpClient.get<FreebankHouseMembersResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/house/' +
+      encodeURIComponent(String(id)) + '/members', { params: { start, count: String(count) } });
   }
 
   getFreebankBills$(): Observable<FreebankBillsResponse> {

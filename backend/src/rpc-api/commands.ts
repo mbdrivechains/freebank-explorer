@@ -106,5 +106,6 @@ module.exports = {
   getPool: 'getpool',
   getGoldFix: 'getgoldfix',
   listOracleSubmitters: 'listoraclesubmitters',
+  listHouseMembers: 'listhousemembers', // v0.2.19: a members-only house's public member list (paged by address)
   listAssets: 'listassets', // v0.2.18: every asset on the active chain (asset-index.ts skips to the first genesis)
 };

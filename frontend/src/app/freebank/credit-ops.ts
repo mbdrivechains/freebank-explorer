@@ -54,6 +54,11 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
     8: { name: 'defer', label: 'Invoke option clause' },
     9: { name: 'renew', label: 'Renew option clause' },
     10: { name: 'release', label: 'Release locked reserves' },
+    // v0.2.19 members-only houses
+    11: { name: 'register_mo', label: 'Register members-only house' },
+    12: { name: 'member_add', label: 'Add members' },
+    13: { name: 'member_remove', label: 'Remove members' },
+    14: { name: 'member_purge', label: 'Purge removed members' },
   },
   note: {
     1: { name: 'mint', label: 'Mint notes' },

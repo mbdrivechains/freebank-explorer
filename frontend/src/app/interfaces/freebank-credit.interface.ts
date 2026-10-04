@@ -101,6 +101,24 @@ export interface FreebankHouse {
   registeredheight: number;       // height
   txidregister: string;           // txid of the registration (v12) tx
   partners: FreebankHousePartner[];
+  type?: string;                  // v0.2.19: 'open' | 'members' (notes only between members) | 'redeem' (only between
+                                  // the house and the holder); fixed at registration
+  member_records?: number;        // v0.2.19: member records (active and scheduled for removal), members-only houses
+}
+
+/** GET /api/v1/freebank/house/:id/members (listhousemembers), v0.2.19. */
+export interface FreebankHouseMember {
+  address: string;
+  added_height: number;
+  removal_height: number;         // 0 = no removal scheduled
+  active: boolean;                // a member in the next block
+}
+
+export interface FreebankHouseMembersResponse {
+  tip_height: number;
+  house_id: number;
+  members: FreebankHouseMember[];
+  next: string | null;            // the address to start the next page from, null on the last page
 }
 
 /** Bill status letters (freebank bill.h BILL_STATUS_*). Issued and endorsed bills are both 'a'. */
@@ -274,6 +292,11 @@ export interface FreebankDecodedPayload {
   partner_index?: number;
   as_of_height?: number;          // height the attested reserves are proven at
   reserves_sats?: number;         // sats: the attested reserves
+  // house (v0.2.19): register_mo (the register fields and house_type), member_add / member_remove / member_purge
+  // (house_id, members, member_addresses: the first 20, comma-separated)
+  house_type?: string;            // 'open' | 'members' | 'redeem'
+  members?: number;               // count of member keys the op names
+  member_addresses?: string;      // comma-separated, at most 20
   // note: mint / transfer / demand / protest (house_id, units, outputs), redeem / claim (house_id);
   // demand also (demand_mode, prior_demand_height), v0.2.18
   units?: number;                 // units, summed over the note outputs

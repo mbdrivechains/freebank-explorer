@@ -15,6 +15,7 @@ import { HouseHealth, formatAttestedRatio, houseHealth, houseNeverAttested } fro
 import { CREDIT_FAMILIES } from '@app/freebank/credit-ops';
 import { SATS_PER_ECX, formatBlockCount, formatBlocksFromTip, formatBps, poolSpotSatsPerUnit } from '@app/freebank/credit-units';
 import {
+  HOUSE_TYPE_LABELS, HOUSE_TYPE_TOOLTIPS, houseHasMembers,
   ActivityDetail, AttestationClock, BillMaturity, HouseCapacity, activityNamesHouse, attestationClock, billMaturity,
   describeActivity, ecxToGrams, formatPercent, houseCapacity, houseStatusLabel, houseTierLabel, unitsToGrams,
 } from '@app/freebank/pages/house-common/house-view';
@@ -276,6 +277,9 @@ function toActivity(state: CreditLoad<FreebankActivityResponse>, houseId: number
 })
 export class HouseDetailComponent implements OnInit {
   goldShown = GOLD_SHOWN; // FreeBank: gold views on or off (gold-display.ts)
+  houseTypeLabels = HOUSE_TYPE_LABELS; // v0.2.19 house types
+  houseTypeTooltips = HOUSE_TYPE_TOOLTIPS;
+  hasMembers = houseHasMembers;
   houseId: number;
   idText: string;                 // the id as typed in the URL, for the header and the not-found line
   view$: Observable<HouseDetailView>;

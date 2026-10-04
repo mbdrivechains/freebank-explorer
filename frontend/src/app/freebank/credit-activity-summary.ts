@@ -158,10 +158,14 @@ function billSummary(op: string | null, d: FreebankDecodedPayload): string {
   }
 }
 
+/** v0.2.19 house types, as gethouse's "type" and the decoded register_mo's house_type say them. */
+const HOUSE_TYPE_WORDS: { [type: string]: string } = { open: 'open', members: 'members-only', redeem: 'redeem-only' };
+
 function houseSummary(op: string | null, d: FreebankDecodedPayload): string {
   const id = num(d, 'house_id');
   switch (op) {
-    case 'register': {
+    case 'register':
+    case 'register_mo': {
       const classid = str(d, 'classid');
       const tier = num(d, 'tier');
       const pledge = num(d, 'pledge_sats');
@@ -175,7 +179,17 @@ function houseSummary(op: string | null, d: FreebankDecodedPayload): string {
       if (pledge !== null) {
         parts.push(`pledge ${ecx(pledge)}`);
       }
-      return 'New house registered' + (parts.length ? ': ' + parts.join(', ') : '');
+      const kind = op === 'register_mo' ? `New ${HOUSE_TYPE_WORDS[str(d, 'house_type') || ''] || 'members-only'} house registered` : 'New house registered';
+      return kind + (parts.length ? ': ' + parts.join(', ') : '');
+    }
+    case 'member_add':
+    case 'member_remove':
+    case 'member_purge': {
+      const n = num(d, 'members');
+      const who = n !== null ? `${formatUnits(n)} member${n === 1 ? '' : 's'}` : 'members';
+      return op === 'member_add' ? `${capitalize(house(id))} added ${who}`
+        : op === 'member_remove' ? `${capitalize(house(id))} scheduled the removal of ${who}`
+        : `${capitalize(house(id))} purged ${who} whose removal is final`;
     }
     case 'topup':
       return `A partner of ${house(id)} added to its pledge`;

@@ -22,6 +22,11 @@ import { FreebankActivityItem } from './freebank.interfaces';
 //   GET house/:id     { tip_height, house: gethouse, loanbook: listloanbook <id>,
 //                       bills: listbills with owner_house_id == id,
 //                       pools: listpools with house_id == id }                    404 unknown
+//   GET house/:id/members?start=&count=
+//                     v0.2.19, a members-only (or redeem-only) house's public member list, in address order:
+//                     { tip_height, house_id, members: [ { address, added_height, removal_height, active } ],
+//                       next: the address the next page starts at, or null }; count 1-500 (default 100).
+//                     404 unknown house; 400 an open house (no member list) or a bad start address
 //   GET bills         { tip_height, bills: listbills }
 //   GET bill/:id      { tip_height, bill: getbill }                               404 unknown
 //   GET pools         { tip_height, pools: listpools }
@@ -59,6 +64,8 @@ import { FreebankActivityItem } from './freebank.interfaces';
 // A malformed id is a 400; an id the node does not know is a 404; a node failure is a 500
 // with a short message. Nothing here throws past the handler.
 
+const MEMBERS_DEFAULT_PAGE = 100;
+const MEMBERS_MAX_PAGE = 500;
 const ACTIVITY_DEFAULT_LIMIT = 50;
 const ACTIVITY_MAX_LIMIT = 200;
 const ACTIVITY_WAIT_MS = 1500;
@@ -81,6 +88,7 @@ class FreebankRoutes {
     app
       .get(prefix + 'houses', this.$getHouses)
       .get(prefix + 'house/:id', this.$getHouse)
+      .get(prefix + 'house/:id/members', this.$getHouseMembers)
       .get(prefix + 'bills', this.$getBills)
       .get(prefix + 'bill/:id', this.$getBill)
       .get(prefix + 'pools', this.$getPools)
@@ -115,6 +123,52 @@ class FreebankRoutes {
       send(res, await freebankApi.$getHouse(id));
     } catch (e) {
       nodeError(req, res, 'house', e);
+    }
+  };
+
+  private $getHouseMembers = async (req: Request, res: Response): Promise<void> => {
+    const id = parseCreditId(req.params.id);
+    if (id === null) {
+      handleError(req, res, 400, 'Invalid house id');
+      return;
+    }
+    const start = typeof req.query.start === 'string' ? req.query.start : '';
+    if (start && !/^[0-9A-Za-z]{14,100}$/.test(start)) {
+      handleError(req, res, 400, 'Invalid start address');
+      return;
+    }
+    const countParam = typeof req.query.count === 'string' ? parseInt(req.query.count, 10) : NaN;
+    const count = Number.isFinite(countParam) ? Math.min(MEMBERS_MAX_PAGE, Math.max(1, countParam)) : MEMBERS_DEFAULT_PAGE;
+    try {
+      const tip = await freebankApi.$getTip();
+      let rows: any[];
+      try {
+        // one more than asked: its address starts the next page (start is inclusive)
+        rows = await (bitcoinClient as any).listHouseMembers(id, start, count + 1);
+      } catch (e: any) {
+        const message = String(e?.message ?? '');
+        if (/^unknown house/i.test(message)) {
+          handleError(req, res, 404, 'House not found');
+        } else if (/house is open/i.test(message)) {
+          handleError(req, res, 400, 'This house is open: it has no member list');
+        } else if (e?.code === -5 || /start must be/i.test(message)) {
+          handleError(req, res, 400, 'Invalid start address');
+        } else if (e?.code === -32601 || /method not found/i.test(message)) {
+          handleError(req, res, 404, 'This node has no member lists (before v0.2.19)');
+        } else {
+          throw e;
+        }
+        return;
+      }
+      const list = Array.isArray(rows) ? rows : [];
+      res.json({
+        tip_height: tip.height,
+        house_id: id,
+        members: list.slice(0, count),
+        next: list.length > count ? list[count].address : null,
+      });
+    } catch (e) {
+      nodeError(req, res, 'house members', e);
     }
   };
 

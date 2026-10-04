@@ -13,6 +13,19 @@ import { HOUSE_TIER_LABELS } from '@app/freebank/credit-ops';
 // discounted bill in its own notes, so the bills it holds are already counted in its notes.
 // The *wtmathi / *wtmatlo accumulator words are never read here (they can exceed 2^53).
 
+// v0.2.19 house types (gethouse "type", fixed at registration): who may hold the house's notes.
+export const HOUSE_TYPE_LABELS: { [type: string]: string } = { open: 'Open', members: 'Members only', redeem: 'Redeem only' };
+export const HOUSE_TYPE_TOOLTIPS: { [type: string]: string } = {
+  open: 'Anyone may hold and pass on this house\'s notes.',
+  members: 'Only the house\'s members may hold its notes: they pass only between members. The member list is public.',
+  redeem: 'The house\'s notes pass only between the house and the holder: a holder can only redeem them.',
+};
+
+/** Whether a house has a member list (members-only or redeem-only; v0.2.19). */
+export function houseHasMembers(house: { type?: string }): boolean {
+  return house?.type === 'members' || house?.type === 'redeem';
+}
+
 export const HOUSE_STATUS_LABELS: { [status: string]: string } = {
   open: 'Open',
   stressed: 'Stressed',
@@ -252,6 +265,15 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
         const pledge = has('pledge_sats') ? `, pledged ${ecx(d.pledge_sats)}` : '';
         const tier = has('tier') ? `: ${houseTierLabel(num(d.tier)).toLowerCase()}` : '';
         text = `Registered${has('classid') ? ` as "${d.classid}"` : ''}${tier}${partners}${pledge}`;
+      } else if (op === 'register_mo') {
+        const type = d.house_type === 'redeem' ? 'redeem-only' : 'members-only';
+        const partners = has('partners') ? `, ${d.partners} partner${d.partners === 1 ? '' : 's'}` : '';
+        const pledge = has('pledge_sats') ? `, pledged ${ecx(d.pledge_sats)}` : '';
+        text = `Registered as a ${type} house${has('classid') ? ` "${d.classid}"` : ''}${partners}${pledge}`;
+      } else if (op === 'member_add' || op === 'member_remove' || op === 'member_purge') {
+        const n = num(d.members);
+        const who = `${formatUnits(n)} member${n === 1 ? '' : 's'}`;
+        text = op === 'member_add' ? `Added ${who}` : op === 'member_remove' ? `Scheduled the removal of ${who}` : `Purged ${who} (removal final)`;
       } else if (op === 'attest') {
         const asOf = has('as_of_height') ? ` as of block ${d.as_of_height}` : '';
         text = has('reserves_sats') ? `Proved reserves of ${ecx(d.reserves_sats)}${asOf}` : 'Attested its reserves';
