@@ -7,6 +7,7 @@ import { EnterpriseService } from '@app/services/enterprise.service';
 import { NavigationService } from '@app/services/navigation.service';
 import { MenuComponent } from '@components/menu/menu.component';
 import { StorageService } from '@app/services/storage.service';
+import { FREEBANK_APP_URL } from '@app/freebank/app-link';
 
 @Component({
   selector: 'app-master-page',
@@ -19,6 +20,7 @@ export class MasterPageComponent implements OnInit, OnDestroy {
   @Input() footerVisibleOverride: boolean | null = null;
 
   env: Env;
+  freebankAppUrl = FREEBANK_APP_URL; // FreeBank: the desktop app's latest release (header button)
   network$: Observable<string>;
   connectionState$: Observable<number>;
   navCollapsed = false;

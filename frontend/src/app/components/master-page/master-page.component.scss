@@ -199,6 +199,17 @@ nav {
     padding-left: 15px;
   }
 }
+// FreeBank: the app download button beside the search box
+.get-app {
+  margin-left: 15px;
+  white-space: nowrap;
+  color: var(--mainnet-alt);
+  border: 1px solid var(--mainnet-alt);
+  &:hover {
+    color: var(--bg);
+    background-color: var(--mainnet-alt);
+  }
+}
 .navbar-dark .navbar-nav .nav-link {
   color: var(--icon);
 }

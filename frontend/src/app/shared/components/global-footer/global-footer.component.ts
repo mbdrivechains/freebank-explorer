@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { StateService } from '@app/services/state.service';
 import { EnterpriseService } from '@app/services/enterprise.service';
+import { FREEBANK_APP_URL } from '@app/freebank/app-link';
 
 @Component({
   selector: 'app-global-footer',
@@ -17,6 +18,7 @@ export class GlobalFooterComponent implements OnInit, OnDestroy {
   frontendGitCommitHash = this.stateService.env.GIT_COMMIT_HASH;
   packetJsonVersion = this.stateService.env.PACKAGE_JSON_VERSION;
   freebankVersion = this.stateService.env.FREEBANK_VERSION || '';
+  freebankAppUrl = FREEBANK_APP_URL; // FreeBank: the desktop app's latest release
   sourceUrl = this.stateService.env.SOURCE_URL || '';
   isServicesPage = false;
 
