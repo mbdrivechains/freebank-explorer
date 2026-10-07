@@ -183,6 +183,9 @@
       </div>
     </div>
 
+    <!-- TOKENS (v0.2.20 records, v0.2.21 claims): hidden while the house has no keyset, tokens or claims -->
+    <app-house-tokens [house]="d.house"></app-house-tokens>
+
     <!-- INSOLVENCY -->
     <ng-container *ngIf="d.insolvent">
       <div class="title"><h2>Insolvency</h2></div>

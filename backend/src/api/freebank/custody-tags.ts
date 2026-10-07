@@ -268,6 +268,11 @@ function readTags(tx: FreebankParsedTx, tags: (CoinTag | null)[]): void {
             ? { kind: 'note_custody', houseId, units: u, protested, queued, expectedPush }
             : { kind: 'note', houseId, units: u }));
         }
+      } else if (op === 12) {
+        // v0.2.21 TOKEN_COLLECT: escrow change at vout[0] when fEscrowChange (note.cpp ApplyNoteCoinTags)
+        if (r.u8() !== 0) {
+          set(0, { kind: 'house_claim_change', houseId });
+        }
       } else if (op === 3 || op === 6) {
         if (r.u8() !== 0) { // fBrassage / fEscrowChange
           set(1, { kind: op === 3 ? 'house_spread' : 'house_claim_change', houseId });

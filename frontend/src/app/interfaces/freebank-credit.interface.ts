@@ -105,6 +105,44 @@ export interface FreebankHouse {
                                   // the house and the holder); fixed at registration
   member_records?: number;        // v0.2.19: member records (active and scheduled for removal), members-only houses
   tokenunits?: number;            // v0.2.20: units backing the house's Chaumian tokens outstanding (part of mintedunits)
+  tokenclaimed?: number;          // v0.2.21: units claimed by token holders at a failed house
+  tokenclaims?: number;           // v0.2.21: claims made
+  tokencollected?: number;        // v0.2.21: claims paid
+}
+
+/** GET /api/v1/freebank/house/:id/tokens (gettokenclaims), v0.2.21: the house's mint keysets and token claims. */
+export interface FreebankTokenKeyset {
+  id: string;                     // 16 hex
+  height: number;                 // recorded at
+  postingpubkey: string;
+  keys: { amount: number, pubkey: string }[];
+}
+
+export interface FreebankTokenClaim {
+  y: string;                      // the token's Y (hex)
+  amount: number;                 // units
+  payout: string;                 // the holder's payout script (hex)
+  feebps: number;                 // the relayer's share
+  relayer: string;
+  height: number;                 // claimed at
+  collectheight: number;          // paid at; 0 = not yet
+}
+
+export interface FreebankHouseTokensResponse {
+  tip_height: number;
+  house_id: number;
+  insolventsince: number;         // E: 0 while the house has not failed
+  windowend: number;              // E + the claim window; 0 while not failed
+  tokenunits: number;
+  base: number;                   // B, set by the first collect
+  claimed: number;                // T, units claimed
+  claims: number;
+  collected: number;
+  paid: number;                   // ECX paid out (szats)
+  writeoff: number;
+  keysets: FreebankTokenKeyset[];
+  list: FreebankTokenClaim[];
+  next: string | null;            // the Y the next page of claims starts at
 }
 
 /** GET /api/v1/freebank/house/:id/members (listhousemembers), v0.2.19. */
@@ -303,6 +341,18 @@ export interface FreebankDecodedPayload {
   units?: number;                 // units, summed over the note outputs
   outputs?: number;               // count of note outputs
   change_units?: number;          // v0.2.20 lock (token mint record): change notes back to the holder
+  // v0.2.21 token claim ops: token_keyset (keys, largest_amount), token_post (keyset_id, issued, issued_units, spent),
+  // token_claim (tokens, claimed_units), token_collect (claims, escrow_change)
+  keys?: number;
+  largest_amount?: number;
+  keyset_id?: string;
+  issued?: number;
+  issued_units?: number;
+  spent?: number;
+  tokens?: number;
+  claimed_units?: number;
+  claims?: number;
+  escrow_change?: boolean;
   demand_mode?: string;           // 'plain' | 'preauth' | 'preauth_queue' (or 'mode_<n>' for an unknown byte)
   prior_demand_height?: number;   // height: non-zero on an upgrade of a plain demand (its clock kept)
   // deposit: originate (house_id, principal_units, receipts), transfer (house_id,

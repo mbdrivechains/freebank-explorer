@@ -188,6 +188,44 @@ describe('FreeBank tx parser', () => {
     });
   });
 
+  describe('v0.2.21 token claim ops (token.h layouts)', () => {
+    const u16 = (n: number): Buffer => { const b = Buffer.alloc(2); b.writeUInt16LE(n); return b; };
+    const u32 = (n: number): Buffer => { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; };
+    const u64 = (n: number | bigint): Buffer => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
+    const vec = (items: Buffer[]): Buffer => Buffer.concat([Buffer.from([items.length]), ...items]);
+    const bytes = (len: number, fill = 1): Buffer => Buffer.concat([Buffer.from([len]), Buffer.alloc(len, fill)]);
+    const approvals = Buffer.concat([vec([u32(0)]), vec([bytes(71)])]);
+
+    test('TOKEN_KEYSET: the keys and the largest amount', () => {
+      const keys = [0, 1, 2, 10].map((e) => Buffer.concat([Buffer.from([e]), bytes(33)]));
+      const payload = Buffer.concat([u32(2), bytes(33), vec(keys), approvals]);
+      expect(decodeCreditPayload('note', 9, payload)).toEqual({ house_id: 2, keys: 4, largest_amount: 1024 });
+      expect(creditOpName('note', 9)).toEqual('token_keyset');
+    });
+
+    test('TOKEN_POST: keyset id as gettokenclaims prints it, issued units, spent count; the payload is left as it was', () => {
+      const issued = [Buffer.concat([bytes(33), u64(64)]), Buffer.concat([bytes(33), u64(8)])];
+      const spent = [Buffer.alloc(32, 7), Buffer.alloc(32, 8), Buffer.alloc(32, 9)];
+      const payload = Buffer.concat([u32(2), u64(0x0123456789abcdefn), vec(issued), vec(spent), bytes(64)]);
+      const before = Buffer.from(payload);
+      expect(decodeCreditPayload('note', 10, payload)).toEqual({ house_id: 2, keyset_id: '0123456789abcdef', issued: 2, issued_units: 72, spent: 3 });
+      expect(payload.equals(before)).toBe(true);
+    });
+
+    test('TOKEN_CLAIM: tokens and claimed units', () => {
+      const entry = (amount: number): Buffer => Buffer.concat([u64(1), u64(amount), bytes(64), bytes(33), bytes(33), bytes(32), bytes(32),
+        bytes(25), u16(100), bytes(25), bytes(64)]);
+      const payload = Buffer.concat([u32(2), vec([entry(32), entry(4)])]);
+      expect(decodeCreditPayload('note', 11, payload)).toEqual({ house_id: 2, tokens: 2, claimed_units: 36 });
+    });
+
+    test('TOKEN_COLLECT: claims paid, escrow change', () => {
+      const payload = Buffer.concat([u32(2), Buffer.from([1]), vec([Buffer.alloc(32, 1), Buffer.alloc(32, 2)])]);
+      expect(decodeCreditPayload('note', 12, payload)).toEqual({ house_id: 2, claims: 2, escrow_change: true });
+      expect(creditOpName('note', 12)).toEqual('token_collect');
+    });
+  });
+
   describe('malformed input', () => {
     const settleHex: string = byKind('settle', 'exchange')[0].hex;
 

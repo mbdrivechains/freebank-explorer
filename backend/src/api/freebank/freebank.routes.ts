@@ -27,6 +27,11 @@ import { FreebankActivityItem } from './freebank.interfaces';
 //                     { tip_height, house_id, members: [ { address, added_height, removal_height, active } ],
 //                       next: the address the next page starts at, or null }; count 1-500 (default 100).
 //                     404 unknown house; 400 an open house (no member list) or a bad start address
+//   GET house/:id/tokens?start=&count=
+//                     v0.2.21, the house's Chaumian tokens: gettokenclaims (the claim window when the house has
+//                     failed - insolventsince, windowend -, the totals, the mint's keysets, and the claims in key
+//                     order from start, a Y) + tip_height and next (the Y the next page starts at, or null);
+//                     count 1-500 (default 100). 404 unknown house
 //   GET bills         { tip_height, bills: listbills }
 //   GET bill/:id      { tip_height, bill: getbill }                               404 unknown
 //   GET pools         { tip_height, pools: listpools }
@@ -89,6 +94,7 @@ class FreebankRoutes {
       .get(prefix + 'houses', this.$getHouses)
       .get(prefix + 'house/:id', this.$getHouse)
       .get(prefix + 'house/:id/members', this.$getHouseMembers)
+      .get(prefix + 'house/:id/tokens', this.$getHouseTokens)
       .get(prefix + 'bills', this.$getBills)
       .get(prefix + 'bill/:id', this.$getBill)
       .get(prefix + 'pools', this.$getPools)
@@ -169,6 +175,48 @@ class FreebankRoutes {
       });
     } catch (e) {
       nodeError(req, res, 'house members', e);
+    }
+  };
+
+  private $getHouseTokens = async (req: Request, res: Response): Promise<void> => {
+    const id = parseCreditId(req.params.id);
+    if (id === null) {
+      handleError(req, res, 400, 'Invalid house id');
+      return;
+    }
+    const start = typeof req.query.start === 'string' ? req.query.start.toLowerCase() : '';
+    if (start && !/^[0-9a-f]{64}$/.test(start)) {
+      handleError(req, res, 400, 'Invalid start: a 32-byte Y in hex');
+      return;
+    }
+    const countParam = typeof req.query.count === 'string' ? parseInt(req.query.count, 10) : NaN;
+    const count = Number.isFinite(countParam) ? Math.min(MEMBERS_MAX_PAGE, Math.max(1, countParam)) : MEMBERS_DEFAULT_PAGE;
+    try {
+      const tip = await freebankApi.$getTip();
+      let answer: any;
+      try {
+        answer = await (bitcoinClient as any).getTokenClaims(id, start, count + 1); // one more: it starts the next page
+      } catch (e: any) {
+        const message = String(e?.message ?? '');
+        if (/^unknown house/i.test(message)) {
+          handleError(req, res, 404, 'House not found');
+        } else if (e?.code === -32601 || /method not found/i.test(message)) {
+          handleError(req, res, 404, 'This node has no token claims (before v0.2.21)');
+        } else {
+          throw e;
+        }
+        return;
+      }
+      const list: any[] = Array.isArray(answer?.list) ? answer.list : [];
+      res.json({
+        ...answer,
+        tip_height: tip.height,
+        house_id: id,
+        list: list.slice(0, count),
+        next: list.length > count ? list[count].y : null,
+      });
+    } catch (e) {
+      nodeError(req, res, 'house tokens', e);
     }
   };
 

@@ -69,6 +69,11 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
     6: { name: 'claim', label: 'Claim (insolvent house)' },
     7: { name: 'demand', label: 'Demand redemption' },
     8: { name: 'protest', label: 'Protest unpaid demand' },
+    // v0.2.21 the token holders' claim at a failed house
+    9: { name: 'token_keyset', label: 'Token keyset recorded' },
+    10: { name: 'token_post', label: 'Token records posted' },
+    11: { name: 'token_claim', label: 'Token claim' },
+    12: { name: 'token_collect', label: 'Token claims paid' },
   },
   deposit: {
     1: { name: 'originate', label: 'Open term deposit' },

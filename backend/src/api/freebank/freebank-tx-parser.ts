@@ -52,7 +52,11 @@ export const CREDIT_OP_NAMES: Readonly<Record<CreditFamily, Readonly<Record<numb
     // v0.2.19 members-only houses
     11: 'register_mo', 12: 'member_add', 13: 'member_remove', 14: 'member_purge',
   },
-  note: { 1: 'mint', 2: 'transfer', 3: 'redeem', 4: 'lock', 5: 'unlock', 6: 'claim', 7: 'demand', 8: 'protest' },
+  note: {
+    1: 'mint', 2: 'transfer', 3: 'redeem', 4: 'lock', 5: 'unlock', 6: 'claim', 7: 'demand', 8: 'protest',
+    // v0.2.21 the token holders' claim at a failed house (token.h NOTE_OP_TOKEN_*)
+    9: 'token_keyset', 10: 'token_post', 11: 'token_claim', 12: 'token_collect',
+  },
   deposit: { 1: 'originate', 2: 'transfer', 3: 'withdraw', 4: 'claim' },
   pool: { 1: 'create', 2: 'add_liq', 3: 'remove_liq', 4: 'swap', 5: 'retire' },
   settle: { 1: 'exchange' },
@@ -587,6 +591,49 @@ function decodeNote(r: ByteReader, op: number): DecodedPayload {
         house_id, units: units.sum, outputs: units.count,
         demand_mode: NOTE_DEMAND_MODES[mode] || `mode_${mode}`, prior_demand_height,
       };
+    }
+    case 9: { // NoteTokenKeyset (v0.2.21): the partners record a mint keyset: its posting key, one key per amount 2^i
+      r.varBytes(); // vchPostingPubKey
+      const keys = r.compactSize();
+      let maxExp = 0;
+      for (let i = 0; i < keys; i++) {
+        maxExp = Math.max(maxExp, r.u8()); // nExp
+        r.varBytes(); // vchPubKey
+      }
+      return { house_id, keys, largest_amount: keys ? 2 ** maxExp : 0 };
+    }
+    case 10: { // NoteTokenPost (v0.2.21): the mint posts what it signed (B_, amount) and the tokens it marked spent
+      const keyset_id = Buffer.from(r.bytes(8)).reverse().toString('hex'); // a copy (bytes() shares the payload); uint64 LE, shown as gettokenclaims prints it (%016x)
+      const issued = r.compactSize();
+      let issued_units = 0;
+      for (let i = 0; i < issued; i++) {
+        r.varBytes(); // B_
+        issued_units += r.u64();
+      }
+      const spent = r.compactSize();
+      r.skip(32 * spent);
+      return { house_id, keyset_id, issued, issued_units, spent };
+    }
+    case 11: { // NoteTokenClaim (v0.2.21): holders claim a failed house's token backing, token by token
+      const tokens = r.compactSize();
+      let claimed_units = 0;
+      for (let i = 0; i < tokens; i++) {
+        r.u64(); // nKeysetID
+        claimed_units += r.u64(); // nAmount
+        for (let f = 0; f < 6; f++) {
+          r.varBytes(); // secret, B_, C_, DLEQ e, DLEQ s, payout script
+        }
+        r.u16(); // nFeeBps
+        r.varBytes(); // relayer script
+        r.varBytes(); // sig
+      }
+      return { house_id, tokens, claimed_units };
+    }
+    case 12: { // NoteTokenCollect (v0.2.21): after the window, the claims are paid ECX from the escrow
+      const escrow_change = r.u8() !== 0;
+      const claims = r.compactSize();
+      r.skip(32 * claims);
+      return { house_id, claims, escrow_change };
     }
     case 4: { // NoteLock (v0.2.20): the token MINT record; the spent notes back the house's tokens
       const units = r.u64(); // nUnits into the token backing

@@ -16,6 +16,7 @@ import { GoldFixComponent } from '@app/freebank/pages/gold-fix/gold-fix.componen
 import { AssetListComponent } from '@app/freebank/pages/asset-list/asset-list.component';
 import { AssetDetailComponent } from '@app/freebank/pages/asset-detail/asset-detail.component';
 import { HouseMembersComponent } from '@app/freebank/pages/house-members/house-members.component';
+import { HouseTokensComponent } from '@app/freebank/pages/house-tokens/house-tokens.component';
 
 // The FreeBank credit pages. Lazy-loaded by master-page.module.ts, which mounts this module at
 // the root of the master page (so /credit, /regtest/credit, ...) and only for URLs whose first
@@ -107,6 +108,7 @@ export class CreditRoutingModule { }
     AssetListComponent,
     AssetDetailComponent,
     HouseMembersComponent,
+    HouseTokensComponent,
   ]
 })
 export class CreditModule { }

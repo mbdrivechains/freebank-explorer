@@ -26,6 +26,9 @@ export interface FreebankHouse {
   defer_activations?: number; // suspensions, all time (v0.2.18: no limit, so the count is shown)
   type?: string; // v0.2.19: 'open' | 'members' | 'redeem', fixed at registration
   tokenunits?: number; // v0.2.20: units backing the house's Chaumian tokens outstanding (part of mintedunits)
+  tokenclaimed?: number; // v0.2.21: units claimed by token holders at a failed house
+  tokenclaims?: number; // v0.2.21: claims made
+  tokencollected?: number; // v0.2.21: claims paid
   member_records?: number; // v0.2.19: member records of a members-only house
   insolventheight?: number;
   [field: string]: any;

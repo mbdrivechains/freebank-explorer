@@ -10,7 +10,7 @@ import { StorageService } from '@app/services/storage.service';
 import { WebsocketResponse } from '@interfaces/websocket.interface';
 import { TxAuditStatus } from '@components/transaction/transaction.component';
 import { FreebankActivityResponse, FreebankBillResponse, FreebankBillsResponse, FreebankGoldResponse, FreebankHouseResponse,
-  FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankAssetsResponse, FreebankAssetResponse, FreebankHouseMembersResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
+  FreebankHousesResponse, FreebankPoolResponse, FreebankPoolsResponse, FreebankAssetsResponse, FreebankAssetResponse, FreebankHouseMembersResponse, FreebankHouseTokensResponse, FreebankSummaryResponse, FreebankTxFamily } from '@interfaces/freebank-credit.interface';
 import { FreebankBmmBlock, FreebankBmmConfig, FreebankBmmListResponse, FreebankBmmSummaryResponse } from '@interfaces/freebank-bmm.interface';
 
 @Injectable({
@@ -612,6 +612,12 @@ export class ApiService {
       encodeURIComponent(String(id)) + '/members', { params: { start, count: String(count) } });
   }
 
+  // v0.2.21: a house's mint keysets and token claims, claims paged by Y
+  getFreebankHouseTokens$(id: number, start = '', count = 100): Observable<FreebankHouseTokensResponse> {
+    return this.httpClient.get<FreebankHouseTokensResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/house/' +
+      encodeURIComponent(String(id)) + '/tokens', { params: { start, count: String(count) } });
+  }
+
   getFreebankBills$(): Observable<FreebankBillsResponse> {
     return this.httpClient.get<FreebankBillsResponse>(this.apiBaseUrl + this.apiBasePath + '/api/v1/freebank/bills');
   }
@@ -647,8 +653,11 @@ export class ApiService {
   }
 
   /** Recent credit txs, newest first. family: one tx family, or all when omitted; limit 1..200 (backend default 50). */
-  getFreebankActivity$(family?: FreebankTxFamily, limit?: number): Observable<FreebankActivityResponse> {
+  getFreebankActivity$(family?: FreebankTxFamily, limit?: number, house?: number): Observable<FreebankActivityResponse> {
     let params = new HttpParams();
+    if (house) {
+      params = params.set('house', String(house)); // v0.2.0: only the txs naming this house
+    }
     if (family) {
       params = params.set('family', family);
     }

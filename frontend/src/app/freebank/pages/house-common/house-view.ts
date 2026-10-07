@@ -282,6 +282,20 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
       }
       break;
     case 'note':
+      // v0.2.21 the token holders' claim: these payloads carry no 'units'
+      if (op === 'token_keyset') {
+        text = has('keys') ? `Recorded a token mint keyset: ${formatUnits(num(d.keys))} keys, amounts up to ${formatUnits(num(d.largest_amount))}` : 'Recorded a token mint keyset';
+        break;
+      } else if (op === 'token_post') {
+        text = `Token records posted: ${units(d.issued_units)} issued, ${formatUnits(num(d.spent))} token${d.spent === 1 ? '' : 's'} spent`;
+        break;
+      } else if (op === 'token_claim') {
+        text = `Token claim: ${units(d.claimed_units)} in ${formatUnits(num(d.tokens))} token${d.tokens === 1 ? '' : 's'}`;
+        break;
+      } else if (op === 'token_collect') {
+        text = `Token claims paid from escrow: ${formatUnits(num(d.claims))} claim${d.claims === 1 ? '' : 's'}`;
+        break;
+      }
       if (has('units')) {
         const outputs = has('outputs') ? ` in ${d.outputs} output${d.outputs === 1 ? '' : 's'}` : '';
         if (op === 'mint') {

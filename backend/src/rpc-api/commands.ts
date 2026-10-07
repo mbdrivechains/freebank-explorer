@@ -107,5 +107,6 @@ module.exports = {
   getGoldFix: 'getgoldfix',
   listOracleSubmitters: 'listoraclesubmitters',
   listHouseMembers: 'listhousemembers', // v0.2.19: a members-only house's public member list (paged by address)
+  getTokenClaims: 'gettokenclaims', // v0.2.21: the token holders' claim at a house (window, keysets, claims)
   listAssets: 'listassets', // v0.2.18: every asset on the active chain (asset-index.ts skips to the first genesis)
 };

@@ -1,0 +1,71 @@
+<ng-container *ngIf="view$ | async as view">
+  <ng-container *ngIf="show(view)">
+    <div class="title"><h2>Tokens</h2></div>
+    <div class="box">
+      <p class="credit-intro">
+        The house's mint issues bearer tokens off-chain, each backed by the same amount of its notes locked on-chain. The
+        mint records its keys here and posts what it signed and what was spent, so that if the house fails, token holders
+        can claim the backing themselves.
+      </p>
+      <ng-container *ngIf="view.data as d">
+        <table class="table table-borderless table-striped credit-detail-table">
+          <tbody>
+            <tr>
+              <td>Tokens outstanding</td>
+              <td>{{ d.tokenunits | number }} <span class="symbol">units</span></td>
+            </tr>
+            <tr *ngIf="view.posting as p">
+              <td><span class="help" ngbTooltip="Totals of the mint's posted records in this house's recent activity. Spent tokens carry no amount, so issued and spent do not net out." placement="bottom" container="body">Posted by the mint</span></td>
+              <td>{{ p.issuedUnits | number }} units issued, {{ p.spentTokens | number }} token{{ p.spentTokens === 1 ? '' : 's' }} spent
+                <div class="sub">in {{ p.posts }} post{{ p.posts === 1 ? '' : 's' }} among this house's recent activity</div></td>
+            </tr>
+            <ng-container *ngIf="view.failed">
+              <tr>
+                <td><span class="help" ngbTooltip="Token holders may claim the backing from the block the house failed until the window ends; the claims are then paid from its escrow at a note's per-unit share." placement="bottom" container="body">Claim window</span></td>
+                <td>block {{ d.insolventsince }} to {{ d.windowend }}
+                  <div class="sub">{{ view.windowOpen ? 'open: ' + (d.windowend - d.tip_height) + ' blocks left' : 'closed' }}</div></td>
+              </tr>
+              <tr>
+                <td>Claimed</td>
+                <td>{{ d.claimed | number }} <span class="symbol">units</span> in {{ d.claims | number }} claim{{ d.claims === 1 ? '' : 's' }}
+                  <div class="sub">{{ d.collected | number }} paid<ng-container *ngIf="d.paid"> ({{ d.paid | number }} szats)</ng-container><ng-container *ngIf="d.writeoff">, {{ d.writeoff | number }} units written off</ng-container></div></td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+
+        <h3 class="sub-title">Mint keysets</h3>
+        <table class="table table-borderless table-striped credit-table" *ngIf="d.keysets.length; else noKeysets">
+          <thead><tr><th>Keyset</th><th>Keys</th><th class="text-right">Recorded</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let k of d.keysets">
+              <td class="mono">{{ k.id }}</td>
+              <td class="wrap">{{ keyRange(k.keys) }}</td>
+              <td class="text-right"><app-credit-height [height]="k.height" [tipHeight]="d.tip_height" [showRelative]="false"></app-credit-height></td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #noKeysets><p class="sub">No keyset recorded yet.</p></ng-template>
+
+        <ng-container *ngIf="d.claims > 0">
+          <h3 class="sub-title">Claims</h3>
+          <table class="table table-borderless table-striped credit-table">
+            <thead><tr><th>Token</th><th class="text-right">Units</th><th class="text-right">Claimed</th><th class="text-right">Paid</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let c of d.list">
+                <td class="mono">{{ c.y | shortenString : 16 }}</td>
+                <td class="text-right">{{ c.amount | number }}</td>
+                <td class="text-right"><app-credit-height [height]="c.height" [tipHeight]="d.tip_height" [showRelative]="false"></app-credit-height></td>
+                <td class="text-right"><app-credit-height [height]="c.collectheight" [tipHeight]="d.tip_height" [showRelative]="false" zeroText="not yet"></app-credit-height></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="pager" *ngIf="d.next || starts.length > 1">
+            <button class="btn btn-sm btn-outline-info" [disabled]="starts.length === 1" (click)="previousPage()">Previous</button>
+            <button class="btn btn-sm btn-outline-info" [disabled]="!d.next" (click)="nextPage(d.next)">Next</button>
+          </div>
+        </ng-container>
+      </ng-container>
+    </div>
+  </ng-container>
+</ng-container>

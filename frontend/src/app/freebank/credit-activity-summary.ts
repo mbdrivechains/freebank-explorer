@@ -258,6 +258,22 @@ function noteSummary(op: string | null, d: FreebankDecodedPayload): string {
       return `${capitalize(houseNotes(id))} redeemed at the house for ${UNIT}`;
     case 'claim':
       return `A note holder claimed its share of insolvent ${house(id)}'s pot`;
+    case 'token_keyset':
+      return `${capitalize(house(id))} recorded a token mint keyset` + (num(d, 'keys') !== null ? ` (${formatUnits(num(d, 'keys') as number)} keys)` : '');
+    case 'token_post': {
+      const issued = num(d, 'issued_units');
+      const spent = num(d, 'spent');
+      return `${capitalize(house(id))}'s mint posted its token records` +
+        (issued !== null ? `: ${units(issued)} issued` : '') + (spent !== null ? `, ${formatUnits(spent)} token${spent === 1 ? '' : 's'} spent` : '');
+    }
+    case 'token_claim': {
+      const claimed = num(d, 'claimed_units');
+      return `Token holders claimed against failed ${house(id)}` + (claimed !== null ? `: ${units(claimed)}` : '');
+    }
+    case 'token_collect': {
+      const n = num(d, 'claims');
+      return `${capitalize(house(id))}'s token claims were paid from its escrow` + (n !== null ? ` (${formatUnits(n)} claim${n === 1 ? '' : 's'})` : '');
+    }
     case 'lock':
       return `${capitalize(house(id))} recorded a token mint` + (count !== null ? `: ${units(count)} of notes locked as backing` : '');
     case 'unlock':
