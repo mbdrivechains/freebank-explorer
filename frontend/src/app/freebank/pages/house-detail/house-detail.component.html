@@ -235,6 +235,14 @@
                   <div class="sub overdue" *ngIf="d.health.notesImpaired">impaired: claims on the pot, not par</div>
                 </td>
               </tr>
+              <tr *ngIf="d.house.tokenunits !== undefined && d.house.tokenunits !== null">
+                <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                  ngbTooltip="Bearer tokens the house's mint has issued off-chain and not yet burned, each backed by the same amount of its notes, locked on-chain. They are part of the notes issued. Every mint and burn is recorded on-chain: see the activity below.">Tokens outstanding</span></td>
+                <td>
+                  <app-credit-amount [units]="d.house.tokenunits" [hideGrams]="true" [unitLabel]="d.house.classid + ' units'"></app-credit-amount>
+                  <div class="sub" *ngIf="d.house.mintedunits > 0">{{ d.house.tokenunits / d.house.mintedunits * 100 | number: '1.0-2' }}% of the notes issued</div>
+                </td>
+              </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
                   ngbTooltip="The most notes the house may have outstanding: the lower of the capital cap and the reserve cap.">Mint cap</span></td>

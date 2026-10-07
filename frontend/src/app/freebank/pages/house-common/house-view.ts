@@ -288,6 +288,10 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
           text = `Issued ${units(d.units)}${outputs}`;
         } else if (op === 'transfer') {
           text = `Moved ${units(d.units)}${outputs}`;
+        } else if (op === 'lock') {
+          text = `Token mint: ${units(d.units)} of notes locked as token backing`;
+        } else if (op === 'unlock') {
+          text = `Token burn: ${units(d.units)} of backing released as notes`;
         } else if (op === 'demand') {
           const mode = d.demand_mode === 'plain' ? ' (queued)' : d.demand_mode === 'preauth' ? ' (pre-authorised)'
             : d.demand_mode === 'preauth_queue' ? (d.prior_demand_height ? ' (upgraded to pre-authorised)' : ' (queued, pre-authorised)') : '';

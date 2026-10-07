@@ -168,6 +168,26 @@ describe('FreeBank tx parser', () => {
     });
   });
 
+  describe('v0.2.20 token records (note.h NoteLock / NoteUnlock layouts)', () => {
+    const u32 = (n: number): Buffer => { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; };
+    const u64 = (n: number): Buffer => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
+    const vec = (items: Buffer[]): Buffer => Buffer.concat([Buffer.from([items.length]), ...items]);
+    const bytes = (hex: string): Buffer => Buffer.concat([Buffer.from([hex.length / 2]), Buffer.from(hex, 'hex')]);
+
+    test('LOCK, the mint record: units into the backing, the change notes', () => {
+      const payload = Buffer.concat([u32(3), u64(500000), vec([u64(1000), u64(2000)]), bytes('02' + 'ab'.repeat(32)), bytes('30' + '00'.repeat(70)),
+        vec([u32(0)]), vec([bytes('30' + '11'.repeat(70))])]);
+      expect(decodeCreditPayload('note', 4, payload)).toEqual({ house_id: 3, units: 500000, change_units: 3000, outputs: 2 });
+      expect(creditOpName('note', 4)).toEqual('lock');
+    });
+
+    test('UNLOCK, the burn record: the backing released as note coins', () => {
+      const payload = Buffer.concat([u32(3), vec([u64(300000), u64(100000)]), vec([u32(0)]), vec([bytes('30' + '22'.repeat(70))])]);
+      expect(decodeCreditPayload('note', 5, payload)).toEqual({ house_id: 3, units: 400000, outputs: 2 });
+      expect(creditOpName('note', 5)).toEqual('unlock');
+    });
+  });
+
   describe('malformed input', () => {
     const settleHex: string = byKind('settle', 'exchange')[0].hex;
 

@@ -588,13 +588,22 @@ function decodeNote(r: ByteReader, op: number): DecodedPayload {
         demand_mode: NOTE_DEMAND_MODES[mode] || `mode_${mode}`, prior_demand_height,
       };
     }
+    case 4: { // NoteLock (v0.2.20): the token MINT record; the spent notes back the house's tokens
+      const units = r.u64(); // nUnits into the token backing
+      const change = r.u64VectorSum(); // vChangeUnits: change notes back to the holder
+      return { house_id, units, change_units: change.sum, outputs: change.count };
+    }
+    case 5: { // NoteUnlock (v0.2.20): the token BURN record; the backing comes back as note coins
+      const units = r.u64VectorSum();
+      return { house_id, units: units.sum, outputs: units.count };
+    }
     case 1: // NoteMint
     case 2: // NoteTransfer
     case 8: { // NoteProtest
       const units = r.u64VectorSum(); // vUnits, one per note output
       return { house_id, units: units.sum, outputs: units.count };
     }
-    default: // NoteRedeem, NoteClaim (and the inert LOCK/UNLOCK)
+    default: // NoteRedeem, NoteClaim
       return { house_id };
   }
 }

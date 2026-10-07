@@ -258,6 +258,10 @@ function noteSummary(op: string | null, d: FreebankDecodedPayload): string {
       return `${capitalize(houseNotes(id))} redeemed at the house for ${UNIT}`;
     case 'claim':
       return `A note holder claimed its share of insolvent ${house(id)}'s pot`;
+    case 'lock':
+      return `${capitalize(house(id))} recorded a token mint` + (count !== null ? `: ${units(count)} of notes locked as backing` : '');
+    case 'unlock':
+      return `${capitalize(house(id))} recorded a token burn` + (count !== null ? `: ${units(count)} of backing released as notes` : '');
     case 'demand': {
       const mode = demandModeText(d);
       return `A holder demanded redemption` + (count !== null ? ` of ${units(count)}` : '') + ` from ${house(id)}` + (mode ? ` (${mode})` : '');

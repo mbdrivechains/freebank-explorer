@@ -234,6 +234,16 @@ function readTags(tx: FreebankParsedTx, tags: (CoinTag | null)[]): void {
         if (houseId !== 0) {
           units.forEach((u, i) => set(i, { kind: 'note', houseId, units: u }));
         }
+      } else if (op === 4 || op === 5) {
+        // v0.2.20 token records (note.cpp ApplyNoteCoinTags): LOCK, the mint record, returns change notes at
+        // vout[0..]; UNLOCK, the burn record, issues the released backing as notes at vout[0..]
+        if (op === 4) {
+          r.u64(); // nUnits, into the token backing
+        }
+        const units = u64Vector(r); // LOCK vChangeUnits, UNLOCK vUnits
+        if (houseId !== 0) {
+          units.forEach((u, i) => set(i, { kind: 'note', houseId, units: u }));
+        }
       } else if (op === 7 || op === 8) {
         const units = u64Vector(r);
         const holder = r.varBytes();

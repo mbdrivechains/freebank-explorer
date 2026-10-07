@@ -64,8 +64,8 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
     1: { name: 'mint', label: 'Mint notes' },
     2: { name: 'transfer', label: 'Transfer notes' },
     3: { name: 'redeem', label: 'Redeem notes' },
-    4: { name: 'lock', label: 'Lock (reserved)' },
-    5: { name: 'unlock', label: 'Unlock (reserved)' },
+    4: { name: 'lock', label: 'Token mint record' },     // v0.2.20: notes locked as the backing of Chaumian tokens
+    5: { name: 'unlock', label: 'Token burn record' },   // v0.2.20: tokens redeemed, the backing released as notes
     6: { name: 'claim', label: 'Claim (insolvent house)' },
     7: { name: 'demand', label: 'Demand redemption' },
     8: { name: 'protest', label: 'Protest unpaid demand' },

@@ -104,6 +104,7 @@ export interface FreebankHouse {
   type?: string;                  // v0.2.19: 'open' | 'members' (notes only between members) | 'redeem' (only between
                                   // the house and the holder); fixed at registration
   member_records?: number;        // v0.2.19: member records (active and scheduled for removal), members-only houses
+  tokenunits?: number;            // v0.2.20: units backing the house's Chaumian tokens outstanding (part of mintedunits)
 }
 
 /** GET /api/v1/freebank/house/:id/members (listhousemembers), v0.2.19. */
@@ -301,6 +302,7 @@ export interface FreebankDecodedPayload {
   // demand also (demand_mode, prior_demand_height), v0.2.18
   units?: number;                 // units, summed over the note outputs
   outputs?: number;               // count of note outputs
+  change_units?: number;          // v0.2.20 lock (token mint record): change notes back to the holder
   demand_mode?: string;           // 'plain' | 'preauth' | 'preauth_queue' (or 'mode_<n>' for an unknown byte)
   prior_demand_height?: number;   // height: non-zero on an upgrade of a plain demand (its clock kept)
   // deposit: originate (house_id, principal_units, receipts), transfer (house_id,
