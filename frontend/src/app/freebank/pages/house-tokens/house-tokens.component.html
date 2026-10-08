@@ -50,12 +50,12 @@
         <ng-container *ngIf="d.claims > 0">
           <h3 class="sub-title">Claims</h3>
           <table class="table table-borderless table-striped credit-table">
-            <thead><tr><th>Token</th><th class="text-right">Units</th><th class="text-right">Claimed</th><th class="text-right">Paid</th></tr></thead>
+            <thead><tr><th>Token</th><th class="text-right">Units</th><th class="d-none d-sm-table-cell text-right">Claimed</th><th class="text-right">Paid</th></tr></thead>
             <tbody>
               <tr *ngFor="let c of d.list">
                 <td class="mono">{{ c.y | shortenString : 16 }}</td>
                 <td class="text-right">{{ c.amount | number }}</td>
-                <td class="text-right"><app-credit-height [height]="c.height" [tipHeight]="d.tip_height" [showRelative]="false"></app-credit-height></td>
+                <td class="d-none d-sm-table-cell text-right"><app-credit-height [height]="c.height" [tipHeight]="d.tip_height" [showRelative]="false"></app-credit-height></td>
                 <td class="text-right"><app-credit-height [height]="c.collectheight" [tipHeight]="d.tip_height" [showRelative]="false" zeroText="not yet"></app-credit-height></td>
               </tr>
             </tbody>
