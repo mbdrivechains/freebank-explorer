@@ -59,7 +59,7 @@ export const CREDIT_OP_NAMES: Readonly<Record<CreditFamily, Readonly<Record<numb
   },
   deposit: { 1: 'originate', 2: 'transfer', 3: 'withdraw', 4: 'claim' },
   pool: { 1: 'create', 2: 'add_liq', 3: 'remove_liq', 4: 'swap', 5: 'retire' },
-  settle: { 1: 'exchange' },
+  settle: { 1: 'exchange', 4: 'net' }, // 4: v0.2.22 multilateral netting (2 PRESENT and 3 DRAW reserved)
   oracle: { 1: 'bond', 2: 'submit' },
 };
 
@@ -711,7 +711,66 @@ function decodePool(r: ByteReader, op: number): DecodedPayload {
   }
 }
 
+/**
+ * SettleNet (v0.2.22, settle.h): N houses hand in each other's notes (all burned); only net positions are paid, at
+ * par, to each net creditor. Per house, parallel to house_ids (comma-separated, ascending): units of its notes retired
+ * (the bundles where it is the issuer), its net (presented minus presented-of) and what it was paid (sats).
+ */
+function decodeSettleNet(r: ByteReader): DecodedPayload {
+  const n = r.compactSize();
+  const ids: number[] = [];
+  for (let i = 0; i < n; i++) {
+    ids.push(r.u32());
+  }
+  const receive: number[] = [];
+  const nReceive = r.compactSize();
+  for (let i = 0; i < nReceive; i++) {
+    receive.push(r.i64());
+  }
+  r.skip(8 * r.compactSize()); // vPrevMintedUnits
+  r.skip(4 * r.compactSize()); // vPrevLastSettleHeight
+  const keys = r.compactSize(); // vPresentKey
+  for (let i = 0; i < keys; i++) {
+    r.varBytes();
+  }
+  const retired = new Map<number, number>();
+  const presented = new Map<number, number>();
+  const bundles = r.compactSize();
+  for (let i = 0; i < bundles; i++) {
+    const presenter = r.u32();
+    const issuer = r.u32();
+    const units = r.u64();
+    r.u16(); // coin count
+    presented.set(presenter, (presented.get(presenter) || 0) + units);
+    retired.set(issuer, (retired.get(issuer) || 0) + units);
+  }
+  const expiry_height = r.u32();
+  const join = (values: number[]): string => values.join(',');
+  return {
+    houses: n,
+    house_ids: join(ids),
+    units_retired: join(ids.map((id) => retired.get(id) || 0)),
+    nets: join(ids.map((id) => (presented.get(id) || 0) - (retired.get(id) || 0))),
+    received_sats: join(ids.map((_, i) => receive[i] || 0)),
+    total_retired_units: [...retired.values()].reduce((s, u) => s + u, 0),
+    paid_sats: receive.reduce((s, v) => s + v, 0),
+    bundles,
+    expiry_height,
+  };
+}
+
+/** The house ids a settle payload names (a bilateral exchange's two, a netting round's N). */
+export function settleHouseIds(decoded: DecodedPayload): number[] {
+  if (typeof decoded.house_ids === 'string' && decoded.house_ids) {
+    return decoded.house_ids.split(',').map(Number);
+  }
+  return [decoded.house_a_id, decoded.house_b_id].filter((v): v is number => typeof v === 'number');
+}
+
 function decodeSettle(r: ByteReader, op: number): DecodedPayload {
+  if (op === 4) {
+    return decodeSettleNet(r);
+  }
   if (op !== 1) {
     return {};
   }

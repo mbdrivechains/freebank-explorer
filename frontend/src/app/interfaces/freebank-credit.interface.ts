@@ -343,6 +343,14 @@ export interface FreebankDecodedPayload {
   change_units?: number;          // v0.2.20 lock (token mint record): change notes back to the holder
   // v0.2.21 token claim ops: token_keyset (keys, largest_amount), token_post (keyset_id, issued, issued_units, spent),
   // token_claim (tokens, claimed_units), token_collect (claims, escrow_change)
+  // settle net (v0.2.22): per-house lists, comma-separated and parallel to house_ids
+  house_ids?: string;
+  units_retired?: string;
+  nets?: string;
+  received_sats?: string;
+  total_retired_units?: number;
+  paid_sats?: number;
+  bundles?: number;
   keys?: number;
   largest_amount?: number;
   keyset_id?: string;

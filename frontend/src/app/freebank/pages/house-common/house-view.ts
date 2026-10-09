@@ -227,6 +227,9 @@ export function activityNamesHouse(item: FreebankActivityItem, house: Pick<Freeb
     return true;
   }
   const d: FreebankDecodedPayload = item.decoded || {};
+  if (typeof d.house_ids === 'string' && d.house_ids.split(',').map(Number).includes(house.id)) {
+    return true; // a v0.2.22 netting round names every house it settles
+  }
   return ['house_id', 'house_a_id', 'house_b_id', 'debtor_house_id', 'creditor_house_id']
     .some((key) => d[key] === house.id);
 }
@@ -340,6 +343,23 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
       }
       break;
     case 'settle':
+      if (op === 'net') {
+        // v0.2.22 netting round: this house's part (the backend's comma-separated per-house lists)
+        const list = (key: string): number[] => typeof d[key] === 'string' && d[key] ? String(d[key]).split(',').map(Number) : [];
+        const ids = list('house_ids');
+        const i = ids.indexOf(houseId);
+        const others = ids.filter((id) => id !== houseId).map((id) => `house ${id}`).join(', ');
+        if (i >= 0) {
+          const net = list('nets')[i] || 0;
+          const received = list('received_sats')[i] || 0;
+          const position = net > 0 ? `net creditor by ${units(net)}${received ? `, paid ${ecx(received)}` : ''}`
+            : net < 0 ? `net debtor by ${units(-net)}` : 'square';
+          text = `Netting round with ${others}: ${units(list('units_retired')[i] || 0)} of its notes retired; ${position}`;
+        } else {
+          text = `Netting round of ${ids.length} houses`;
+        }
+        break;
+      }
       if (has('house_a_id') && has('house_b_id')) {
         const a = houseName(d.house_a_id, houseId);
         const b = houseName(d.house_b_id, houseId);

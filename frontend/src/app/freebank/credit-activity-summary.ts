@@ -366,7 +366,35 @@ function poolSummary(op: string | null, d: FreebankDecodedPayload): string {
   }
 }
 
+/** A v0.2.22 netting round's per-house figures, parallel to house_ids (the backend's comma-separated lists). */
+export interface NettingPart {
+  house: number;
+  retired: number;   // units of its notes the round retired
+  net: number;       // presented minus presented-of: above 0 a net creditor, paid at par
+  received: number;  // sats paid to it
+}
+
+export function nettingParts(d: FreebankDecodedPayload): NettingPart[] {
+  const list = (key: string): number[] => typeof d?.[key] === 'string' && d[key] ? String(d[key]).split(',').map(Number) : [];
+  const ids = list('house_ids');
+  const retired = list('units_retired');
+  const nets = list('nets');
+  const received = list('received_sats');
+  return ids.map((house, i) => ({ house, retired: retired[i] || 0, net: nets[i] || 0, received: received[i] || 0 }));
+}
+
 function settleSummary(op: string | null, d: FreebankDecodedPayload): string {
+  if (op === 'net') {
+    const parts = nettingParts(d);
+    if (!parts.length) {
+      return 'Netting round';
+    }
+    const retired = num(d, 'total_retired_units');
+    const paid = num(d, 'paid_sats');
+    return `Netting round: houses ${parts.map((p) => p.house).join(', ')}` +
+      (retired !== null ? `, ${formatUnits(retired)} units of each other's notes retired` : '') +
+      (paid !== null ? (paid > 0 ? `, net positions paid ${sats(paid)}` : ', no net payment') : '');
+  }
   if (op !== 'exchange') {
     return '';
   }

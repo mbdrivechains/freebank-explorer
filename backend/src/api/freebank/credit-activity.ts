@@ -54,7 +54,12 @@ const HOUSE_FIELDS = ['house_id', 'house_a_id', 'house_b_id', 'pool_id'] as cons
 
 /** Whether a decoded credit payload names this house (its own ops, its notes, its pool, a settlement it is in). */
 export function activityNamesHouse(item: FreebankActivityItem, houseId: number): boolean {
-  return HOUSE_FIELDS.some((f) => item.decoded?.[f] === houseId);
+  if (HOUSE_FIELDS.some((f) => item.decoded?.[f] === houseId)) {
+    return true;
+  }
+  // a v0.2.22 netting round names every house it settles
+  const ids = item.decoded?.house_ids;
+  return typeof ids === 'string' && ids.split(',').map(Number).includes(houseId);
 }
 
 /** Whether a decoded credit payload names this bill (every bill op but the issue, which the node numbers). */

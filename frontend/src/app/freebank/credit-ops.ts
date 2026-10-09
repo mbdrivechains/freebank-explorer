@@ -90,6 +90,7 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
   },
   settle: {
     1: { name: 'exchange', label: 'Note exchange between houses' },
+    4: { name: 'net', label: 'Netting round' }, // v0.2.22: N houses net each other's notes, net positions paid at par
   },
   oracle: {
     1: { name: 'bond', label: 'Bond gold-price submitter' },
