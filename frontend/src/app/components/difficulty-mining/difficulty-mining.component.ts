@@ -2,8 +2,11 @@ import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core
 import { combineLatest, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { StateService } from '@app/services/state.service';
+import { AsertInfo } from '@interfaces/node-api.interface';
+import { formatDuration } from '@app/shared/asert.utils'; // easynet
 
 interface EpochProgress {
+  asert: AsertInfo | null; // easynet: above the ASERT anchor the card shows the per-block figures
   base: string;
   change: number;
   progress: number;
@@ -27,6 +30,7 @@ interface EpochProgress {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DifficultyMiningComponent implements OnInit {
+  formatDuration = formatDuration; // easynet
   isLoadingWebSocket$: Observable<boolean>;
   difficultyEpoch$: Observable<EpochProgress>;
   blocksUntilHalving: number | null = null;
@@ -88,6 +92,7 @@ export class DifficultyMiningComponent implements OnInit {
           timeUntilHalving: this.timeUntilHalving,
           timeAvg: da.timeAvg,
           adjustedTimeAvg: da.adjustedTimeAvg,
+          asert: da.asert || null,
         };
         return data;
       })

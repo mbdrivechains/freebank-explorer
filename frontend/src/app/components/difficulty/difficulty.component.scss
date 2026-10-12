@@ -253,3 +253,10 @@
 .inactive {
   color: var(--transparent-fg);
 }
+// easynet: the ASERT line in place of the epoch progress bar
+.asert-line {
+  text-align: center;
+  font-size: 13px;
+  color: var(--transparent-fg);
+  margin: 4px 0 14px;
+}

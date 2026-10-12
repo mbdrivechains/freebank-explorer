@@ -60,6 +60,44 @@ export interface DifficultyAdjustment {
   adjustedTimeAvg: number;
   timeOffset: number;
   expectedBlocks: number;
+  asert?: AsertInfo | null; // easynet: above the ASERT anchor, the per-block difficulty (the fields above are then moot)
+}
+
+/** easynet: ASERT figures for the tip (backend difficulty-adjustment.ts, exact as consensus computes them). */
+export interface AsertInfo {
+  anchorHeight: number;
+  halfLife: number;          // seconds
+  tipDifficulty: number;
+  nextDifficulty: number;
+  nextBits: number;
+  nextChange: number;        // percent, next vs tip
+  scheduleOffset: number;    // seconds; > 0: behind the 10-minute schedule (difficulty falls), < 0: ahead
+  timeAvg: number;           // ms
+  timeAvgBlocks: number;
+}
+
+/** easynet: one block of the ASERT page's series (GET /api/v1/mining/asert). */
+export interface AsertBlock {
+  height: number;
+  hash: string;
+  time: number;
+  interval: number | null;
+  bits: number;
+  difficulty: number;
+  expectedBits: number | null;
+  minDifficulty: boolean;
+  scheduleOffset: number | null;
+  txCount: number;
+  pool: string | null;
+}
+
+export interface AsertSeries {
+  tipHeight: number;
+  anchorHeight: number;
+  halfLife: number;
+  powLimitBits: number | null;
+  anchor: { height: number, hash: string, bits: number, parentTime: number, powLimitBits: number } | null;
+  blocks: AsertBlock[];
 }
 
 export interface AddressInformation {

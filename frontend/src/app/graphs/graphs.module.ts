@@ -30,6 +30,7 @@ import { PoolComponent } from '@components/pool/pool.component';
 import { DashboardComponent } from '@app/dashboard/dashboard.component';
 import { CustomDashboardComponent } from '@components/custom-dashboard/custom-dashboard.component';
 import { MiningDashboardComponent } from '@components/mining-dashboard/mining-dashboard.component';
+import { AsertLabComponent } from '@components/asert-lab/asert-lab.component'; // easynet
 import { AcceleratorDashboardComponent } from '@components/acceleration/accelerator-dashboard/accelerator-dashboard.component';
 import { TreasuriesComponent } from '@components/treasuries/treasuries.component';
 import { HashrateChartComponent } from '@components/hashrate-chart/hashrate-chart.component';
@@ -60,6 +61,7 @@ import { AsmStylerPipe } from '@app/shared/pipes/asm-styler/asm-styler.pipe';
     WalletPreviewComponent,
 
     MiningDashboardComponent,
+    AsertLabComponent,
     AcceleratorDashboardComponent,
     PoolComponent,
     PoolRankingComponent,

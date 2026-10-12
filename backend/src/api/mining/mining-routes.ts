@@ -11,6 +11,7 @@ import PricesRepository from '../../repositories/PricesRepository';
 import AccelerationRepository from '../../repositories/AccelerationRepository';
 import accelerationApi from '../services/acceleration';
 import { handleError } from '../../utils/api';
+import difficultyAdjustment from '../difficulty-adjustment';
 
 class MiningRoutes {
   public initRoutes(app: Application) {
@@ -24,6 +25,7 @@ class MiningRoutes {
       .get(config.MEMPOOL.API_URL_PREFIX + 'mining/hashrate/pools/:interval', this.$getPoolsHistoricalHashrate)
       .get(config.MEMPOOL.API_URL_PREFIX + 'mining/hashrate/:interval', this.$getHistoricalHashrate)
       .get(config.MEMPOOL.API_URL_PREFIX + 'mining/difficulty-adjustments', this.$getDifficultyAdjustments)
+      .get(config.MEMPOOL.API_URL_PREFIX + 'mining/asert', this.$getAsert)
       .get(config.MEMPOOL.API_URL_PREFIX + 'mining/reward-stats/:blockCount', this.$getRewardStats)
       .get(config.MEMPOOL.API_URL_PREFIX + 'mining/blocks/fees/:interval', this.$getHistoricalBlockFees)
       .get(config.MEMPOOL.API_URL_PREFIX + 'mining/blocks/fees', this.$getBlockFeesTimespan)
@@ -278,6 +280,22 @@ class MiningRoutes {
       });
     } catch (e) {
       handleError(req, res, 500, 'Failed to get historical block size and weight');
+    }
+  }
+
+  // easynet: the ASERT page's per-block series. ?count= blocks (1 to 4032, default 432), plus up to 144 earlier ones
+  // for the hashrate windows (?extra=, 0 to 144, default 144).
+  private async $getAsert(req: Request, res: Response): Promise<void> {
+    try {
+      const count = Math.min(4032, Math.max(1, parseInt(String(req.query.count ?? '432'), 10) || 432));
+      const extra = Math.min(144, Math.max(0, parseInt(String(req.query.extra ?? '144'), 10) || 0));
+      const data = await difficultyAdjustment.$getAsertBlocks(count, extra);
+      res.header('Pragma', 'public');
+      res.header('Cache-control', 'public');
+      res.setHeader('Expires', new Date(Date.now() + 1000 * 10).toUTCString());
+      res.json(data);
+    } catch (e) {
+      handleError(req, res, 500, 'Failed to get the ASERT series');
     }
   }
 

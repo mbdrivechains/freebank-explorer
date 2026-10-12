@@ -4,6 +4,7 @@ import { CpfpInfo, OptimizedMempoolStats, AddressInformation, LiquidPegs, ITrans
   RbfTree, BlockAudit, CurrentPegs, AuditStatus, FederationAddress, FederationUtxo, RecentPeg, PegsVolume, AccelerationInfo, TestMempoolAcceptResult, WalletAddress, Treasury, SubmitPackageResult, ChainTip, StaleTip } from '@interfaces/node-api.interface';
 import { BehaviorSubject, Observable, catchError, filter, map, of, shareReplay, take, tap } from 'rxjs';
 import { StateService } from '@app/services/state.service';
+import { AsertSeries } from '@interfaces/node-api.interface';
 import { Transaction } from '@interfaces/electrs.interface';
 import { Conversion } from '@app/services/price.service';
 import { StorageService } from '@app/services/storage.service';
@@ -421,6 +422,11 @@ export class ApiService {
     return this.httpClient.get<any>(
       this.apiBaseUrl + this.apiBasePath + `/api/v1/mining/blocks/audit/score/` + hash
     );
+  }
+
+  // easynet: the ASERT page's per-block series (count blocks, plus up to 144 earlier ones for hashrate windows)
+  getAsert$(count: number): Observable<AsertSeries> {
+    return this.httpClient.get<AsertSeries>(this.apiBaseUrl + this.apiBasePath + `/api/v1/mining/asert`, { params: { count: String(count) } });
   }
 
   getRewardStats$(blockCount: number = 144): Observable<RewardStats> {

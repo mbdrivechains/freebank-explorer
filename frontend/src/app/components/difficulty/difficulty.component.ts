@@ -2,8 +2,11 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, El
 import { combineLatest, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { StateService } from '@app/services/state.service';
+import { AsertInfo } from '@interfaces/node-api.interface';
+import { formatDuration } from '@app/shared/asert.utils'; // easynet
 
 interface EpochProgress {
+  asert: AsertInfo | null; // easynet: above the ASERT anchor the card shows the per-block figures
   base: string;
   change: number;
   progress: number;
@@ -43,6 +46,7 @@ const EPOCH_BLOCK_LENGTH = 2016; // Bitcoin mainnet
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DifficultyComponent implements OnInit {
+  formatDuration = formatDuration; // easynet
   @Input() showProgress = true;
   @Input() showHalving = false;
   @Input() showTitle = true;
@@ -167,6 +171,7 @@ export class DifficultyComponent implements OnInit {
           timeUntilHalving,
           timeAvg: da.timeAvg,
           adjustedTimeAvg: da.adjustedTimeAvg,
+          asert: da.asert || null,
         };
         return data;
       })

@@ -1,0 +1,106 @@
+<!-- easynet: the ASERT page, on top of the mining dashboard (asert-lab.component.ts) -->
+<div class="asert-lab">
+  <div class="d-flex flex-wrap align-items-baseline justify-content-between mb-2">
+    <div class="main-title">ASERT difficulty, live</div>
+    <div class="btn-group btn-group-toggle">
+      <button *ngFor="let s of spans" type="button" class="btn btn-primary btn-sm" [class.active]="(span$ | async) === s" (click)="setSpan(s)">{{ s }} blocks</button>
+    </div>
+  </div>
+
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 stats" *ngIf="stats as st">
+    <!-- the next block -->
+    <div class="col">
+      <div class="card"><div class="card-body">
+        <ng-container *ngIf="st.asertActive && asert; else preAsert">
+          <div class="label">Next block's difficulty</div>
+          <div class="big">{{ formatDifficulty(asert.nextDifficulty) }}</div>
+          <div class="sub" [class.up]="asert.nextChange > 0" [class.down]="asert.nextChange < 0">
+            {{ asert.nextChange > 0 ? '▲' : asert.nextChange < 0 ? '▼' : '' }} {{ (asert.nextChange >= 0 ? asert.nextChange : -asert.nextChange) | number: '1.2-4' }}% on block {{ st.tipHeight }}'s
+          </div>
+          <div class="note">Fixed once block {{ st.tipHeight }} is known: ASERT reads only its parent's time and height.</div>
+        </ng-container>
+        <ng-template #preAsert>
+          <div class="label">ASERT starts at block {{ st.anchorHeight + 1 }}</div>
+          <div class="big">{{ st.blocksToAsert | number }} <span class="unit">blocks to go</span></div>
+          <div class="sub" *ngIf="da">2016-block rule until then; retarget at block {{ da.nextRetargetHeight }}: about {{ da.difficultyChange | number: '1.0-1' }}%</div>
+          <div class="note">Block {{ st.anchorHeight }} is the anchor: ASERT's schedule counts from its parent.</div>
+        </ng-template>
+      </div></div>
+    </div>
+    <!-- the schedule -->
+    <div class="col">
+      <div class="card"><div class="card-body">
+        <div class="label">Schedule since the anchor</div>
+        <ng-container *ngIf="st.scheduleOffset !== null; else noSchedule">
+          <div class="big" [class.down]="st.scheduleOffset > 0" [class.up]="st.scheduleOffset < 0">
+            {{ formatDuration(st.scheduleOffset) }} <span class="unit">{{ st.scheduleOffset > 0 ? 'behind' : 'ahead' }}</span>
+          </div>
+          <div class="sub">Difficulty ×{{ (st.scheduleOffset > 0 ? 0.5 : 2) }} for every {{ halfLife / 86400 | number: '1.0-1' }} days {{ st.scheduleOffset > 0 ? 'behind' : 'ahead' }}</div>
+        </ng-container>
+        <ng-template #noSchedule><div class="big">–</div><div class="sub">From block {{ st.anchorHeight + 1 }}</div></ng-template>
+        <div class="note">Each block is due 10 minutes after the last; ASERT moves the difficulty by how far the chain is off that.</div>
+      </div></div>
+    </div>
+    <!-- hashrate -->
+    <div class="col">
+      <div class="card"><div class="card-body">
+        <div class="label">Hashrate the blocks imply</div>
+        <table class="mini">
+          <tr *ngFor="let h of st.hashrates"><td>last {{ h.window }}</td><td class="val">{{ formatHashrate(h.value) }}</td></tr>
+        </table>
+        <div class="sub" *ngIf="holdRate() as h">{{ formatHashrate(h) }} keeps 10-minute blocks at the next difficulty</div>
+        <div class="note">Work in the last N blocks over the time they took.</div>
+      </div></div>
+    </div>
+    <!-- block times, the 20-minute rule -->
+    <div class="col">
+      <div class="card"><div class="card-body">
+        <div class="label">Average block time</div>
+        <table class="mini">
+          <tr *ngFor="let a of st.avgTimes"><td>last {{ a.window }}</td><td class="val">{{ formatDuration(a.value) }}</td></tr>
+        </table>
+        <div class="note" *ngIf="(minDifficultyIn() ?? 0) > 0; else ruleNow">Minimum-difficulty block allowed in {{ formatDuration(minDifficultyIn()) }} (20-minute rule)</div>
+        <ng-template #ruleNow><div class="note warn">Minimum-difficulty block allowed now (20-minute rule)</div></ng-template>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="card chart-card">
+    <div class="card-body">
+      <div class="chart" *browserOnly echarts [initOpts]="chartInitOptions" [options]="chartOptions" [style]="{opacity: isLoading ? 0.5 : 1}"></div>
+      <div class="text-center loading" *ngIf="isLoading"><div class="spinner-border text-light"></div></div>
+      <div class="text-center" *ngIf="error">The ASERT series could not be loaded.</div>
+      <div class="note mt-1" *ngIf="stats">{{ stats.span }} blocks; {{ stats.minDiffCount }} mined at the minimum difficulty under the 20-minute rule (orange dots).</div>
+    </div>
+  </div>
+
+  <div class="card table-card" *ngIf="rows.length">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-borderless table-sm">
+          <thead>
+            <tr><th>Height</th><th>Time</th><th>Block time</th><th>Difficulty</th><th>Change</th><th>ASERT</th><th>Schedule</th><th>Txs</th><th>Miner</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of rows">
+              <td><a [routerLink]="['/block/' | relativeUrl, r.hash]">{{ r.height }}</a></td>
+              <td>{{ r.time * 1000 | date: 'MMM d HH:mm:ss' }}</td>
+              <td>{{ formatDuration(r.interval) }}</td>
+              <td>{{ formatDifficulty(r.difficulty) }}</td>
+              <td [class.up]="r.change > 0" [class.down]="r.change < 0">{{ r.change === null ? '–' : (r.change > 0 ? '+' : '') + (r.change | number: '1.2-2') + '%' }}</td>
+              <td>
+                <span *ngIf="r.matches === null" class="muted">2016 rule</span>
+                <span *ngIf="r.matches === true" class="ok">as asked</span>
+                <span *ngIf="r.matches === false && r.minDifficulty" class="warn">minimum (20 min)</span>
+                <span *ngIf="r.matches === false && !r.minDifficulty" class="bad">differs</span>
+              </td>
+              <td>{{ r.scheduleOffset === null ? '–' : formatDuration(r.scheduleOffset) + (r.scheduleOffset > 0 ? ' behind' : ' ahead') }}</td>
+              <td>{{ r.txCount }}</td>
+              <td>{{ r.pool || 'Unknown' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

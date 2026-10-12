@@ -3,6 +3,7 @@ import logger from '../logger';
 import { IDifficultyAdjustment } from '../mempool.interfaces';
 import blocks from './blocks';
 import bitcoinApi from './bitcoin/bitcoin-api-factory';
+import DB from '../database';
 
 export interface DifficultyAdjustment {
   progressPercent: number;       // Percent: 0 to 100
@@ -45,6 +46,21 @@ export interface AsertAnchor {
   bits: number;              // the anchor block's nBits
   parentTime: number;        // the anchor's parent's timestamp: ASERT's clock starts there
   powLimitBits: number;      // the proof-of-work limit, as the genesis block's nBits
+}
+
+/** easynet: one block of the ASERT page's series (GET /api/v1/mining/asert). */
+export interface AsertBlock {
+  height: number;
+  hash: string;
+  time: number;              // block timestamp, seconds
+  interval: number | null;   // seconds since its parent's timestamp (can be negative: timestamps need not rise)
+  bits: number;
+  difficulty: number;
+  expectedBits: number | null;   // above the anchor: what ASERT asks of a normal block at this height
+  minDifficulty: boolean;    // mined at the minimum difficulty under the 20-minute rule (its bits are not ASERT's)
+  scheduleOffset: number | null; // above the anchor: seconds behind (> 0) or ahead (< 0) of the 10-minute schedule
+  txCount: number;
+  pool: string | null;
 }
 
 const BLOCK_SPACING = 600n;
@@ -280,26 +296,79 @@ class DifficultyAdjustmentApi {
   private asertAnchor: AsertAnchor | null = null;
   private asertLoadedAt = 0;
   private asertLoading = false;
+  private powLimitBits: number | null = null;
 
-  /** easynet: read the ASERT anchor block, its parent and the genesis block from the node; again every 10 minutes,
-   *  so a reorg across the anchor or a chain reset is picked up. @asyncSafe */
+  /** easynet: read the genesis block (the proof-of-work limit) and, for a height above 0, the ASERT anchor block and its
+   *  parent from the node; again every 10 minutes, so a reorg across the anchor or a chain reset is picked up. @asyncSafe */
   private async $loadAsertAnchor(height: number): Promise<void> {
     if (this.asertLoading) {
       return;
     }
     this.asertLoading = true;
     try {
+      this.powLimitBits = (await bitcoinApi.$getBlock(await bitcoinApi.$getBlockHash(0))).bits;
+      if (height <= 0) {
+        return; // only the proof-of-work limit: the anchor is not mined yet
+      }
       const hash = await bitcoinApi.$getBlockHash(height);
       const anchor = await bitcoinApi.$getBlock(hash);
       const parent = await bitcoinApi.$getBlock(anchor.previousblockhash);
-      const genesis = await bitcoinApi.$getBlock(await bitcoinApi.$getBlockHash(0));
-      this.asertAnchor = { height, hash, bits: anchor.bits, parentTime: parent.timestamp, powLimitBits: genesis.bits };
+      this.asertAnchor = { height, hash, bits: anchor.bits, parentTime: parent.timestamp, powLimitBits: this.powLimitBits };
       this.asertLoadedAt = Date.now();
     } catch (e) {
       logger.warn(`ASERT anchor ${height}: cannot read it from the node (${e instanceof Error ? e.message : e})`);
     } finally {
       this.asertLoading = false;
     }
+  }
+
+  /**
+   * easynet: the last `count` blocks for the ASERT page (plus `extra` earlier ones, for the hashrate windows), from the
+   * explorer's database, with each block's interval and, above the anchor, ASERT's expected bits and schedule offset.
+   * @asyncUnsafe
+   */
+  public async $getAsertBlocks(count: number, extra: number): Promise<{
+    tipHeight: number, anchorHeight: number, halfLife: number, powLimitBits: number | null, anchor: AsertAnchor | null,
+    blocks: AsertBlock[],
+  }> {
+    const anchorHeight = config.MEMPOOL.ASERT_ANCHOR_HEIGHT;
+    const tipHeight = blocks.getCurrentBlockHeight();
+    const anchorExists = anchorHeight > 0 && tipHeight >= anchorHeight;
+    if (this.powLimitBits === null || (anchorExists && this.asertAnchor?.height !== anchorHeight)) {
+      await this.$loadAsertAnchor(anchorExists ? anchorHeight : 0);
+    }
+    const anchor = anchorExists && this.asertAnchor?.height === anchorHeight ? this.asertAnchor : null;
+    const from = Math.max(0, tipHeight - count - extra + 1);
+    const [rows]: any[] = await DB.query(
+      `SELECT blocks.height, blocks.hash, UNIX_TIMESTAMP(blocks.blockTimestamp) AS time, blocks.bits, blocks.difficulty,
+              blocks.tx_count AS txCount, pools.name AS pool
+         FROM blocks LEFT JOIN pools ON pools.id = blocks.pool_id
+        WHERE blocks.stale = 0 AND blocks.height BETWEEN ? AND ?
+        ORDER BY blocks.height`, [Math.max(0, from - 1), tipHeight]);
+    const out: AsertBlock[] = [];
+    let prev: any = null;
+    for (const r of rows) {
+      const height = Number(r.height);
+      const time = Number(r.time);
+      const parent = prev && Number(prev.height) === height - 1 ? prev : null;
+      const above = anchor !== null && height > anchor.height;
+      const expectedBits = above && parent ? asertBits(anchor, height, Number(parent.time), config.MEMPOOL.ASERT_HALF_LIFE) : null;
+      if (height >= from) {
+        out.push({
+          height, hash: r.hash, time,
+          interval: parent ? time - Number(parent.time) : null,
+          bits: Number(r.bits),
+          difficulty: Number(r.difficulty),
+          expectedBits,
+          minDifficulty: expectedBits !== null && Number(r.bits) !== expectedBits && Number(r.bits) === this.powLimitBits,
+          scheduleOffset: above ? time - anchor.parentTime - 600 * (height - anchor.height + 1) : null,
+          txCount: Number(r.txCount),
+          pool: r.pool ?? null,
+        });
+      }
+      prev = r;
+    }
+    return { tipHeight, anchorHeight, halfLife: config.MEMPOOL.ASERT_HALF_LIFE, powLimitBits: this.powLimitBits, anchor, blocks: out };
   }
 
   public getDifficultyAdjustment(): IDifficultyAdjustment | null {

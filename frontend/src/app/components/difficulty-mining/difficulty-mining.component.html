@@ -3,6 +3,24 @@
   <div class="card">
     <div class="card-body more-padding">
       <div class="difficulty-adjustment-container" *ngIf="(isLoadingWebSocket$ | async) === false && (difficultyEpoch$ | async) as epochData; else loadingDifficulty">
+        <!-- easynet: above the ASERT anchor, the next block and the schedule instead of a 2016-block epoch -->
+        <ng-container *ngIf="epochData.asert as asert">
+          <div class="item">
+            <h5 class="card-title">Next block</h5>
+            <div class="card-text" [ngStyle]="{'color': asert.nextChange > 0 ? 'var(--green)' : asert.nextChange < 0 ? 'var(--red)' : 'var(--transparent-fg)'}">
+              <fa-icon *ngIf="asert.nextChange > 0" class="retarget-sign" [icon]="['fas', 'caret-up']" [fixedWidth]="true"></fa-icon>
+              <fa-icon *ngIf="asert.nextChange < 0" class="retarget-sign" [icon]="['fas', 'caret-down']" [fixedWidth]="true"></fa-icon>
+              {{ asert.nextChange | absolute | number: '1.2-2' }} <span class="symbol">%</span>
+            </div>
+            <div class="symbol">ASERT, every block</div>
+          </div>
+          <div class="item">
+            <h5 class="card-title">Schedule</h5>
+            <div class="card-text">{{ formatDuration(asert.scheduleOffset) }}</div>
+            <div class="symbol">{{ asert.scheduleOffset > 0 ? 'behind' : 'ahead' }}</div>
+          </div>
+        </ng-container>
+        <ng-container *ngIf="!epochData.asert">
         <div class="item">
           <h5 class="card-title" i18n="difficulty-box.remaining">Remaining</h5>
           <div class="card-text">
@@ -36,7 +54,8 @@
               {{ epochData.previousRetarget | absolute | number: '1.2-2' }} </span> %
           </div>
         </div>
-        <div class="item" *ngIf="showProgress">
+        </ng-container>
+        <div class="item" *ngIf="showProgress && !epochData.asert">
           <h5 class="card-title" i18n="difficulty-box.current-period">Current Period</h5>
           <div class="card-text">{{ epochData.progress | number: '1.2-2' }} <span class="symbol">%</span></div>
           <div class="progress small-bar">
