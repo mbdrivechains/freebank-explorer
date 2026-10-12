@@ -3,6 +3,7 @@ import { concat, Observable } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
 import { ApiService } from '@app/services/api.service';
 import { StateService } from '@app/services/state.service';
+import { UNIT } from '@app/app.constants';
 
 @Component({
   selector: 'app-reward-stats',
@@ -12,6 +13,7 @@ import { StateService } from '@app/services/state.service';
   standalone: false,
 })
 export class RewardStatsComponent implements OnInit {
+  unit = UNIT; // easynet: the coin name
   public $rewardStats: Observable<any>;
   private lastBlockHeight: number;
 

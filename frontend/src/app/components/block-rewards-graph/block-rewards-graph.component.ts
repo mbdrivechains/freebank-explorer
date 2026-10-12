@@ -13,6 +13,7 @@ import { ActivatedRoute } from '@angular/router';
 import { FiatShortenerPipe } from '@app/shared/pipes/fiat-shortener.pipe';
 import { FiatCurrencyPipe } from '@app/shared/pipes/fiat-currency.pipe';
 import { StateService } from '@app/services/state.service';
+import { UNIT } from '@app/app.constants'; // easynet: the coin name
 
 @Component({
   selector: 'app-block-rewards-graph',
@@ -164,7 +165,7 @@ export class BlockRewardsGraphComponent implements OnInit {
 
           for (const tick of data) {
             if (tick.seriesIndex === 0) {
-              tooltip += `${tick.marker} ${tick.seriesName}: ${formatNumber(tick.data[1], this.locale, '1.3-3')} BTC<br>`;
+              tooltip += `${tick.marker} ${tick.seriesName}: ${formatNumber(tick.data[1], this.locale, '1.3-3')} ${UNIT}<br>`;
             } else if (tick.seriesIndex === 1) {
               tooltip += `${tick.marker} ${tick.seriesName}: ${this.fiatCurrencyPipe.transform(tick.data[1], null, this.currency)}<br>`;
             }
@@ -185,7 +186,7 @@ export class BlockRewardsGraphComponent implements OnInit {
       legend: data.blockRewards.length === 0 ? undefined : {
         data: [
           {
-            name: 'Rewards BTC',
+            name: 'Rewards ' + UNIT,
             inactiveColor: 'rgb(110, 112, 121)',
             textStyle: {
               color: 'white',
@@ -208,7 +209,7 @@ export class BlockRewardsGraphComponent implements OnInit {
           axisLabel: {
             color: 'rgb(110, 112, 121)',
             formatter: (val) => {
-              return `${val} BTC`;
+              return `${val} ${UNIT}`;
             }
           },
           min: (value) => {
@@ -250,7 +251,7 @@ export class BlockRewardsGraphComponent implements OnInit {
           legendHoverLink: false,
           zlevel: 0,
           yAxisIndex: 0,
-          name: 'Rewards BTC',
+          name: 'Rewards ' + UNIT,
           data: data.blockRewards,
           type: 'line',
           smooth: 0.25,

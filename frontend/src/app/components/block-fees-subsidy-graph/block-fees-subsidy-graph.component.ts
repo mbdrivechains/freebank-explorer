@@ -14,6 +14,7 @@ import { StateService } from '@app/services/state.service';
 import { MiningService } from '@app/services/mining.service';
 import { StorageService } from '@app/services/storage.service';
 import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pipe';
+import { UNIT } from '@app/app.constants'; // easynet: the coin name
 
 @Component({
   selector: 'app-block-fees-subsidy-graph',
@@ -187,11 +188,11 @@ export class BlockFeesSubsidyGraphComponent implements OnInit {
           for (let i = data.length - 1; i >= 0; i--) {
             const tick = data[i];
             tooltip += `${tick.marker} ${tick.seriesName.split(' ')[0]}: `;
-            if (this.displayMode === 'normal') {tooltip += `${formatNumber(tick.data, this.locale, '1.0-3')} BTC<br>`;}
+            if (this.displayMode === 'normal') {tooltip += `${formatNumber(tick.data, this.locale, '1.0-3')} ${UNIT}<br>`;}
             else if (this.displayMode === 'fiat') {tooltip += `${this.fiatCurrencyPipe.transform(tick.data, null, 'USD') }<br>`;}
             else {tooltip += `${formatNumber(tick.data, this.locale, '1.0-2')}%<br>`;}
           }
-          if (this.displayMode === 'normal') {tooltip += `<div style="margin-left: 2px">${formatNumber(data.reduce((acc, val) => acc + val.data, 0), this.locale, '1.0-3')} BTC</div>`;}
+          if (this.displayMode === 'normal') {tooltip += `<div style="margin-left: 2px">${formatNumber(data.reduce((acc, val) => acc + val.data, 0), this.locale, '1.0-3')} ${UNIT}</div>`;}
           else if (this.displayMode === 'fiat') {tooltip += `<div style="margin-left: 2px">${this.fiatCurrencyPipe.transform(data.reduce((acc, val) => acc + val.data, 0), null, 'USD')}</div>`;}
           if (['24h', '3d'].includes(this.zoomTimeSpan)) {
             tooltip += `<small>` + $localize`At block ${'<b style="color: white; margin-left: 2px">' + data[0].axisValue}` + `</small>`;
@@ -298,7 +299,7 @@ export class BlockFeesSubsidyGraphComponent implements OnInit {
           axisLabel: {
             color: 'var(--grey)',
             formatter: (val) => {
-              return `${val}${this.displayMode === 'percentage' ? '%' : ' BTC'}`;
+              return `${val}${this.displayMode === 'percentage' ? '%' : ' ' + UNIT}`;
             }
           },
           min: 0,
