@@ -1,0 +1,90 @@
+<!-- easynet: the sidechain slots (sidechains.component.ts) -->
+<div class="container-xl sidechains">
+  <h1>Sidechains</h1>
+
+  <ng-container *ngIf="data$ | async as s; else loading">
+    <div *ngIf="s === 'error'" class="alert alert-danger">The sidechain slots could not be loaded. They come back with the next block.</div>
+    <ng-container *ngIf="s !== 'error'">
+      <p class="intro">
+        easynet's BIP 300 sidechain slots, read from every block's coinbase. A sidechain is proposed with an
+        <b>M1</b> message; miners then ack it with <b>M2</b> messages in the blocks after it. A proposal for an empty slot
+        becomes active once more than {{ s.rules.unusedThreshold | number }} blocks ack it within
+        {{ s.rules.unusedMaxAge | number }} blocks of the proposal. Replacing an active sidechain takes more than
+        {{ s.rules.usedThreshold | number }} acks within {{ s.rules.usedMaxAge | number }} blocks.
+      </p>
+      <div *ngIf="s.height < s.tipHeight" class="alert alert-info">Reading blocks: {{ s.height | number }} of {{ s.tipHeight | number }}.</div>
+
+      <h2>Active <span class="count">{{ s.active.length }}</span></h2>
+      <div class="table-wrap" *ngIf="s.active.length; else noneActive">
+        <table class="table table-borderless table-striped">
+          <thead>
+            <tr><th class="slot">Slot</th><th>Sidechain</th><th class="num">Proposed</th><th class="num">Active since</th><th class="num">Acks</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of s.active">
+              <td class="slot"><a [routerLink]="['/sidechains' | relativeUrl, p.slot]">{{ p.slot }}</a></td>
+              <td class="name">
+                <a [routerLink]="['/sidechains' | relativeUrl, p.slot]">{{ name(p) }}</a>
+                <div class="desc" *ngIf="p.declaration?.description as d">{{ d }}</div>
+              </td>
+              <td class="num"><a [routerLink]="['/block' | relativeUrl, p.blockHash]">{{ p.height | number }}</a></td>
+              <td class="num"><a [routerLink]="['/block' | relativeUrl, p.activationHeight]">{{ p.activationHeight | number }}</a></td>
+              <td class="num">{{ p.votes | number }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noneActive><p class="none">No sidechain is active yet.</p></ng-template>
+
+      <h2>Proposals collecting acks <span class="count">{{ s.pending.length }}</span></h2>
+      <div class="table-wrap" *ngIf="s.pending.length; else nonePending">
+        <table class="table table-borderless table-striped">
+          <thead>
+            <tr><th class="slot">Slot</th><th>Sidechain</th><th class="num">Proposed</th><th class="acks">Acks (M2)</th><th>Needs</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of s.pending">
+              <td class="slot"><a [routerLink]="['/sidechains' | relativeUrl, p.slot]">{{ p.slot }}</a></td>
+              <td class="name">
+                <a [routerLink]="['/sidechains' | relativeUrl, p.slot]">{{ name(p) }}</a>
+                <div class="desc" *ngIf="p.slotUsed && activeIn(s, p.slot) as a">Would replace {{ name(a) }}</div>
+              </td>
+              <td class="num"><a [routerLink]="['/block' | relativeUrl, p.blockHash]">{{ p.height | number }}</a></td>
+              <td class="acks">
+                <div class="bar"><div class="fill" [style.width.%]="ackPercent(p, threshold(s, p))"></div></div>
+                <span>{{ p.votes | number }} of {{ threshold(s, p) + 1 | number }}</span>
+              </td>
+              <td class="needs">
+                {{ p.acksNeeded | number }} more by block {{ p.lastActivationHeight | number }}
+                <div class="desc">Dropped at block {{ p.failsAtHeight | number }} if no more acks come</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #nonePending><p class="none">No proposal is collecting acks.</p></ng-template>
+
+      <h2>Latest changes</h2>
+      <div class="table-wrap" *ngIf="s.events.length; else noEvents">
+        <table class="table table-borderless table-striped">
+          <thead>
+            <tr><th class="num">Block</th><th class="slot">Slot</th><th>Sidechain</th><th>What happened</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let e of s.events; trackBy: trackEvent">
+              <td class="num"><a [routerLink]="['/block' | relativeUrl, e.height]">{{ e.height | number }}</a></td>
+              <td class="slot"><a [routerLink]="['/sidechains' | relativeUrl, e.slot]">{{ e.slot }}</a></td>
+              <td class="name">{{ name(e) }}</td>
+              <td [class]="'event ' + e.type">{{ eventWords[e.type] }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noEvents><p class="none">No sidechain messages since block {{ s.startHeight | number }}.</p></ng-template>
+    </ng-container>
+  </ng-container>
+
+  <ng-template #loading>
+    <div class="spinner-border text-light" role="status"></div>
+  </ng-template>
+</div>

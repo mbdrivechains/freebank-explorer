@@ -90,6 +90,11 @@
           <div class="svg-wrapper"><app-svg-images name="nav-cubes" width="21.59" height="100%"></app-svg-images></div>
         </a>
       </li>
+      <li class="nav-item" routerLinkActive="active" id="btn-sidechains" title="Sidechains">
+        <a class="nav-link" [routerLink]="['/sidechains' | relativeUrl]" (click)="collapse()">
+          <div class="svg-wrapper"><app-svg-images name="nav-sidechains" width="18" height="100%"></app-svg-images></div>
+        </a>
+      </li>
       <li class="nav-item" routerLinkActive="active" id="btn-graphs">
         <a class="nav-link" [routerLink]="['/graphs' | relativeUrl]" (click)="collapse()">
           <div class="svg-wrapper"><app-svg-images name="nav-chart-area" width="21.59" height="100%"></app-svg-images></div>

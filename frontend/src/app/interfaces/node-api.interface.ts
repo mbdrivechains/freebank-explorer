@@ -100,6 +100,65 @@ export interface AsertSeries {
   blocks: AsertBlock[];
 }
 
+// easynet: the sidechain slots (backend api/easynet/sidechains.ts)
+export interface SidechainRules {
+  name: string;
+  unusedMaxAge: number;
+  unusedThreshold: number;
+  usedMaxAge: number;
+  usedThreshold: number;
+}
+
+export interface SidechainProposal {
+  slot: number;
+  descriptionHash: string;
+  descriptionHex: string;
+  declaration: { title: string, description: string, hashId1: string, hashId2: string } | null;
+  height: number;
+  blockHash: string;
+  txid: string;
+  vout: number;
+  votes: number;
+  lastAckHeight: number | null;
+  ackHeights?: number[];
+  status: 'pending' | 'active' | 'replaced' | 'failed';
+  activationHeight: number | null;
+  replacedSlotTaken: boolean;
+  endHeight: number | null;
+  // pending only
+  slotUsed?: boolean;
+  age?: number;
+  acksNeeded?: number;
+  lastActivationHeight?: number;
+  failsAtHeight?: number;
+}
+
+export interface SidechainEvent {
+  height: number;
+  type: 'proposed' | 'activated' | 'replaced' | 'failed';
+  slot: number;
+  descriptionHash: string;
+  title: string | null;
+}
+
+export interface SidechainSummary {
+  rules: SidechainRules;
+  startHeight: number;
+  height: number;
+  tipHeight: number;
+  active: SidechainProposal[];
+  pending: SidechainProposal[];
+  events: SidechainEvent[];
+}
+
+export interface SidechainSlot {
+  rules: SidechainRules;
+  height: number;
+  slot: number;
+  active: SidechainProposal | null;
+  proposals: SidechainProposal[];
+}
+
 export interface AddressInformation {
   isvalid: boolean;                //  (boolean) If the address is valid or not. If not, this is the only property returned.
   isvalid_parent?: boolean;        //  (boolean) Elements only

@@ -49,6 +49,10 @@ const routes: Routes = [
         loadChildren: () => import('@components/about/about.module').then(m => m.AboutModule),
       },
       {
+        path: 'sidechains', // easynet: the sidechain slots (BIP 300 M1 proposals, M2 acks)
+        loadChildren: () => import('@components/sidechains/sidechains.module').then(m => m.SidechainsModule),
+      },
+      {
         path: 'blocks/stale',
         component: StaleList,
       },

@@ -1,0 +1,74 @@
+<!-- easynet: one sidechain slot (sidechain-slot.component.ts) -->
+<div class="container-xl sidechains">
+  <ng-container *ngIf="data$ | async as s; else loading">
+    <ng-container *ngIf="s === 'error'">
+      <h1>Sidechain slot</h1>
+      <div class="alert alert-danger">This slot could not be loaded. A slot is a number from 0 to 255.</div>
+    </ng-container>
+    <ng-container *ngIf="s !== 'error'">
+      <h1>Sidechain slot {{ s.slot }}</h1>
+      <p><a [routerLink]="['/sidechains' | relativeUrl]">All slots</a></p>
+
+      <h2>Active sidechain</h2>
+      <ng-container *ngIf="s.active as p; else emptySlot">
+        <div class="table-wrap">
+          <table class="table table-borderless details">
+            <tbody>
+              <tr><td>Name</td><td>{{ name(p) }}</td></tr>
+              <tr *ngIf="p.declaration"><td>Description</td><td>{{ p.declaration.description }}</td></tr>
+              <tr><td>Proposed (M1)</td><td>block <a [routerLink]="['/block' | relativeUrl, p.blockHash]">{{ p.height | number }}</a>,
+                coinbase output {{ p.vout }} of <a [routerLink]="['/tx' | relativeUrl, p.txid]">{{ p.txid | slice: 0 : 16 }}…</a></td></tr>
+              <tr><td>Active since</td><td>block <a [routerLink]="['/block' | relativeUrl, p.activationHeight]">{{ p.activationHeight | number }}</a>,
+                with {{ p.votes | number }} acks{{ p.replacedSlotTaken ? ', replacing the sidechain before it' : '' }}</td></tr>
+              <tr *ngIf="p.declaration"><td>Hash id 1</td><td class="mono">{{ p.declaration.hashId1 }}</td></tr>
+              <tr *ngIf="p.declaration"><td>Hash id 2</td><td class="mono">{{ p.declaration.hashId2 }}</td></tr>
+              <tr><td>Description hash (sha256d)</td><td class="mono">{{ p.descriptionHash }}</td></tr>
+              <tr *ngIf="!p.declaration"><td>Description (hex)</td><td class="mono">{{ p.descriptionHex }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+      <ng-template #emptySlot><p class="none">No sidechain is active in this slot.</p></ng-template>
+
+      <h2>Proposals for this slot <span class="count">{{ s.proposals.length }}</span></h2>
+      <div class="table-wrap" *ngIf="s.proposals.length; else noProposals">
+        <table class="table table-borderless table-striped">
+          <thead>
+            <tr><th class="num">Proposed</th><th>Sidechain</th><th class="acks">Acks (M2)</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of s.proposals">
+              <td class="num"><a [routerLink]="['/block' | relativeUrl, p.blockHash]">{{ p.height | number }}</a></td>
+              <td class="name">
+                {{ name(p) }}
+                <div class="desc mono">{{ p.descriptionHash | slice: 0 : 16 }}…</div>
+              </td>
+              <td class="acks">
+                <ng-container *ngIf="p.status === 'pending'; else ackCount">
+                  <div class="bar"><div class="fill" [style.width.%]="ackPercent(p, threshold(s, p))"></div></div>
+                  <span>{{ p.votes | number }} of {{ threshold(s, p) + 1 | number }}</span>
+                </ng-container>
+                <ng-template #ackCount>{{ p.votes | number }}</ng-template>
+                <div class="desc" *ngIf="p.lastAckHeight !== null">last in block <a [routerLink]="['/block' | relativeUrl, p.lastAckHeight]">{{ p.lastAckHeight | number }}</a></div>
+              </td>
+              <td [ngSwitch]="p.status">
+                <span *ngSwitchCase="'active'" class="event activated">Active since block <a [routerLink]="['/block' | relativeUrl, p.activationHeight]">{{ p.activationHeight | number }}</a></span>
+                <span *ngSwitchCase="'replaced'" class="event replaced">Active from block {{ p.activationHeight | number }}, replaced at block <a [routerLink]="['/block' | relativeUrl, p.endHeight]">{{ p.endHeight | number }}</a></span>
+                <span *ngSwitchCase="'failed'" class="event failed">Dropped at block <a [routerLink]="['/block' | relativeUrl, p.endHeight]">{{ p.endHeight | number }}</a>: too few acks in time</span>
+                <span *ngSwitchCase="'pending'">
+                  Collecting acks: {{ p.acksNeeded | number }} more by block {{ p.lastActivationHeight | number }}
+                  <div class="desc">Dropped at block {{ p.failsAtHeight | number }} if no more acks come</div>
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noProposals><p class="none">No sidechain has been proposed for this slot.</p></ng-template>
+    </ng-container>
+  </ng-container>
+
+  <ng-template #loading>
+    <div class="spinner-border text-light" role="status"></div>
+  </ng-template>
+</div>

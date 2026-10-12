@@ -1,0 +1,113 @@
+// easynet: the sidechain slots pages (sidechains.component.html, sidechain-slot.component.html)
+.sidechains {
+  padding-bottom: 40px;
+
+  h1 {
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+    margin: 28px 0 10px;
+
+    .count {
+      color: var(--transparent-fg);
+      font-size: 1rem;
+      margin-left: 6px;
+    }
+  }
+
+  .intro {
+    color: var(--transparent-fg);
+    max-width: 900px;
+  }
+
+  .none {
+    color: var(--transparent-fg);
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    white-space: normal;
+
+    td, th {
+      vertical-align: top;
+    }
+  }
+
+  .slot {
+    width: 60px;
+  }
+
+  .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .name {
+    min-width: 160px;
+  }
+
+  .desc {
+    color: var(--transparent-fg);
+    font-size: 0.85rem;
+  }
+
+  .acks {
+    min-width: 140px;
+    white-space: nowrap;
+
+    .bar {
+      display: inline-block;
+      width: 80px;
+      height: 8px;
+      margin-right: 8px;
+      border-radius: 4px;
+      background: var(--secondary);
+      vertical-align: middle;
+
+      .fill {
+        height: 100%;
+        border-radius: 4px;
+        background: var(--green);
+      }
+    }
+  }
+
+  .needs {
+    min-width: 170px;
+  }
+
+  .event {
+    &.activated {
+      color: var(--green);
+    }
+
+    &.failed, &.replaced {
+      color: var(--transparent-fg);
+    }
+  }
+
+  .mono {
+    font-family: monospace;
+    word-break: break-all;
+  }
+
+  .details {
+    td:first-child {
+      color: var(--transparent-fg);
+      width: 200px;
+      white-space: nowrap;
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .sidechains .details td:first-child {
+    width: auto;
+    white-space: normal;
+  }
+}

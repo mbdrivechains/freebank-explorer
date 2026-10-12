@@ -30,6 +30,7 @@ import networkSyncService from './tasks/lightning/network-sync.service';
 import statisticsRoutes from './api/statistics/statistics.routes';
 import pricesRoutes from './api/prices/prices.routes';
 import miningRoutes from './api/mining/mining-routes';
+import sidechainIndex from './api/easynet/sidechains';
 import liquidRoutes from './api/liquid/liquid.routes';
 import bitcoinRoutes from './api/bitcoin/bitcoin.routes';
 import servicesRoutes from './api/services/services-routes';
@@ -264,6 +265,7 @@ class Server {
         await memPool.$updateMempool(newMempool, latestAccelerations, minFeeMempool, minFeeTip, pollRate);
       }
       void indexer.$run();
+      void sidechainIndex.$update(); // easynet: the sidechain slots page
       if (config.WALLETS.ENABLED) {
         // might take a while, so run in the background
         void walletApi.$syncWallets();
@@ -369,6 +371,9 @@ class Server {
     }
     if (Common.indexingEnabled() && config.MEMPOOL.ENABLED) {
       miningRoutes.initRoutes(this.app);
+    }
+    if (sidechainIndex.enabled()) {
+      sidechainIndex.initRoutes(this.app);
     }
     if (Common.isLiquid()) {
       liquidRoutes.initRoutes(this.app);
