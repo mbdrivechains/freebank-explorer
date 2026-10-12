@@ -45,7 +45,7 @@ export interface AsertAnchor {
   hash: string;
   bits: number;              // the anchor block's nBits
   parentTime: number;        // the anchor's parent's timestamp: ASERT's clock starts there
-  powLimitBits: number;      // the proof-of-work limit, as the genesis block's nBits
+  powLimitBits: number;      // the proof-of-work limit as compact bits (ASERT_POW_LIMIT_BITS, else the genesis nBits)
 }
 
 /** easynet: one block of the ASERT page's series (GET /api/v1/mining/asert). */
@@ -298,15 +298,17 @@ class DifficultyAdjustmentApi {
   private asertLoading = false;
   private powLimitBits: number | null = null;
 
-  /** easynet: read the genesis block (the proof-of-work limit) and, for a height above 0, the ASERT anchor block and its
-   *  parent from the node; again every 10 minutes, so a reorg across the anchor or a chain reset is picked up. @asyncSafe */
+  /** easynet: the proof-of-work limit (ASERT_POW_LIMIT_BITS, else the genesis block's bits: right only while genesis
+   *  sits at the limit) and, for a height above 0, the ASERT anchor block and its parent from the node; again every
+   *  10 minutes, so a reorg across the anchor or a chain reset is picked up. @asyncSafe */
   private async $loadAsertAnchor(height: number): Promise<void> {
     if (this.asertLoading) {
       return;
     }
     this.asertLoading = true;
     try {
-      this.powLimitBits = (await bitcoinApi.$getBlock(await bitcoinApi.$getBlockHash(0))).bits;
+      this.powLimitBits = config.MEMPOOL.ASERT_POW_LIMIT_BITS
+        || (await bitcoinApi.$getBlock(await bitcoinApi.$getBlockHash(0))).bits;
       if (height <= 0) {
         return; // only the proof-of-work limit: the anchor is not mined yet
       }

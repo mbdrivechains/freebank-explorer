@@ -24,6 +24,7 @@ interface IConfig {
     INDEXING_BLOCKS_AMOUNT: number;
     ASERT_ANCHOR_HEIGHT: number;
     ASERT_HALF_LIFE: number;
+    ASERT_POW_LIMIT_BITS: number;
     BLOCKS_SUMMARIES_INDEXING: boolean;
     GOGGLES_INDEXING: boolean;
     USE_SECOND_NODE_FOR_MINFEE: boolean;
@@ -198,6 +199,7 @@ const defaults: IConfig = {
     'INDEXING_BLOCKS_AMOUNT': 11000, // 0 = disable indexing, -1 = index all blocks
     'ASERT_ANCHOR_HEIGHT': 0, // easynet: ASERT sets the difficulty of every block above this height; 0 = no ASERT
     'ASERT_HALF_LIFE': 172800, // easynet: ASERT half-life in seconds (two days, as on eCash)
+    'ASERT_POW_LIMIT_BITS': 0, // easynet: the node's powLimit as compact bits (decimal); 0 = the genesis block's bits
     'BLOCKS_SUMMARIES_INDEXING': false,
     'GOGGLES_INDEXING': false,
     'USE_SECOND_NODE_FOR_MINFEE': false,

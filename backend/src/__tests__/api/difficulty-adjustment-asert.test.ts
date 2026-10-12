@@ -70,6 +70,20 @@ describe('easynet ASERT', () => {
     }
   });
 
+  test('the proof-of-work limit, not a harder genesis, stops ASERT', () => {
+    // a chain whose genesis (and anchor) sits at difficulty 0.28, well above easynet's limit 0x1e00ffff (~0.0039)
+    const bits028 = bitsFromTarget((targetFromBits(0x1d00ffff) * 100n) / 28n);
+    const hard: AsertAnchor = { height: 2016, hash: '', bits: bits028, parentTime: 1_800_000_000, powLimitBits: 0x1e00ffff };
+    const late = (halfLives: number) => hard.parentTime + 600 * 2 + HALF_LIFE * halfLives; // block 2018's parent time
+    sameDifficulty(difficultyFromBits(asertBits(hard, 2018, late(0), HALF_LIFE)), difficultyFromBits(bits028));
+    // two half-lives late: a quarter of 0.28, below the genesis difficulty
+    const quarter = difficultyFromBits(asertBits(hard, 2018, late(2), HALF_LIFE));
+    expect(quarter).toBeLessThan(0.0701);
+    expect(quarter).toBeGreaterThan(0.0699);
+    // ten half-lives late: past the limit, so exactly the limit
+    expect(asertBits(hard, 2018, late(10), HALF_LIFE)).toEqual(0x1e00ffff);
+  });
+
   test('calcAsert: the next block from the tip, the change, the schedule and the average block time', () => {
     const recent = HEADERS.filter(([h]) => h >= 33 && h <= 41).map(([height, timestamp]) => ({ height, timestamp }));
     const a = calcAsert(anchor, HALF_LIFE, recent);
