@@ -1,3 +1,4 @@
+import type { AsertInfo } from './api/difficulty-adjustment';
 import { IEsploraApi } from './api/bitcoin/esplora-api.interface';
 import { OrphanedBlock } from './api/chain-tips';
 import { HeapNode } from './utils/pairing-heap';
@@ -546,6 +547,7 @@ export interface IDifficultyAdjustment {
   timeAvg: number;
   timeOffset: number;
   expectedBlocks: number;
+  asert?: AsertInfo | null; // easynet: the per-block difficulty above the ASERT anchor
 }
 
 export interface IndexedDifficultyAdjustment {
