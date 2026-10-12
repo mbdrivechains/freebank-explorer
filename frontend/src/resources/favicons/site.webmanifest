@@ -1,6 +1,6 @@
 {
-    "name": "mempool",
-    "short_name": "mempool",
+    "name": "easynet Explorer",
+    "short_name": "easynet",
     "icons": [
         {
             "src": "/resources/favicons/android-chrome-192x192.png",
