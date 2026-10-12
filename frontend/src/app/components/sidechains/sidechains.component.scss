@@ -30,11 +30,15 @@
     overflow-x: auto;
   }
 
+  // mempool sets `tr { white-space: nowrap }` globally; long sidechain descriptions must wrap
   table {
-    white-space: normal;
-
-    td, th {
+    tr, td, th {
+      white-space: normal;
       vertical-align: top;
+    }
+
+    .num, .acks {
+      white-space: nowrap;
     }
   }
 
@@ -54,6 +58,7 @@
   .desc {
     color: var(--transparent-fg);
     font-size: 0.85rem;
+    overflow-wrap: anywhere;
   }
 
   .acks {
