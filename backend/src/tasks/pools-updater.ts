@@ -13,7 +13,9 @@ import { Common } from '../api/common';
 
 /**
  * FreeBank: the pools list ships with the explorer, so the backend never needs GitHub.
- * It is empty for now: FreeBank blocks are made by blind merged mining and carry no pool tag.
+ * easynet: it names the block producers by their coinbase tags (Michael, 2026-10-13: tag what we mine ourselves,
+ * "MicksMiner"): our own miner /MicksMiner/, the public pool (seed.ecxfreebank.com:28334) /easynet/. Logos in
+ * frontend resources/mining-pools/<slug>.svg. A changed list re-assigns the indexed blocks at the next start.
  * MEMPOOL.POOLS_JSON_URL: empty = this bundled file, a file path = that file,
  * an http(s) URL = fetch it (and its sha from POOLS_JSON_TREE_URL) as upstream does.
  */

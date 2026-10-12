@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": 1,
+    "name": "MicksMiner",
+    "addresses": [],
+    "tags": ["/MicksMiner/"],
+    "link": ""
+  },
+  {
+    "id": 2,
+    "name": "easynet public pool",
+    "addresses": [],
+    "tags": ["/easynet/"],
+    "link": ""
+  }
+]
