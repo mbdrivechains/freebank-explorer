@@ -6,7 +6,7 @@ import { combineLatest } from 'rxjs';
 import { StateService } from '@app/services/state.service';
 
 // FreeBank: the one social-card image, served by the explorer itself
-const DEFAULT_PREVIEW_IMAGE = '/resources/previews/freebank-preview.png';
+const DEFAULT_PREVIEW_IMAGE = '/resources/previews/easynet-preview.png';
 
 @Injectable({
   providedIn: 'root'

@@ -25,7 +25,7 @@ export class AboutComponent implements OnInit {
 
   ngOnInit() {
     this.seoService.setTitle($localize`:@@004b222ff9ef9dd4771b777950ca1d0e4cd4348a:About`);
-    this.seoService.setDescription('About FreeBank Explorer, the block explorer for the FreeBank sidechain on eCash, and its AGPL-3.0 source.');
+    this.seoService.setDescription('About easynet Explorer, the block explorer for easynet, a public test chain on eCash rules, and its AGPL-3.0 source.');
     this.websocketService.want(['blocks']);
   }
 }

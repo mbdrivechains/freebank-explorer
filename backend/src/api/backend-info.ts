@@ -23,7 +23,7 @@ class BackendInfo {
       };
     }
     this.backendInfo = {
-      hostname: 'freebank-explorer', // FreeBank: do not publish the host's name or kernel
+      hostname: 'easynet-explorer', // FreeBank: do not publish the host's name or kernel
       version: versionInfo.version,
       gitCommit: versionInfo.gitCommit,
       lightning: config.LIGHTNING.ENABLED,

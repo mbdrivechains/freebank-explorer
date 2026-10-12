@@ -1,4 +1,4 @@
-# FreeBank Explorer: the home page may be crawled. The deep pages (every block, transaction
+# easynet Explorer: the home page may be crawled. The deep pages (every block, transaction
 # and address, the API, graphs, previews) are built per request and are not for crawlers.
 User-agent: *
 Allow: /$

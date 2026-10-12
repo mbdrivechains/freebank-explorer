@@ -200,10 +200,10 @@ const defaults: IConfig = {
     'EXTERNAL_ASSETS': [],
     'EXTERNAL_MAX_RETRY': 1,
     'EXTERNAL_RETRY_INTERVAL': 0,
-    'USER_AGENT': 'freebank-explorer',
+    'USER_AGENT': 'easynet-explorer',
     'STDOUT_LOG_MIN_PRIORITY': 'debug',
     'AUTOMATIC_POOLS_UPDATE': false,
-    'POOLS_JSON_URL': '', // FreeBank: '' = the bundled tasks/freebank-pools.json (see pools-updater.ts)
+    'POOLS_JSON_URL': '', // FreeBank: '' = the bundled tasks/bundled-pools.json (see pools-updater.ts)
     'POOLS_JSON_TREE_URL': '',
     'POOLS_UPDATE_DELAY': 604800, // in seconds, default is one week
     'AUDIT': false,

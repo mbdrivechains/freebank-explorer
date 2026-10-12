@@ -12,7 +12,7 @@ import { EnterpriseService } from '@app/services/enterprise.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GlobalFooterComponent implements OnInit, OnDestroy {
-  @Input() user: any = undefined; // still bound by master-page; unused (no sign-in on FreeBank Explorer)
+  @Input() user: any = undefined; // still bound by master-page; unused (no sign-in on easynet Explorer)
 
   frontendGitCommitHash = this.stateService.env.GIT_COMMIT_HASH;
   packetJsonVersion = this.stateService.env.PACKAGE_JSON_VERSION;

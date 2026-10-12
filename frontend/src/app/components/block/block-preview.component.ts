@@ -107,7 +107,7 @@ export class BlockPreviewComponent implements OnInit, OnDestroy {
           this.seoService.setDescription($localize`:@@meta.description.liquid.block:See size, weight, fee range, included transactions, and more for Liquid${seoDescriptionNetwork(this.stateService.network)} block ${block.height}:BLOCK_HEIGHT: (${block.id}:BLOCK_ID:).`);
         } else {
           // FreeBank: same text as block.component.ts (same $localize id); no block audit
-          this.seoService.setDescription($localize`:@@meta.description.bitcoin.block:See size, weight, fee range, total fees, included transactions, and more for FreeBank${seoDescriptionNetwork(this.stateService.network)} block ${block.height}:BLOCK_HEIGHT: (${block.id}:BLOCK_ID:).`);
+          this.seoService.setDescription($localize`:@@meta.description.bitcoin.block:See size, weight, fee range, total fees, included transactions, and more for easynet${seoDescriptionNetwork(this.stateService.network)} block ${block.height}:BLOCK_HEIGHT: (${block.id}:BLOCK_ID:).`);
         }
         this.isLoadingBlock = false;
         this.setBlockSubsidy();

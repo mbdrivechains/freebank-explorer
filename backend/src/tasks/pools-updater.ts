@@ -17,7 +17,7 @@ import { Common } from '../api/common';
  * MEMPOOL.POOLS_JSON_URL: empty = this bundled file, a file path = that file,
  * an http(s) URL = fetch it (and its sha from POOLS_JSON_TREE_URL) as upstream does.
  */
-const BUNDLED_POOLS_FILE = path.join(__dirname, 'freebank-pools.json');
+const BUNDLED_POOLS_FILE = path.join(__dirname, 'bundled-pools.json');
 
 /**
  * Maintain the most recent version of pools-v2.json
@@ -155,7 +155,7 @@ class PoolsUpdater {
   }
 
   /**
-   * Read the pools list from a local file (default: the bundled freebank-pools.json).
+   * Read the pools list from a local file (default: tasks/bundled-pools.json, shipped with the explorer).
    * Its sha is the git blob id (`git hash-object <file>`). A missing file gives an empty
    * list, so the backend still starts; malformed JSON throws (retried in 10 minutes).
    */

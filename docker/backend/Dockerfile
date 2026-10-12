@@ -38,7 +38,7 @@ WORKDIR /backend
 RUN chown 1000:1000 ./
 COPY --from=builder --chown=1000:1000 /build/package ./package/
 # FreeBank: the bundled mining pools list, read by tasks/pools-updater.js (tsc does not copy .json)
-COPY --from=builder --chown=1000:1000 /build/src/tasks/freebank-pools.json ./package/tasks/
+COPY --from=builder --chown=1000:1000 /build/src/tasks/bundled-pools.json ./package/tasks/
 COPY --from=builder --chown=1000:1000 /build/GeoIP ./GeoIP/
 COPY --from=builder --chown=1000:1000 /build/mempool-config.json /build/start.sh /build/wait-for-it.sh ./
 

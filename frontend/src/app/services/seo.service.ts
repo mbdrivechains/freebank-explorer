@@ -9,8 +9,8 @@ import { StateService } from '@app/services/state.service';
 })
 export class SeoService {
   network = '';
-  baseTitle = 'FreeBank Explorer';
-  baseDescription = 'Explore the FreeBank sidechain: see its blocks, transactions and mempool in real time.';
+  baseTitle = 'easynet Explorer';
+  baseDescription = 'Explore easynet, a public test chain on eCash rules: its blocks, transactions, mempool and mining in real time.';
   // FreeBank: canonical URLs use the host the explorer is served from, never a hardcoded domain
   baseDomain = window.location.host;
 
@@ -102,11 +102,11 @@ export class SeoService {
   // rewrite the names in one place instead of editing every $localize string
   rebrand(text: string): string {
     return (text || '')
-      .replace(/The Mempool Open Source Project(®|&reg;)?/g, 'FreeBank Explorer')
-      .replace(/mempool\.space/g, 'FreeBank Explorer')
-      .replace(/\bMempool's\b/g, 'FreeBank Explorer\'s')
-      .replace(/\bBitcoin\b(?! Core)/g, 'FreeBank')
-      .replace(/\bBTC\b/g, 'ECX')
+      .replace(/The Mempool Open Source Project(®|&reg;)?/g, 'easynet Explorer')
+      .replace(/mempool\.space/g, 'easynet Explorer')
+      .replace(/\bMempool's\b/g, 'easynet Explorer\'s')
+      .replace(/\bBitcoin\b(?! Core)/g, 'easynet')
+      .replace(/\bBTC\b/g, 'tECX')
       .replace(/ (?:and|in) USD\b/g, ''); // no fiat
   }
 
