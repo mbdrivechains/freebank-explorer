@@ -85,7 +85,6 @@ export interface AsertBlock {
   bits: number;
   difficulty: number;
   expectedBits: number | null;
-  minDifficulty: boolean;
   scheduleOffset: number | null;
   txCount: number;
   pool: string | null;

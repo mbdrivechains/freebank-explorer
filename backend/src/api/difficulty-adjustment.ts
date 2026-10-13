@@ -26,8 +26,8 @@ export interface DifficultyAdjustment {
 // counted from the anchor's parent:
 //   target(h) = anchor target * 2^((time(h-1) - time(anchor parent) - 600 * (h-1 - anchor + 1)) / half-life)
 // computed here exactly as consensus does (integer arithmetic, the cubic approximation of 2^x, compact bits), so the
-// figures equal the node's. The testnet 20-minute rule still lets a block 20 minutes after its parent be mined at the
-// minimum difficulty; such a block does not move the ASERT schedule.
+// figures equal the node's. The testnet 20-minute rule ends at the anchor: from easynet-3.1 (2026-10-13; Michael: "for
+// now just take out the 20 min rule") no block above it may be mined at the minimum difficulty.
 export interface AsertInfo {
   anchorHeight: number;
   halfLife: number;          // seconds
@@ -56,8 +56,7 @@ export interface AsertBlock {
   interval: number | null;   // seconds since its parent's timestamp (can be negative: timestamps need not rise)
   bits: number;
   difficulty: number;
-  expectedBits: number | null;   // above the anchor: what ASERT asks of a normal block at this height
-  minDifficulty: boolean;    // mined at the minimum difficulty under the 20-minute rule (its bits are not ASERT's)
+  expectedBits: number | null;   // above the anchor: the bits ASERT gives this block
   scheduleOffset: number | null; // above the anchor: seconds behind (> 0) or ahead (< 0) of the 10-minute schedule
   txCount: number;
   pool: string | null;
@@ -219,6 +218,7 @@ export function calcDifficultyAdjustment(
   previousRetarget: number,
   network: string,
   latestBlockTimestamp: number,
+  twentyMinuteRule = network === 'testnet', // easynet: false once the next block is above the ASERT anchor
 ): DifficultyAdjustment {
   const EPOCH_BLOCK_LENGTH = 2016; // Bitcoin mainnet
   const BLOCK_SECONDS_TARGET = 600; // Bitcoin mainnet
@@ -260,7 +260,7 @@ export function calcDifficultyAdjustment(
   // Testnet difficulty is set to 1 after 20 minutes of no blocks,
   // therefore the time between blocks will always be below 20 minutes (1200s).
   let timeOffset = 0;
-  if (network === 'testnet') {
+  if (twentyMinuteRule) {
     if (timeAvgSecs > TESTNET_MAX_BLOCK_SECONDS) {
       timeAvgSecs = TESTNET_MAX_BLOCK_SECONDS;
     }
@@ -362,7 +362,6 @@ class DifficultyAdjustmentApi {
           bits: Number(r.bits),
           difficulty: Number(r.difficulty),
           expectedBits,
-          minDifficulty: expectedBits !== null && Number(r.bits) !== expectedBits && Number(r.bits) === this.powLimitBits,
           scheduleOffset: above ? time - anchor.parentTime - 600 * (height - anchor.height + 1) : null,
           txCount: Number(r.txCount),
           pool: r.pool ?? null,
@@ -384,13 +383,15 @@ class DifficultyAdjustmentApi {
     }
     const nowSeconds = Math.floor(new Date().getTime() / 1000);
     const quarterEpochBlockTime = blocks.getQuarterEpochBlockTime();
+    const anchorHeight = config.MEMPOOL.ASERT_ANCHOR_HEIGHT;
 
+    // easynet: no 20-minute rule for blocks above the ASERT anchor, so no capped block times or "due now" offset there
     const da: IDifficultyAdjustment = calcDifficultyAdjustment(
       DATime, quarterEpochBlockTime, nowSeconds, blockHeight, previousRetarget,
-      config.MEMPOOL.NETWORK, latestBlock.timestamp
+      config.MEMPOOL.NETWORK, latestBlock.timestamp,
+      config.MEMPOOL.NETWORK === 'testnet' && !(anchorHeight > 0 && blockHeight >= anchorHeight),
     );
     // easynet: above the ASERT anchor the difficulty is set every block; say so instead of a 2016-block estimate
-    const anchorHeight = config.MEMPOOL.ASERT_ANCHOR_HEIGHT;
     if (anchorHeight > 0 && latestBlock.height > anchorHeight) {
       if (!this.asertAnchor || this.asertAnchor.height !== anchorHeight || Date.now() - this.asertLoadedAt > 600_000) {
         void this.$loadAsertAnchor(anchorHeight);

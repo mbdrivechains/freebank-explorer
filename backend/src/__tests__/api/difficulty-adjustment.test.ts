@@ -122,6 +122,18 @@ describe('Mempool Difficulty Adjustment', () => {
     }
   });
 
+  test('easynet: no 20-minute rule above the ASERT anchor', () => {
+    // 84 blocks of 30 minutes since the last 2016-block boundary, the tip 25 minutes old
+    const now = 1800000000;
+    const args = [now - 84 * 1800, null, now, 2100, 0, 'testnet', now - 1500] as const;
+    const withRule = calcDifficultyAdjustment(...args);
+    expect(withRule.timeAvg).toEqual(1200000);      // capped at 20 minutes
+    expect(withRule.timeOffset).toEqual(-1200000);  // the next block is due now
+    const without = calcDifficultyAdjustment(...args, false);
+    expect(without.timeAvg).toEqual(1800000);
+    expect(without.timeOffset).toEqual(0);
+  });
+
   test('should calculate Difficulty change from bits fields of two blocks', () => {
     // Check same exponent + check min max for output
     expect(calcBitsDifference(0x1d000200, 0x1d000100)).toEqual(100);

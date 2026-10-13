@@ -52,15 +52,18 @@
         <div class="note">Work in the last N blocks over the time they took.</div>
       </div></div>
     </div>
-    <!-- block times, the 20-minute rule -->
+    <!-- block times, the 20-minute rule (up to the anchor) -->
     <div class="col">
       <div class="card"><div class="card-body">
         <div class="label">Average block time</div>
         <table class="mini">
           <tr *ngFor="let a of st.avgTimes"><td>last {{ a.window }}</td><td class="val">{{ formatDuration(a.value) }}</td></tr>
         </table>
-        <div class="note" *ngIf="(minDifficultyIn() ?? 0) > 0; else ruleNow">Minimum-difficulty block allowed in {{ formatDuration(minDifficultyIn()) }} (20-minute rule)</div>
-        <ng-template #ruleNow><div class="note warn">Minimum-difficulty block allowed now (20-minute rule)</div></ng-template>
+        <ng-container *ngIf="twentyMinuteRule(); else noRule">
+          <div class="note" *ngIf="(minDifficultyIn() ?? 0) > 0; else ruleNow">Minimum-difficulty block allowed in {{ formatDuration(minDifficultyIn()) }} (20-minute rule<ng-container *ngIf="st.anchorHeight > 0">, up to block {{ st.anchorHeight }}</ng-container>)</div>
+          <ng-template #ruleNow><div class="note warn">Minimum-difficulty block allowed now (20-minute rule<ng-container *ngIf="st.anchorHeight > 0">, up to block {{ st.anchorHeight }}</ng-container>)</div></ng-template>
+        </ng-container>
+        <ng-template #noRule><div class="note">No 20-minute rule under ASERT: every block needs ASERT's difficulty</div></ng-template>
       </div></div>
     </div>
   </div>
@@ -70,7 +73,7 @@
       <div class="chart" *browserOnly echarts [initOpts]="chartInitOptions" [options]="chartOptions" [style]="{opacity: isLoading ? 0.5 : 1}"></div>
       <div class="text-center loading" *ngIf="isLoading"><div class="spinner-border text-light"></div></div>
       <div class="text-center" *ngIf="error">The ASERT series could not be loaded.</div>
-      <div class="note mt-1" *ngIf="stats">{{ stats.span }} blocks; {{ stats.minDiffCount }} mined at the minimum difficulty under the 20-minute rule (orange dots).</div>
+      <div class="note mt-1" *ngIf="stats">{{ stats.span }} blocks.</div>
     </div>
   </div>
 
@@ -91,8 +94,7 @@
               <td>
                 <span *ngIf="r.matches === null" class="muted">2016 rule</span>
                 <span *ngIf="r.matches === true" class="ok">as asked</span>
-                <span *ngIf="r.matches === false && r.minDifficulty" class="warn">minimum (20 min)</span>
-                <span *ngIf="r.matches === false && !r.minDifficulty" class="bad">differs</span>
+                <span *ngIf="r.matches === false" class="bad">differs</span>
               </td>
               <td>{{ r.scheduleOffset === null ? '–' : formatDuration(r.scheduleOffset) + (r.scheduleOffset > 0 ? ' behind' : ' ahead') }}</td>
               <td>{{ r.txCount }}</td>

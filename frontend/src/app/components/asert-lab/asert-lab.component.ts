@@ -17,7 +17,7 @@ const SPANS = [144, 432, 1008, 2016];
 const WINDOWS = [6, 36, 144];
 const TWENTY_MINUTES = 1200;
 const COLORS = {
-  difficulty: '#D81B60', target: '#ffffff', minDifficulty: '#ff9f00', interval: '#4a68b9', intervalAvg: '#1bd8f4',
+  difficulty: '#D81B60', target: '#ffffff', interval: '#4a68b9', intervalAvg: '#1bd8f4',
   hashrate: ['#FDD835', '#FFB300', '#FB8C00'], offset: '#1bd8f4',
 };
 
@@ -35,7 +35,6 @@ interface Stats {
   hashrates: { window: number, value: number | null }[];
   avgTimes: { window: number, value: number | null }[];
   scheduleOffset: number | null;
-  minDiffCount: number;
   span: number;
 }
 
@@ -95,7 +94,7 @@ export class AsertLabComponent implements OnInit, OnDestroy {
       this.asert = da?.asert || null;
       this.cd.markForCheck();
     }));
-    // the 20-minute rule countdown
+    // the 20-minute rule countdown (up to the anchor)
     this.subs.push(interval(1000).subscribe(() => {
       this.now = Date.now() / 1000;
       this.cd.markForCheck();
@@ -115,6 +114,12 @@ export class AsertLabComponent implements OnInit, OnDestroy {
   holdRate(): number | null {
     const d = this.asert?.nextDifficulty ?? this.lastDifficulty;
     return d ? d * 4294967296 / 600 : null;
+  }
+
+  /** Whether the next block may still be mined at the minimum difficulty: the 20-minute rule ends at the ASERT anchor
+   *  (easynet-3.1, 2026-10-13); no block above it may be. */
+  twentyMinuteRule(): boolean {
+    return !!this.stats && (this.stats.anchorHeight <= 0 || this.stats.tipHeight < this.stats.anchorHeight);
   }
 
   /** Seconds until a block may be mined at the minimum difficulty (20 minutes after the tip's timestamp); <= 0: now. */
@@ -158,7 +163,6 @@ export class AsertLabComponent implements OnInit, OnDestroy {
       hashrates: WINDOWS.map((k) => ({ window: k, value: hashrateAt(last, k) })),
       avgTimes: WINDOWS.map((k) => ({ window: k, value: avgTimeAt(last, k) })),
       scheduleOffset: tip.scheduleOffset,
-      minDiffCount: visible.filter((b) => b.minDifficulty).length,
       span: visible.length,
     } : null;
 
@@ -206,7 +210,7 @@ export class AsertLabComponent implements OnInit, OnDestroy {
           const i = idx[n];
           const lines = [
             `<b>Block ${b.height}</b>`,
-            `Difficulty ${formatDifficulty(b.difficulty)}` + (b.minDifficulty ? ' <span style="color:#ff9f00">(minimum: 20-minute rule)</span>' : ''),
+            `Difficulty ${formatDifficulty(b.difficulty)}`,
             b.expectedBits !== null ? `ASERT asked ${formatDifficulty(difficultyFromBits(b.expectedBits))}` : 'Before ASERT (2016-block rule)',
             `Block time ${b.interval === null ? '–' : formatDuration(b.interval)}`,
             `Hashrate (6 / 36 / 144) ${WINDOWS.map((k) => formatHashrate(hashrateAt(i, k))).join(' / ')}`,
@@ -234,7 +238,7 @@ export class AsertLabComponent implements OnInit, OnDestroy {
         right: 24,
         itemGap: 14,
         textStyle: { color: '#b1b1b1' },
-        data: ['Difficulty', 'ASERT target', 'Minimum-difficulty block', 'Block time', `Average of ${WINDOWS[1]}`,
+        data: ['Difficulty', 'ASERT target', 'Block time', `Average of ${WINDOWS[1]}`,
           ...WINDOWS.map((k) => `Hashrate (${k} blocks)`), 'Schedule'],
       },
       dataZoom: [
@@ -247,8 +251,6 @@ export class AsertLabComponent implements OnInit, OnDestroy {
         { name: 'ASERT target', type: 'line', step: 'middle', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', color: COLORS.target,
           lineStyle: { type: 'dashed', width: 1, opacity: 0.7 },
           data: visible.map((b) => b.expectedBits === null ? null : difficultyFromBits(b.expectedBits)) },
-        { name: 'Minimum-difficulty block', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 7, color: COLORS.minDifficulty,
-          data: visible.map((b) => b.minDifficulty ? b.difficulty : null) },
         { name: 'Block time', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, color: COLORS.interval, barMaxWidth: 6,
           data: visible.map((b) => b.interval === null ? null : Math.max(0, b.interval)),
           markLine: { silent: true, symbol: 'none', lineStyle: { color: '#fff', type: 'dashed' }, label: { formatter: '10 min', color: '#aaa', position: 'insideEndTop' }, data: [{ yAxis: 600 }] } },
