@@ -1,6 +1,6 @@
 // FreeBank custody labels on transaction inputs and outputs: the coins the credit rules hold
 // (house pledges, a house's till and escrow, bill escrow bonds, pool reserves, oracle bonds,
-// demanded notes held in custody). Pure TypeScript, no Angular.
+// demanded notes and term deposits held in custody), and the noteholders' mutual fund. Pure TypeScript, no Angular.
 //
 // A custody coin sits on `<push> OP_DROP OP_TRUE` (a 20-, 32- or 33-byte push), which anyone can
 // spend at the script level; a tag the node puts on the coin locks it. Two tiers:
@@ -12,8 +12,9 @@
 //   api/freebank/custody-tags.ts): which house, bill, pool or submitter, with a link.
 
 export type FreebankCustodyKind =
-  | 'house_pledge' | 'house_till' | 'house_spread' | 'house_claim_change' | 'bill_escrow'
-  | 'pool_note_reserve' | 'pool_ecx_reserve' | 'oracle_bond' | 'note_custody'
+  | 'house_pledge' | 'house_till' | 'house_spread' | 'house_claim_change' | 'house_bill_escrow' | 'bill_escrow'
+  | 'pool_note_reserve' | 'pool_ecx_reserve' | 'oracle_bond' | 'note_custody' | 'deposit_custody'
+  | 'mutual_fund' // v0.2.28: locked by consensus whatever made it, so labelled by its script alone
   | 'lookalike' // custody-shaped, but nothing locks it
   | 'custody'; // the family only (this file), until the exact label arrives
 
@@ -53,14 +54,25 @@ export function custodyPushBytes(scriptpubkey: string | undefined): number | nul
 
 // The family of a tagged custody coin of each push size that a tx of each version can create or
 // spend: the same versions both ways (freebank coins.cpp AddCoins; tx_verify.cpp spend guards).
-//   32  bill escrow v11 · house escrow v12 (pledges, till), v13 (spread, claim change) and
-//       v14 (claim change) · pool reserves v15
+//   32  bill escrow v11, and from v0.2.28 house escrow v11 (a failed house's bills repaid into it) ·
+//       house escrow v12 (pledges, till; the close spends it), v13 (spread, claim change) and v14 (claim change) ·
+//       pool reserves v15
 //   33  oracle bond v17
-//   20  demanded notes in custody v13
+//   20  demanded notes in custody v13 · demanded term deposits in custody v14 (v0.2.29)
 const CUSTODY_FAMILIES: { [pushBytes: number]: { [version: number]: string } } = {
-  32: { 11: 'Bill escrow', 12: 'House escrow', 13: 'House escrow', 14: 'House escrow', 15: 'Pool reserve' },
+  32: { 11: 'Bill or house escrow', 12: 'House escrow', 13: 'House escrow', 14: 'House escrow', 15: 'Pool reserve' },
   33: { 17: 'Oracle bond' },
-  20: { 13: 'Demanded notes (custody)' },
+  20: { 13: 'Demanded notes (custody)', 14: 'Demanded term deposit (custody)' },
+};
+
+/** house.cpp MutualFundScript (v0.2.28): <"FreeBank mutual fund v1"> OP_DROP OP_TRUE. */
+export const MUTUAL_FUND_SCRIPT = '17' + '4672656542616e6b206d757475616c2066756e64207631' + '7551';
+
+export const MUTUAL_FUND_LABEL: FreebankCustodyLabel = {
+  kind: 'mutual_fund',
+  text: 'FreeBank mutual fund (locked)',
+  tooltip: 'The noteholders\' mutual fund: what was left of a failed house\'s escrow when it closed, after its partners\' residual. Consensus refuses every spend of it for now.',
+  link: null,
 };
 
 export const CUSTODY_TOOLTIP = 'Locked by the FreeBank credit rules, not by a key';
@@ -78,6 +90,9 @@ export const CUSTODY_LOOKALIKE: FreebankCustodyLabel = {
  * tags nothing.
  */
 export function custodyFamilyLabel(scriptpubkey: string | undefined, version: number, isCoinbase = false): FreebankCustodyLabel | undefined {
+  if (scriptpubkey === MUTUAL_FUND_SCRIPT) {
+    return MUTUAL_FUND_LABEL;
+  }
   const pushBytes = custodyPushBytes(scriptpubkey);
   if (pushBytes === null) {
     return undefined;

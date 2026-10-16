@@ -153,6 +153,23 @@ function billSummary(op: string | null, d: FreebankDecodedPayload): string {
       return `${capitalize(bill(id))} paid to ${house(houseId)}` + (face !== null ? `, ${ecx(face)} off its loan book` : '');
     case 'hclaim':
       return `${capitalize(house(houseId))} took the escrow of defaulted ${bill(id)}`;
+    case 'hretire_notes': {
+      // v0.2.27 repay in kind: the house's own notes burned at par (1 unit = 1 szat of face), the rest in ECX
+      const burned = num(d, 'units_burned');
+      const rest = face !== null && burned !== null ? face - burned : null;
+      const how = burned === null ? ' partly in the house\'s own notes'
+        : rest !== null && rest > 0 ? ` in ${units(burned)} of the house's own notes and ${ecx(rest)}`
+        : ` all in the house's own notes (${units(burned)})`;
+      return `${capitalize(bill(id))} repaid to ${house(houseId)}${how}` + (face !== null ? `; ${ecx(face)} off its loan book` : '');
+    }
+    case 'hretire_escrow': {
+      // v0.2.28: at a suspended or insolvent house the face goes into its escrow; notes optional
+      const burned = num(d, 'units_burned');
+      return `${capitalize(bill(id))} repaid into the escrow of ${house(houseId)}, which has stopped paying` +
+        (face !== null ? ` (face ${ecx(face)}` + (burned ? `, ${units(burned)} of it in the house's own notes)` : ')') : '');
+    }
+    case 'hclaim_escrow':
+      return `The bond of defaulted ${bill(id)} moved into the escrow of ${house(houseId)}, which has stopped paying`;
     default:
       return '';
   }
@@ -213,6 +230,8 @@ function houseSummary(op: string | null, d: FreebankDecodedPayload): string {
       return `${capitalize(house(id))} renewed the option clause (an old operation, retired in v0.2.18)`;
     case 'release':
       return `${capitalize(house(id))} released its locked reserves`;
+    case 'close':
+      return `Failed ${house(id)} closed after its claim window: the partners took their residual, the rest of its escrow went to the mutual fund`;
     default:
       return '';
   }
@@ -316,6 +335,19 @@ function depositSummary(op: string | null, d: FreebankDecodedPayload): string {
       return `A term deposit at ${house(id)} was paid out at maturity`;
     case 'claim':
       return `A depositor claimed its share from insolvent ${house(id)}`;
+    case 'demand': {
+      // v0.2.29: the matured receipt goes into custody; anyone may then pay it to the payout address
+      const to = str(d, 'payout_address');
+      return (principal !== null ? `A saver demanded payment of a ${units(principal)} term deposit` : 'A saver demanded payment of a term deposit') +
+        ` at ${house(id)}` + (to ? `, to be paid to ${to}` : '');
+    }
+    case 'protest':
+      return (principal !== null ? `A saver protested an unpaid demand for a ${units(principal)} term deposit` : 'A saver protested an unpaid demand for a term deposit') +
+        ` at ${house(id)}` + (num(d, 'demand_height') ? ` (demanded at block ${num(d, 'demand_height')})` : '');
+    case 'discharge': {
+      const to = str(d, 'payout_address');
+      return `A demanded term deposit at ${house(id)} was paid` + (to ? ` to ${to}` : '');
+    }
     default:
       return '';
   }

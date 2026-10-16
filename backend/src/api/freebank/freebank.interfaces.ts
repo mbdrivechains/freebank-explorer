@@ -31,6 +31,11 @@ export interface FreebankHouse {
   tokencollected?: number; // v0.2.21: claims paid
   member_records?: number; // v0.2.19: member records of a members-only house
   insolventheight?: number;
+  // v0.2.28 a failed house's timeline: the first three only once insolvent, closed always
+  insolvent_since?: number;
+  collection_done?: boolean;
+  claim_window_closes?: number;
+  closed?: boolean;
   [field: string]: any;
 }
 

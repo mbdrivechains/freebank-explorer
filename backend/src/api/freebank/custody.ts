@@ -2,7 +2,7 @@ import bitcoinClient from '../bitcoin/bitcoin-client';
 import freebankApi, { Tip } from './freebank-api';
 import logger from '../../logger';
 import { FreebankParsedTx, parseFreebankTx } from './freebank-tx-parser';
-import { CoinTag, coinTags, CustodyDirectory, CustodyLabel, custodyLabel, custodyPush } from './custody-tags';
+import { CoinTag, coinTags, CustodyDirectory, CustodyLabel, custodyLabel, custodyLabelled } from './custody-tags';
 import { FreebankBill, FreebankHouse, FreebankOracleSubmitter, FreebankPool } from './freebank.interfaces';
 
 // GET /api/v1/freebank/custody?txids=a,b,...: custody labels on the inputs and outputs of up to
@@ -49,7 +49,7 @@ export interface CustodyNode {
 
 interface ParsedOutputs {
   inputs: ({ txid: string, vout: number } | null)[]; // null: a coinbase input
-  outputs: { script: string, tag: CoinTag | null }[]; // script kept only when custody-shaped
+  outputs: { script: string, tag: CoinTag | null }[]; // script kept only when custody-shaped (or the mutual fund's)
 }
 
 /** The node's answer for a txid it does not know (RPC_INVALID_ADDRESS_OR_KEY). */
@@ -234,7 +234,7 @@ export class FreebankCustody {
     const tags = coinTags(tx);
     const parsed: ParsedOutputs = {
       inputs: tx.vin.map((input) => (input.txid === COINBASE_TXID && input.vout === 0xffffffff) ? null : { txid: input.txid, vout: input.vout }),
-      outputs: tx.vout.map((output, n) => ({ script: custodyPush(output.scriptpubkey) !== null ? output.scriptpubkey : '', tag: tags[n] })),
+      outputs: tx.vout.map((output, n) => ({ script: custodyLabelled(output.scriptpubkey) ? output.scriptpubkey : '', tag: tags[n] })),
     };
     this.txCache.set(txid, parsed);
     if (this.txCache.size > TX_CACHE_MAX) {

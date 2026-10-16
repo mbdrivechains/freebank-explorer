@@ -280,6 +280,8 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
       } else if (op === 'attest') {
         const asOf = has('as_of_height') ? ` as of block ${d.as_of_height}` : '';
         text = has('reserves_sats') ? `Proved reserves of ${ecx(d.reserves_sats)}${asOf}` : 'Attested its reserves';
+      } else if (op === 'close') {
+        text = 'Closed after its claim window: the partners took their residual, the rest of the escrow went to the mutual fund';
       } else if (has('partner_index')) {
         text = `Partner ${d.partner_index}`;
       }
@@ -321,7 +323,16 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
       }
       break;
     case 'deposit':
-      if (has('principal_units')) {
+      if (op === 'demand') {
+        // v0.2.29 forced payment of a matured deposit
+        text = `A saver demanded payment of ${has('principal_units') ? units(d.principal_units) : 'a term deposit'}` +
+          (typeof d.payout_address === 'string' ? `, to be paid to ${d.payout_address}` : '');
+      } else if (op === 'protest') {
+        text = `A saver protested an unpaid demand for ${has('principal_units') ? units(d.principal_units) : 'a term deposit'}` +
+          (has('demand_height') ? ` (demanded at block ${d.demand_height})` : '');
+      } else if (op === 'discharge') {
+        text = 'Paid a demanded term deposit' + (typeof d.payout_address === 'string' ? ` to ${d.payout_address}` : '');
+      } else if (has('principal_units')) {
         const rate = has('rate_bps') ? ` at ${formatBps(num(d.rate_bps))} a year` : '';
         const maturity = has('maturity_height') ? `, matures at block ${d.maturity_height}` : '';
         text = `${op === 'originate' ? 'Placed' : 'Principal'} ${units(d.principal_units)}${rate}${maturity}`;
@@ -384,6 +395,16 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
         text = 'paid at maturity';
       } else if (op === 'hclaim') {
         text = 'unpaid: the house claimed the escrow';
+      } else if (op === 'hretire_notes') {
+        // v0.2.27 repay in kind: this house's notes come home, burned at par
+        const burned = num(d.units_burned);
+        const rest = num(d.face_sats) - burned;
+        text = rest > 0 ? `paid at maturity: ${units(burned)} of this house's notes and ${ecx(rest)}`
+          : `paid at maturity, all in this house's notes (${units(burned)})`;
+      } else if (op === 'hretire_escrow') {
+        text = 'paid into the escrow (the house has stopped paying)' + (num(d.units_burned) > 0 ? `, ${units(d.units_burned)} in this house's notes` : '');
+      } else if (op === 'hclaim_escrow') {
+        text = 'unpaid: its bond moved into the escrow';
       }
       break;
   }

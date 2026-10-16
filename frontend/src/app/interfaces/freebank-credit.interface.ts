@@ -75,7 +75,7 @@ export interface FreebankHouse {
   status: FreebankHouseStatus;    // stored status
   effective_status: FreebankHouseStatus; // status in force at the tip (what the badge reads)
   stress_since?: number;          // height the current stress began; only while stressed
-  protest_open?: number;          // count of open note protests; present once a protest ever happened
+  protest_open?: number;          // count of open protests, of notes and (v0.2.29) term deposits; present once one ever happened
   protest_height?: number;        // height
   protest_demand_height?: number; // height
   attest_deadline: number;        // height: lastattestheight + 2 * attestation cadence. If the house has
@@ -93,6 +93,8 @@ export interface FreebankHouse {
   // option clause (v0.2.18: a suspension has no end date and may repeat; defer_end_height and confidence_dead are gone)
   defer_invoked_height?: number;  // height the option clause was invoked; only while suspended
   defer_silence_insolvent_height?: number; // only while suspended: insolvent at this height unless it attests first
+  defer_cap_insolvent_height?: number;     // v0.2.28, only while suspended: insolvent at this height whatever it does (12-month cap)
+  defer_insolvent_height?: number;         // v0.2.28, only while suspended: the earlier of the two
   defer_interest_bps?: number;    // bps a year earned by demanded notes queued during a suspension (1000 = 10%)
   defer_renewals: number;         // always 0 from v0.2.18 (renewal retired)
   defer_activations: number;      // suspensions, all time
@@ -108,6 +110,11 @@ export interface FreebankHouse {
   tokenclaimed?: number;          // v0.2.21: units claimed by token holders at a failed house
   tokenclaims?: number;           // v0.2.21: claims made
   tokencollected?: number;        // v0.2.21: claims paid
+  // v0.2.28 a failed house's timeline (FAILED_HOUSE_DESIGN.md B, E): the first three only once insolvent
+  insolvent_since?: number;       // height it became insolvent (insolventheight is when the first claim recorded it)
+  collection_done?: boolean;      // false while collecting: its loan book runs off into its escrow before claims are paid
+  claim_window_closes?: number;   // height from which anyone may close it (2 years after it became insolvent)
+  closed?: boolean;               // closed: partners paid their residual, the rest of the escrow went to the mutual fund
 }
 
 /** GET /api/v1/freebank/house/:id/tokens (gettokenclaims), v0.2.21: the house's mint keysets and token claims. */
@@ -318,9 +325,12 @@ export interface FreebankDecodedPayload {
   from_pubkey?: string;           // hex
   to_pubkey?: string;             // hex
   price_units?: number;           // units: the discount price, paid in the house's own notes
+  // bill (v0.2.27/28): hretire_notes / hretire_escrow (bill_id, house_id, face_sats, maturity_height, units_burned),
+  // hclaim_escrow (bill_id, house_id, face_sats, maturity_height)
+  units_burned?: number;          // units of the house's own notes paid at par and burned (may be 0 on hretire_escrow)
   // house: register (tier, threshold, classid, denominationmggold, partners, pledge_sats),
   // topup / exit / reclaim (house_id, partner_index), attest (house_id, as_of_height,
-  // reserves_sats), admit / winddown / defer / renew / release (house_id)
+  // reserves_sats), admit / winddown / defer / renew / release / close (house_id; close is v0.2.28)
   house_id?: number;              // also on note, deposit, pool and bill discount ops
   tier?: number;
   threshold?: number;
@@ -364,10 +374,15 @@ export interface FreebankDecodedPayload {
   demand_mode?: string;           // 'plain' | 'preauth' | 'preauth_queue' (or 'mode_<n>' for an unknown byte)
   prior_demand_height?: number;   // height: non-zero on an upgrade of a plain demand (its clock kept)
   // deposit: originate (house_id, principal_units, receipts), transfer (house_id,
-  // principal_units, rate_bps, maturity_height), withdraw / claim (house_id)
+  // principal_units, rate_bps, maturity_height), withdraw / claim (house_id); v0.2.29: demand (house_id,
+  // principal_units, rate_bps, maturity_height, origination_height, payout_address), protest (the same but
+  // payout_address, plus demand_height), discharge (house_id, payout_address)
   principal_units?: number;       // units
   receipts?: number;              // count
   rate_bps?: number;              // bps a year
+  origination_height?: number;    // height the receipt was opened at
+  demand_height?: number;         // height of the demand a protest protests
+  payout_address?: string | null; // where the house must pay a demanded deposit; null when it is not a P2PKH script
   // pool (every op has pool_id and house_id, equal in v1): create (fee_bps, note_units,
   // ecx_sats), add_liq (note_units, ecx_sats, lp_minted), remove_liq (lp_burned, note_units_out,
   // ecx_sats_out), swap (direction, amount_in, amount_out)

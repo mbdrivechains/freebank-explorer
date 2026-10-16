@@ -17,7 +17,11 @@ import { ByteReader, FreebankParsedTx } from './freebank-tx-parser';
 //       bill escrow   <sha256(bill body)>   bill.cpp:127 BillEscrowScript
 //       pool escrow   <PoolEscrowTag(id)>   pool.cpp:15-27
 //   33  oracle bond   <submitter pubkey>    oracle.cpp:104 OracleBondScript
-//   20  note custody  <hash160(holder key)> note.cpp:30 NotePreAuthScript
+//   20  note custody  <hash160(holder key)> note.cpp:30 NotePreAuthScript (demanded notes, and from v0.2.29
+//                     demanded term-deposit receipts)
+// And one exact script, the noteholders' mutual fund (v0.2.28, house.cpp MutualFundScript): <"FreeBank mutual fund v1">
+// OP_DROP OP_TRUE. A failed house's CLOSE pays the rest of its escrow there, and consensus refuses every spend of it
+// (tx_verify.cpp bad-txns-spend-mutual-fund), whoever made the coin: so it is labelled by its script alone.
 // Hashes go in the script as the node holds them in memory (uint256 begin..end), which is the
 // byte-reverse of the hex the RPCs print (househash, bill_id).
 //
@@ -32,19 +36,21 @@ export type CustodyKind =
   | 'house_till' // reserves locked at DEFER vout[0]
   | 'house_spread' // note REDEEM vout[1], the redemption spread (brassage)
   | 'house_claim_change' // note CLAIM / term-deposit CLAIM vout[1], escrow change
+  | 'house_bill_escrow' // v0.2.28 bill HRETIRE_ESCROW / HCLAIM_ESCROW vout[0]: a house-held bill's money into the escrow
   | 'bill_escrow' // bill ISSUE vout[1], the escrow bond
   | 'pool_note_reserve' // pool vout[0]: the notes the pool holds (dual-tagged note + pool escrow)
   | 'pool_ecx_reserve' // pool vout[1]: the ECX the pool holds
   | 'oracle_bond' // oracle BOND vout[0]
-  | 'note_custody'; // pre-auth DEMAND and PROTEST note outputs: demanded notes held in custody
+  | 'note_custody' // pre-auth DEMAND and PROTEST note outputs: demanded notes held in custody
+  | 'deposit_custody'; // v0.2.29 term-deposit DEMAND and PROTEST vout[0]: a demanded receipt held in custody
 
 // Tagged coins that are claims rather than custody: they sit on their holder's own key, and are
 // not labelled as custody.
 export type ClaimKind = 'bill_title' | 'note' | 'deposit_receipt' | 'lp_share';
 
 export const CUSTODY_KINDS: readonly CustodyKind[] = [
-  'house_pledge', 'house_till', 'house_spread', 'house_claim_change', 'bill_escrow',
-  'pool_note_reserve', 'pool_ecx_reserve', 'oracle_bond', 'note_custody',
+  'house_pledge', 'house_till', 'house_spread', 'house_claim_change', 'house_bill_escrow', 'bill_escrow',
+  'pool_note_reserve', 'pool_ecx_reserve', 'oracle_bond', 'note_custody', 'deposit_custody',
 ];
 
 export function isCustodyKind(kind: string): kind is CustodyKind {
@@ -59,9 +65,10 @@ export interface CoinTag {
   partnerIndex?: number; // REGISTER (the output's index) and TOPUP (from the payload), 0-based
   partnerPubkey?: string; // REGISTER and ADMIT: the partner's key
   billHash?: string; // ISSUE: the bill's hash, as listbills prints bill_id
-  billId?: number; // ENDORSE / DISCOUNT: the bill's number, from the payload
+  billId?: number; // ENDORSE / DISCOUNT / HRETIRE_ESCROW / HCLAIM_ESCROW: the bill's number, from the payload
+  defaulted?: boolean; // HCLAIM_ESCROW: the escrow holds a defaulted bill's bond, not a repayment
   poolId?: number;
-  units?: number; // note units the coin carries (pool note reserve, notes)
+  units?: number; // note units the coin carries (pool note reserve, notes; a deposit receipt's principal)
   protested?: boolean; // note custody re-issued by a PROTEST
   queued?: boolean; // note custody of a demand queued while the house was suspended (v0.2.18 QUEUE bit)
   submitterId?: number; // oracle BOND payload: 0 for a new submitter
@@ -165,6 +172,14 @@ function readTags(tx: FreebankParsedTx, tags: (CoinTag | null)[]): void {
         escrow.billHash = reverseHex(escrow.expectedPush);
       } else if (op === 2) {
         set(0, { kind: 'bill_title' }).billId = r.u32();
+      } else if (op === 10 || op === 11) {
+        // v0.2.28 bill.cpp ApplyBillCoinTags: HRETIRE_ESCROW / HCLAIM_ESCROW vout[0] joins the owning house's escrow
+        // (the house id in payload bytes 4..8); consensus pins its script to the house's escrow script
+        const billId = r.u32();
+        const houseId = r.u32();
+        if (houseId !== 0) {
+          set(0, { kind: 'house_bill_escrow', houseId, billId, defaulted: op === 11 });
+        }
       } else if (op === 5) {
         const title = set(0, { kind: 'bill_title' });
         title.billId = r.u32();
@@ -295,6 +310,18 @@ function readTags(tx: FreebankParsedTx, tags: (CoinTag | null)[]): void {
       } else if (op === 4) {
         if (r.u8() !== 0) { // fEscrowChange
           set(1, { kind: 'house_claim_change', houseId });
+        }
+      } else if (op === 5 || op === 6) {
+        // v0.2.29 coins.cpp AddCoins: DEMAND and PROTEST re-issue the receipt at vout[0] with a demand tag, on the
+        // holder's custody script (deposit.cpp: NotePreAuthScript(holder)); PROTEST sets the protested bit
+        const principal = r.u64();
+        r.skip(4 + 4 + 4); // nRateBps, nMaturityHeight, nOriginationHeight
+        if (op === 6) {
+          r.u32(); // nDemandTag
+        }
+        const holder = r.varBytes();
+        if (houseId !== 0) {
+          set(0, { kind: 'deposit_custody', houseId, units: principal, protested: op === 6, expectedPush: hash160(holder).toString('hex') });
         }
       }
       break;
@@ -434,7 +461,7 @@ export interface CustodyDirectory {
   submitterIdByPubkey(pubkey: string): number | undefined;
 }
 
-export type CustodyLabelKind = CustodyKind | 'lookalike';
+export type CustodyLabelKind = CustodyKind | 'mutual_fund' | 'lookalike';
 
 /** One custody label, as GET /api/v1/freebank/custody returns it. */
 export interface CustodyLabel {
@@ -452,18 +479,21 @@ export interface CustodyLabel {
 }
 
 const LOCKED = 'Locked by the FreeBank credit rules, not by a key';
-const HOUSE_SPENDERS = 'only the house\'s reclaim or release, or an insolvency claim, can spend it.';
+const HOUSE_SPENDERS = 'only the house\'s reclaim or release, an insolvency claim, or the close of a failed house can spend it.';
 
 export const CUSTODY_TOOLTIPS: Readonly<Record<CustodyLabelKind, string>> = {
   house_pledge: `Capital a partner put behind the house. ${LOCKED}: ${HOUSE_SPENDERS}`,
   house_till: `Reserves the house locked when it deferred payment. ${LOCKED}: ${HOUSE_SPENDERS}`,
   house_spread: `The spread kept back when notes were redeemed, added to the house's escrow. ${LOCKED}: ${HOUSE_SPENDERS}`,
   house_claim_change: `What an insolvency claim left of the house's escrow. ${LOCKED}: ${HOUSE_SPENDERS}`,
+  house_bill_escrow: `A bill the house held paid into its escrow after the house stopped paying (suspended or insolvent), so the holders it stopped paying can reach the money. ${LOCKED}: only an insolvency claim or the close of the house can spend it.`,
   bill_escrow: `The bond posted when the bill was issued. ${LOCKED}: only the bill's own transactions can spend it.`,
   pool_note_reserve: `Notes the pool holds. ${LOCKED}: only the pool's own transactions can spend them.`,
   pool_ecx_reserve: `ECX the pool holds. ${LOCKED}: only the pool's own transactions can spend it.`,
   oracle_bond: `The bond a gold-price submitter posted. ${LOCKED}: only a new bond by the same submitter can spend it.`,
   note_custody: `Notes whose holder demanded payment and signed a standing order, so the house can pay them without the holder. ${LOCKED}.`,
+  deposit_custody: `A matured term deposit whose holder demanded payment and signed a standing order, so anyone can pay it to the holder's chosen address. ${LOCKED}.`,
+  mutual_fund: 'The noteholders\' mutual fund: what was left of a failed house\'s escrow when it closed, after its partners\' residual. Consensus refuses every spend of it for now.',
   lookalike: 'Shaped like a FreeBank custody output, but no credit rule locks it: anyone can spend it.',
 };
 
@@ -477,7 +507,19 @@ function lookalike(): CustodyLabel {
   return { kind: 'lookalike', text: 'Unlocked look-alike (anyone can spend)', tooltip: CUSTODY_TOOLTIPS.lookalike, link: null };
 }
 
-const HOUSE_ESCROW_KINDS: readonly CustodyKind[] = ['house_pledge', 'house_till', 'house_spread', 'house_claim_change'];
+const HOUSE_ESCROW_KINDS: readonly CustodyKind[] = ['house_pledge', 'house_till', 'house_spread', 'house_claim_change', 'house_bill_escrow'];
+
+/** house.cpp MutualFundScript (v0.2.28): <"FreeBank mutual fund v1"> OP_DROP OP_TRUE, in hex. */
+export const MUTUAL_FUND_SCRIPT = '17' + Buffer.from('FreeBank mutual fund v1', 'utf8').toString('hex') + '7551';
+
+/** Whether custodyLabel can label this script: custody-shaped, or the mutual fund's. */
+export function custodyLabelled(scriptpubkey: string): boolean {
+  return custodyPush(scriptpubkey) !== null || (scriptpubkey || '').toLowerCase() === MUTUAL_FUND_SCRIPT;
+}
+
+function mutualFund(): CustodyLabel {
+  return { kind: 'mutual_fund', text: 'FreeBank mutual fund (locked)', tooltip: CUSTODY_TOOLTIPS.mutual_fund, link: null };
+}
 
 /**
  * The custody label of one output (script + the tag its creating tx gives it), or null when it
@@ -488,6 +530,9 @@ const HOUSE_ESCROW_KINDS: readonly CustodyKind[] = ['house_pledge', 'house_till'
  * - 'Unlocked look-alike (anyone can spend)' otherwise.
  */
 export function custodyLabel(scriptpubkey: string, tag: CoinTag | null, dir: CustodyDirectory): CustodyLabel | null {
+  if ((scriptpubkey || '').toLowerCase() === MUTUAL_FUND_SCRIPT) {
+    return mutualFund();
+  }
   const push = custodyPush(scriptpubkey);
   if (push === null) {
     return null;
@@ -514,16 +559,19 @@ export function custodyLabel(scriptpubkey: string, tag: CoinTag | null, dir: Cus
     case 'house_till':
     case 'house_spread':
     case 'house_claim_change':
-    case 'note_custody': {
+    case 'house_bill_escrow':
+    case 'note_custody':
+    case 'deposit_custody': {
       const houseId = tag.houseId ?? (tag.houseHash ? dir.houseIdByHash(tag.houseHash) : undefined);
       const what = houseText(kind, tag, houseId, dir, label);
       if (houseId === undefined) {
         // only a REGISTER that has not connected yet (or a payload cut short) names no house
         label.text = kind === 'house_pledge' && tag.houseHash ? 'House pledge (new house)'
-          : kind === 'note_custody' ? `Notes · ${what}` : `House ${what}`;
+          : kind === 'note_custody' ? `Notes · ${what}` : kind === 'deposit_custody' ? `Term deposit · ${what}` : `House ${what}`;
       } else {
         label.house_id = houseId;
-        label.text = kind === 'note_custody' ? `House ${houseId} notes · ${what}` : `House ${houseId} · ${what}`;
+        label.text = kind === 'note_custody' ? `House ${houseId} notes · ${what}`
+          : kind === 'deposit_custody' ? `House ${houseId} term deposit · ${what}` : `House ${houseId} · ${what}`;
         label.link = `/house/${houseId}`;
       }
       break;
@@ -586,6 +634,17 @@ function houseText(kind: CustodyKind, tag: CoinTag, houseId: number | undefined,
       return 'escrow (redemption spread)';
     case 'house_claim_change':
       return 'escrow (claim change)';
+    case 'house_bill_escrow':
+      if (tag.billId !== undefined) {
+        label.bill_id = tag.billId;
+      }
+      return tag.defaulted ? `escrow (bill ${tag.billId}'s bond, defaulted)` : `escrow (bill ${tag.billId} repaid)`;
+    case 'deposit_custody':
+      label.units = tag.units;
+      if (tag.protested) {
+        label.protested = true;
+      }
+      return `${tag.protested ? 'demanded and protested' : 'demanded'}, held in custody (${formatUnits(tag.units as number)})`;
     default: { // note_custody
       label.units = tag.units;
       if (tag.protested) {

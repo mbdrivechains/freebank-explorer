@@ -15,14 +15,20 @@ import { formatBlocksFromTip, formatBps, formatEcx, formatUnits } from '@app/fre
 //      'stressed'  from the earliest of three origins (HouseStressOrigin):
 //                  a below-floor attestation (stored stress_since),
 //                  missed attestations: no attestation by attest_deadline, stressed from
-//                  attest_deadline + 1, and an open note protest (protest_open > 0);
+//                  attest_deadline + 1, and an open protest of its notes or (v0.2.29) a term deposit (protest_open > 0);
 //      'deferred'  SUSPENDED: the option clause is invoked (defer_invoked_height set), a substate
 //                  of stressed in which redemptions are queued instead of paid at par. From
 //                  v0.2.18 it has no end date: it ends by a reopen (an attestation back above the
 //                  floor plus a buffer), and may repeat;
 //      'insolvent' when stressed for the whole stressed window (1008 blocks under the
 //                  consensus rules; regtest can shorten it and the RPC does not report it),
-//                  or when a suspended house stops attesting (defer_silence_insolvent_height).
+//                  or when a suspended house stops attesting (defer_silence_insolvent_height), or, from
+//                  v0.2.28, when a suspension reaches 12 months (defer_cap_insolvent_height; the node's
+//                  defer_insolvent_height is the earlier of the two).
+//  - v0.2.28 a failed house's timeline (FAILED_HOUSE_DESIGN.md B, E), once insolvent: insolvent_since,
+//    collection_done (false while its loan book runs off into its escrow: claims wait), claim_window_closes
+//    (from then anyone may CLOSE it); closed (partners paid their residual, the rest of the escrow went to
+//    the noteholders' mutual fund, no more claims).
 //  - attest_deadline = lastattestheight + 2 * cadence (HOUSE_ATTEST_MISS_N = 2; cadence is
 //    144 blocks under the consensus rules, regtest can override it). So the cadence is
 //    (attest_deadline - lastattestheight) / 2, read from the node rather than hard-coded.
@@ -41,7 +47,8 @@ import { formatBlocksFromTip, formatBps, formatEcx, formatUnits } from '@app/fre
 //
 // THE BADGE RULES, first match wins (tip = the tip_height the API returned):
 //  1. INSOLVENT        effective_status or status is 'insolvent', or insolventheight is set,
-//                      or a suspended house whose defer_silence_insolvent_height is at or below the tip.
+//                      or a suspended house whose defer_insolvent_height (or, from an older node,
+//                      defer_silence_insolvent_height) is at or below the tip; or closed, or insolvent_since set.
 //  2. WOUND DOWN       effective_status or status is 'wounddown' (not one of the four design-39
 //                      badges: a closed house, which could only wind down with no notes or
 //                      term deposits outstanding).
@@ -134,7 +141,10 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
   const protestsOpen = house.protest_open || 0;
   const deferred = effective === 'deferred' || (house.defer_invoked_height || 0) > 0;
   const silenceAt = house.defer_silence_insolvent_height || 0;
-  const deferExpired = deferred && silenceAt > 0 && tip !== null && tip >= silenceAt;
+  const capAt = house.defer_cap_insolvent_height || 0; // v0.2.28: a suspension lasts at most 12 months
+  const insolventAt = house.defer_insolvent_height || (capAt && silenceAt ? Math.min(capAt, silenceAt) : capAt || silenceAt);
+  const deferExpired = deferred && insolventAt > 0 && tip !== null && tip >= insolventAt;
+  const insolventSince = house.insolvent_since || house.insolventheight || 0;
   const lateForPar = tip !== null && nextDue !== null && tip > nextDue;
 
   const health: HouseHealth = {
@@ -158,16 +168,20 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
     ? `It has not attested since it registered at block ${house.registeredheight}${relative(house.registeredheight, tip)}.${coverage}`
     : `Last attestation at block ${house.lastattestheight}${relative(house.lastattestheight, tip)}.${coverage}`;
 
-  if (effective === 'insolvent' || house.status === 'insolvent' || (house.insolventheight || 0) > 0 || deferExpired) {
+  if (effective === 'insolvent' || house.status === 'insolvent' || insolventSince > 0 || house.closed === true || deferExpired) {
     health.badge = 'insolvent';
     health.notesAtPar = false;
     health.notesImpaired = true;
     health.parEligible = false;
-    health.summary = 'Insolvent: its notes are claims on the pot, not par.';
-    if (house.insolventheight) {
-      reasons.push(`Insolvent since block ${house.insolventheight}${relative(house.insolventheight, tip)}.`);
-    } else if (deferExpired) {
-      reasons.push(`The house was suspended and stopped attesting: it became insolvent at block ${silenceAt}.`);
+    health.summary = house.closed === true ? 'Closed: a failed house, its claim window over.'
+      : house.collection_done === false ? 'Insolvent, collecting: claims wait until its loan book runs off.'
+      : 'Insolvent: its notes are claims on the pot, not par.';
+    if (deferExpired && !insolventSince) {
+      reasons.push(capAt > 0 && insolventAt === capAt
+        ? `The house stayed suspended for the 12-month limit: it became insolvent at block ${capAt}.`
+        : `The house was suspended and stopped attesting: it became insolvent at block ${insolventAt}.`);
+    } else if (insolventSince) {
+      reasons.push(`Insolvent since block ${insolventSince}${relative(insolventSince, tip)}.`);
     } else if (house.stress_since) {
       reasons.push(`Stressed since block ${house.stress_since} and did not recover within the stressed window, so the house is insolvent.`);
     } else {
@@ -177,6 +191,14 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
     if (isNumber(house.insolventpot)) {
       const units = isNumber(house.insolventunits) ? ` for ${formatUnits(house.insolventunits)} note units outstanding` : '';
       reasons.push(`Pot: ${formatEcx(house.insolventpot)} ECX${units}.`);
+    }
+    if (house.closed === true) {
+      reasons.push('Closed after its claim window: its partners took their residual and the rest of its escrow went to the noteholders\' mutual fund. No more claims are paid.');
+    } else if (house.collection_done === false) {
+      reasons.push('Collecting: the bills it holds pay into its escrow as they fall due. Claims are paid once its loan book is empty, or when the collection window ends.');
+    } else if (isNumber(house.claim_window_closes) && house.claim_window_closes > 0) {
+      reasons.push(`Claims are open until block ${house.claim_window_closes}${relative(house.claim_window_closes, tip)}. ` +
+        'After that anyone may close the house, and what is left of its escrow goes to the noteholders\' mutual fund.');
     }
   } else if (effective === 'wounddown' || house.status === 'wounddown') {
     health.badge = 'wound_down';
@@ -197,9 +219,14 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
       const rate = isNumber(house.defer_interest_bps) ? house.defer_interest_bps : HOUSE_DEFER_INTEREST_BPS;
       reasons.push(`The partners invoked the option clause${invoked}: the house is suspended and redemptions are queued, not paid at par. ` +
         `A holder who demands payment earns ${formatBps(rate)} a year from the demand, and the house may pay demanded notes with that interest while suspended.`);
-      reasons.push('A suspension has no end date: it ends when the house attests reserves back above the floor plus a buffer.');
-      if (silenceAt) {
+      reasons.push(capAt
+        ? 'It reopens when it attests reserves back above the floor plus a buffer. A suspension lasts at most 12 months.'
+        : 'A suspension has no end date: it ends when the house attests reserves back above the floor plus a buffer.');
+      if (silenceAt && (!capAt || silenceAt < capAt)) {
         reasons.push(`It must keep attesting: if it has not attested by block ${silenceAt - 1}${relative(silenceAt - 1, tip)}, it becomes insolvent.`);
+      }
+      if (capAt) {
+        reasons.push(`Unless it reopens first, it becomes insolvent at block ${capAt}${relative(capAt, tip)}, when the suspension reaches 12 months.`);
       }
     } else {
       health.summary = house.stress_since ? `Stressed since block ${house.stress_since}.` : 'Stressed.';
@@ -215,7 +242,7 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
     }
     if (protestsOpen > 0) {
       const since = house.protest_height ? ` since block ${house.protest_height}` : '';
-      reasons.push(`A note holder has protested a demand the house did not pay (${protestsOpen} open${since}).`);
+      reasons.push(`A holder of its notes or term deposits has protested a demand the house did not pay (${protestsOpen} open${since}).`);
     }
     if (!deferred) {
       if (house.stress_since) {

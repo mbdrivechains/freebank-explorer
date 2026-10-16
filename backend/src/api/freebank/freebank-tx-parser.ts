@@ -46,18 +46,26 @@ export const BITASSET_CREATE_VERSION = 10;
 //   pool.h POOL_OP_*, settle.h SETTLE_OP_* (2 PRESENT and 3 DRAW are reserved, not live),
 //   oracle.h ORACLE_OP_*
 export const CREDIT_OP_NAMES: Readonly<Record<CreditFamily, Readonly<Record<number, string>>>> = {
-  bill: { 1: 'issue', 2: 'endorse', 3: 'retire', 4: 'claim', 5: 'discount', 6: 'recourse', 7: 'hretire', 8: 'hclaim' },
+  bill: {
+    1: 'issue', 2: 'endorse', 3: 'retire', 4: 'claim', 5: 'discount', 6: 'recourse', 7: 'hretire', 8: 'hclaim',
+    // v0.2.27 repay in kind; v0.2.28 into a failed house's escrow
+    9: 'hretire_notes', 10: 'hretire_escrow', 11: 'hclaim_escrow',
+  },
   house: {
     1: 'register', 2: 'topup', 3: 'admit', 4: 'exit', 5: 'winddown', 6: 'reclaim', 7: 'attest', 8: 'defer', 9: 'renew', 10: 'release',
     // v0.2.19 members-only houses
     11: 'register_mo', 12: 'member_add', 13: 'member_remove', 14: 'member_purge',
+    15: 'close', // v0.2.28 a failed house closed after its claim window
   },
   note: {
     1: 'mint', 2: 'transfer', 3: 'redeem', 4: 'lock', 5: 'unlock', 6: 'claim', 7: 'demand', 8: 'protest',
     // v0.2.21 the token holders' claim at a failed house (token.h NOTE_OP_TOKEN_*)
     9: 'token_keyset', 10: 'token_post', 11: 'token_claim', 12: 'token_collect',
   },
-  deposit: { 1: 'originate', 2: 'transfer', 3: 'withdraw', 4: 'claim' },
+  deposit: {
+    1: 'originate', 2: 'transfer', 3: 'withdraw', 4: 'claim',
+    5: 'demand', 6: 'protest', 7: 'discharge', // v0.2.29 forced payment of a matured deposit
+  },
   pool: { 1: 'create', 2: 'add_liq', 3: 'remove_liq', 4: 'swap', 5: 'retire' },
   settle: { 1: 'exchange', 4: 'net' }, // 4: v0.2.22 multilateral netting (2 PRESENT and 3 DRAW reserved)
   oracle: { 1: 'bond', 2: 'submit' },
@@ -459,12 +467,22 @@ function decodeBill(r: ByteReader, op: number): DecodedPayload {
       return { bill_id, house_id, price_units, face_sats, maturity_height };
     }
     case 7: // BillHRetire: the acceptor pays a house-held bill
-    case 8: { // BillHClaim: a house claims the escrow of a house-held bill
+    case 8: // BillHClaim: a house claims the escrow of a house-held bill
+    case 11: { // BillHClaimEscrow (v0.2.28): anyone moves a defaulted house-held bill's bond into the house's escrow
       const bill_id = r.u32();
       const house_id = r.u32(); // nOwnerHouseID
       const face_sats = r.i64();
       const maturity_height = r.u32();
       return { bill_id, house_id, face_sats, maturity_height };
+    }
+    case 9: // BillHRetireNotes (v0.2.27): op 7 paid partly or wholly in the house's own notes, which are burned
+    case 10: { // the same payload (v0.2.28): the face goes into the house's escrow, notes optional (units_burned may be 0)
+      const bill_id = r.u32();
+      const house_id = r.u32(); // nOwnerHouseID
+      const face_sats = r.i64();
+      const maturity_height = r.u32();
+      const units_burned = r.u64(); // note units paid at par (1 unit = 1 sat of face); the rest is paid in ECX
+      return { bill_id, house_id, face_sats, maturity_height, units_burned };
     }
     default:
       return {};
@@ -567,6 +585,7 @@ function decodeHouse(r: ByteReader, op: number): DecodedPayload {
     case 8: // HouseDefer
     case 9: // HouseRenew
     case 10: // HouseRelease
+    case 15: // HouseClose (v0.2.28): nHouseID only; the outputs are pinned (partners' residual, then the mutual fund)
       return { house_id: r.u32() };
     default:
       return {};
@@ -655,6 +674,18 @@ function decodeNote(r: ByteReader, op: number): DecodedPayload {
   }
 }
 
+// note.h: a demand tag is the demand's height with the mode bits on top (pre-auth 0x80000000, protested 0x40000000,
+// queue 0x20000000); the same tag marks demanded deposit receipts (v0.2.29)
+const NOTE_DEMAND_HEIGHT_MASK = 0x1fffffff;
+
+/** The address of a P2PKH script (OP_DUP OP_HASH160 <20> OP_EQUALVERIFY OP_CHECKSIG), or null for any other script. */
+function p2pkhAddress(script: Buffer): string | null {
+  if (script.length !== 25 || script[0] !== 0x76 || script[1] !== 0xa9 || script[2] !== 0x14 || script[23] !== 0x88 || script[24] !== 0xac) {
+    return null;
+  }
+  return keyIdToAddress(script.subarray(3, 23));
+}
+
 function decodeDeposit(r: ByteReader, op: number): DecodedPayload {
   const house_id = r.u32(); // every deposit payload leads with nHouseID
   switch (op) {
@@ -667,6 +698,25 @@ function decodeDeposit(r: ByteReader, op: number): DecodedPayload {
       const rate_bps = r.u32();
       const maturity_height = r.u32();
       return { house_id, principal_units, rate_bps, maturity_height };
+    }
+    case 5: // DepositDemand (v0.2.29): the matured receipt goes into custody with a pre-authorised payout
+    case 6: { // DepositProtest (v0.2.29): unpaid nDemandWindow blocks (1,008) after the demand
+      const principal_units = r.u64();
+      const rate_bps = r.u32();
+      const maturity_height = r.u32();
+      const origination_height = r.u32();
+      if (op === 5) {
+        r.varBytes(); // vchHolderPubKey
+        const payout_address = p2pkhAddress(r.varBytes()); // vchPayoutScript: where the house must pay
+        return { house_id, principal_units, rate_bps, maturity_height, origination_height, payout_address };
+      }
+      const demand_height = r.u32() & NOTE_DEMAND_HEIGHT_MASK; // nDemandTag: the demand's height and mode bits
+      return { house_id, principal_units, rate_bps, maturity_height, origination_height, demand_height };
+    }
+    case 7: { // DepositDischarge (v0.2.29): anyone pays a demanded receipt to its payout script at vout[0]
+      r.varBytes(); // vchHolderPubKey
+      const payout_address = p2pkhAddress(r.varBytes()); // vchPayoutScript; the payload names no amount
+      return { house_id, payout_address };
     }
     default: // DepositWithdraw, DepositClaim
       return { house_id };

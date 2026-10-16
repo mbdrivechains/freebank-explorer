@@ -54,6 +54,16 @@ export interface HouseOptionClause {
   warn: boolean;
 }
 
+/** v0.2.28 a failed house's timeline, shown in its Insolvency section. */
+export interface HouseFailure {
+  since: number;                  // insolvent_since, else insolventheight (an older node); 0 if neither
+  recordedAt: number;             // insolventheight when it differs from since: the first claim recorded the insolvency
+  collection: 'collecting' | 'done' | null; // null: an older node that does not say
+  claimWindowCloses: number;      // 0: not reported
+  claimWindowOpen: boolean;       // the tip is before claimWindowCloses
+  closed: boolean;
+}
+
 export interface HouseDetailData {
   tip: number;
   house: FreebankHouse;
@@ -74,6 +84,7 @@ export interface HouseDetailData {
   deferral: HouseDeferral;
   optionClause: HouseOptionClause;
   insolvent: boolean;
+  failure: HouseFailure;
   partners: HousePartnerRow[];
   partnersActive: number;
   loanbook: FreebankLoanBook;
@@ -95,6 +106,7 @@ export interface HouseActivityView {
   scannedFrom: number | null;     // lowest block the backend scanned
   discounts: { [billId: number]: FreebankActivityItem };  // BILL_OP_DISCOUNT into this house, by dense bill id
   lastAttest: FreebankActivityItem | null;                // the attestation at lastattestheight, if listed
+  close: FreebankActivityItem | null;                     // v0.2.28: the CLOSE of this failed house, if listed
 }
 
 export interface HouseDetailView {
@@ -128,18 +140,35 @@ function deferralView(house: FreebankHouse, tip: number): HouseDeferral {
   const ended = house.defer_ended_height ? `; last reopened at block ${house.defer_ended_height}` : '';
   const blocks = house.defer_suspended_blocks ? `, ${formatBlockCount(house.defer_suspended_blocks)} suspended in all` : '';
   if (house.defer_invoked_height) {
-    const silence = house.defer_silence_insolvent_height
-      ? ` Insolvent at block ${house.defer_silence_insolvent_height} (${formatBlocksFromTip(house.defer_silence_insolvent_height, tip)}) unless it attests first.`
+    // v0.2.28: insolvent at the earlier of silence and the 12-month cap
+    const silenceAt = house.defer_silence_insolvent_height || 0;
+    const capAt = house.defer_cap_insolvent_height || 0;
+    const silence = silenceAt && (!capAt || silenceAt < capAt)
+      ? ` Insolvent at block ${silenceAt} (${formatBlocksFromTip(silenceAt, tip)}) unless it attests first.`
       : '';
+    const cap = capAt ? ` Insolvent at block ${capAt} (${formatBlocksFromTip(capAt, tip)}) at the latest, unless it reopens: a suspension lasts at most 12 months.` : '';
     return {
       state: 'active',
-      text: `Suspended since block ${house.defer_invoked_height}: redemptions are queued, no end date.${silence} ${count}${ended}${blocks}.`,
+      text: `Suspended since block ${house.defer_invoked_height}: redemptions are queued.${silence}${cap} ${count}${ended}${blocks}.`,
     };
   }
   if (n > 0) {
     return { state: 'past', text: `Not suspended now. ${count}${ended}${blocks}.` };
   }
   return { state: 'never', text: 'Never suspended' };
+}
+
+function houseFailure(house: FreebankHouse, tip: number): HouseFailure {
+  const since = house.insolvent_since || house.insolventheight || 0;
+  const closes = house.claim_window_closes || 0;
+  return {
+    since,
+    recordedAt: house.insolventheight && house.insolventheight !== since ? house.insolventheight : 0,
+    collection: house.collection_done === true ? 'done' : house.collection_done === false ? 'collecting' : null,
+    claimWindowCloses: closes,
+    claimWindowOpen: closes > 0 && tip < closes,
+    closed: house.closed === true,
+  };
 }
 
 /**
@@ -200,7 +229,8 @@ function toData(response: FreebankHouseResponse): HouseDetailData {
     tip,
     house,
     health,
-    statusLabel: houseStatusLabel(effective),
+    statusLabel: house.closed === true ? 'Closed (a failed house)'
+      : effective === 'insolvent' && house.collection_done === false ? 'Insolvent, collecting' : houseStatusLabel(effective),
     storedStatusLabel: house.status && house.status !== effective ? houseStatusLabel(house.status) : null,
     ratioText: formatAttestedRatio(house),
     neverAttested: houseNeverAttested(house),
@@ -218,6 +248,7 @@ function toData(response: FreebankHouseResponse): HouseDetailData {
     deferral: deferralView(house, tip),
     optionClause: optionClauseView(house, health),
     insolvent: health.badge === 'insolvent',
+    failure: houseFailure(house, tip),
     partnersActive: (house.partners || []).filter((partner) => partner.status === 'active').length,
     partners: (house.partners || []).map((partner) => ({
       partner,
@@ -243,7 +274,11 @@ function toActivity(state: CreditLoad<FreebankActivityResponse>, houseId: number
   const items = (state.data?.items || []).filter((item) => activityNamesHouse(item, target));
   const discounts: { [billId: number]: FreebankActivityItem } = {};
   let lastAttest: FreebankActivityItem | null = null;
+  let close: FreebankActivityItem | null = null;
   for (const item of items) {
+    if (!close && item.family === 'house' && item.op_name === 'close') {
+      close = item;
+    }
     const decoded: FreebankDecodedPayload = item.decoded || {};
     if (item.family === 'bill' && item.op_name === 'discount' && typeof decoded.bill_id === 'number' && !discounts[decoded.bill_id]) {
       discounts[decoded.bill_id] = item;
@@ -263,6 +298,7 @@ function toActivity(state: CreditLoad<FreebankActivityResponse>, houseId: number
     scannedFrom: state.data ? state.data.scanned_from_height : null,
     discounts,
     lastAttest,
+    close,
   };
 }
 

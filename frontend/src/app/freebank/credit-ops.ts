@@ -42,6 +42,10 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
     6: { name: 'recourse', label: 'Recourse' },
     7: { name: 'hretire', label: 'Retire (held by a house)' },
     8: { name: 'hclaim', label: 'Claim escrow (held by a house)' },
+    // v0.2.27 repay in kind; v0.2.28 a failed house's bills pay into its escrow
+    9: { name: 'hretire_notes', label: 'Retire, paid in the house\'s notes' },
+    10: { name: 'hretire_escrow', label: 'Retire into a failed house\'s escrow' },
+    11: { name: 'hclaim_escrow', label: 'Bond into a failed house\'s escrow (defaulted)' },
   },
   house: {
     1: { name: 'register', label: 'Register house' },
@@ -59,6 +63,7 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
     12: { name: 'member_add', label: 'Add members' },
     13: { name: 'member_remove', label: 'Remove members' },
     14: { name: 'member_purge', label: 'Purge removed members' },
+    15: { name: 'close', label: 'Close failed house' }, // v0.2.28: after its claim window; the rest goes to the mutual fund
   },
   note: {
     1: { name: 'mint', label: 'Mint notes' },
@@ -80,6 +85,10 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
     2: { name: 'transfer', label: 'Transfer term deposit' },
     3: { name: 'withdraw', label: 'Withdraw at maturity' },
     4: { name: 'claim', label: 'Claim (insolvent house)' },
+    // v0.2.29 forced payment of a matured deposit
+    5: { name: 'demand', label: 'Demand payment' },
+    6: { name: 'protest', label: 'Protest unpaid demand' },
+    7: { name: 'discharge', label: 'Pay demanded deposit' },
   },
   pool: {
     1: { name: 'create', label: 'Create pool' },

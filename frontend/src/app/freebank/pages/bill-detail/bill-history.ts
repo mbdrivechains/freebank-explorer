@@ -18,7 +18,8 @@ export const BILL_ENDORSE_HEIGHT_SLACK = 64;
 /** How many bill txs the page asks /activity for (the backend's maximum). */
 export const BILL_ACTIVITY_LIMIT = 200;
 
-export type BillEventKind = 'issue' | 'endorse' | 'discount' | 'retire' | 'claim' | 'recourse' | 'hretire' | 'hclaim' | 'other';
+export type BillEventKind = 'issue' | 'endorse' | 'discount' | 'retire' | 'claim' | 'recourse' | 'hretire' | 'hclaim'
+  | 'hretire_notes' | 'hretire_escrow' | 'hclaim_escrow' | 'other';
 
 export interface BillEvent {
   kind: BillEventKind;
@@ -29,9 +30,10 @@ export interface BillEvent {
   datedAt: number | null;         // endorsement links: the height the endorser signed at
   from: string | null;            // endorsement links: pubkeys
   to: string | null;
-  houseId: number | null;         // discount / hretire / hclaim: the house
+  houseId: number | null;         // discount and the house-held ops (hretire, hclaim and v0.2.27/28's): the house
   priceUnits: number | null;      // discount: the price, in the house's note units
   faceSats: number | null;        // discount: the face in sats (price_units is at most this)
+  unitsBurned: number | null;     // hretire_notes / hretire_escrow: the face paid in the house's own notes, burned at par
   fee: number | null;             // sats
 }
 
@@ -51,6 +53,9 @@ const EVENT_LABELS: { [kind in BillEventKind]: string } = {
   recourse: 'Paid under recourse',
   hretire: 'Paid to the house (retired)',
   hclaim: 'Escrow claimed by the house (defaulted)',
+  hretire_notes: 'Paid to the house, in its notes (retired)',
+  hretire_escrow: 'Paid into the house\'s escrow (retired)',
+  hclaim_escrow: 'Bond moved into the house\'s escrow (defaulted)',
   other: 'Bill transaction',
 };
 
@@ -64,6 +69,9 @@ function eventKind(opName: string | null): BillEventKind {
     case 'recourse':
     case 'hretire':
     case 'hclaim':
+    case 'hretire_notes':
+    case 'hretire_escrow':
+    case 'hclaim_escrow':
       return opName as BillEventKind;
     default:
       return 'other';
@@ -77,7 +85,7 @@ function num(value: unknown): number | null {
 function emptyEvent(kind: BillEventKind): BillEvent {
   return {
     kind, label: EVENT_LABELS[kind], height: null, time: null, txid: null, datedAt: null, from: null, to: null,
-    houseId: null, priceUnits: null, faceSats: null, fee: null,
+    houseId: null, priceUnits: null, faceSats: null, unitsBurned: null, fee: null,
   };
 }
 
@@ -92,6 +100,7 @@ function fromItem(item: FreebankActivityItem): BillEvent {
   event.houseId = num(d.house_id);
   event.priceUnits = num(d.price_units);
   event.faceSats = num(d.face_sats);
+  event.unitsBurned = num(d.units_burned);
   if (typeof d.from_pubkey === 'string') {
     event.from = d.from_pubkey;
   }
@@ -153,7 +162,7 @@ export function buildBillHistory(bill: FreebankBill, activity: FreebankActivityR
     events.push(event);
   }
 
-  // 3. every other tx naming the bill: retire, claim, recourse, hretire, hclaim (and any link
+  // 3. every other tx naming the bill: retire, claim, recourse and the house-held ops (and any link
   //    tx the chain did not account for)
   for (const item of mine) {
     if (!used.has(item) && item.txid !== bill.issue_txid) {

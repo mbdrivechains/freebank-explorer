@@ -153,7 +153,7 @@
               </tr>
               <tr>
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="The option clause lets a stressed house suspend redemptions, locking its reserves. Holders who demand payment earn interest (10% a year) from the demand. A suspension has no end date: it ends when the house attests reserves back above the floor plus a buffer, or in insolvency if the house stops attesting. A house may suspend again, so the count is shown.">Option clause</span></td>
+                  ngbTooltip="The option clause lets a stressed house suspend redemptions, locking its reserves. Holders who demand payment earn interest (10% a year) from the demand. A suspension ends when the house attests reserves back above the floor plus a buffer; it ends in insolvency if the house stops attesting, or after 12 months. A house may suspend again, so the count is shown.">Option clause</span></td>
                 <td>
                   <span [class.overdue]="d.optionClause.warn">{{ d.optionClause.text }}</span>
                   <div class="sub">{{ d.optionClause.sub }}</div>
@@ -166,7 +166,7 @@
               </tr>
               <tr *ngIf="d.house.protest_open !== undefined && d.house.protest_open !== null">
                 <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                  ngbTooltip="A note holder protests when the house does not pay a lodged demand for redemption. An open protest makes the house stressed.">Open protests</span></td>
+                  ngbTooltip="A holder protests when the house does not pay a lodged demand: to redeem its notes, or to pay a matured term deposit. An open protest makes the house stressed.">Open protests</span></td>
                 <td>
                   <span [class.overdue]="d.house.protest_open > 0">{{ d.house.protest_open }}</span>
                   <div class="sub" *ngIf="d.house.protest_height">latest at block <app-credit-height [height]="d.house.protest_height" [tipHeight]="d.tip"></app-credit-height></div>
@@ -190,13 +190,48 @@
     <ng-container *ngIf="d.insolvent">
       <div class="title"><h2>Insolvency</h2></div>
       <div class="box house-insolvency">
-        <p>This house's notes are no longer paid at par. Each holder claims a pro-rata share of the pot, so its notes are
+        <p *ngIf="!d.failure.closed; else closedText">This house's notes are no longer paid at par. Each holder claims a pro-rata share of the pot, so its notes are
           impaired claims, shown apart from par balances.</p>
+        <ng-template #closedText><p>This house failed and is closed: its claim window has ended, its partners took their residual, and
+          the rest of its escrow went to the noteholders' mutual fund. No more claims are paid.</p></ng-template>
         <table class="table table-borderless table-striped house-facts">
           <tbody>
-            <tr *ngIf="d.house.insolventheight">
+            <tr *ngIf="d.failure.since">
               <td>Insolvent since</td>
-              <td><app-credit-height [height]="d.house.insolventheight" [tipHeight]="d.tip"></app-credit-height></td>
+              <td><app-credit-height [height]="d.failure.since" [tipHeight]="d.tip"></app-credit-height></td>
+            </tr>
+            <tr *ngIf="d.failure.recordedAt">
+              <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                ngbTooltip="The block whose first claim, or the close, recorded the insolvency on chain and froze the figures below.">Recorded at</span></td>
+              <td><app-credit-height [height]="d.failure.recordedAt" [tipHeight]="d.tip"></app-credit-height></td>
+            </tr>
+            <tr *ngIf="d.failure.collection && !d.failure.closed">
+              <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                ngbTooltip="After a house fails, the bills it holds pay into its escrow as they fall due. Claims wait until its loan book is empty, or until the collection window ends.">Collection</span></td>
+              <td>
+                <ng-container *ngIf="d.failure.collection === 'collecting'; else collectionDone"><span class="overdue">collecting</span>
+                  <div class="sub">claims wait until its loan book runs off</div></ng-container>
+                <ng-template #collectionDone>done: claims are paid</ng-template>
+              </td>
+            </tr>
+            <tr *ngIf="d.failure.claimWindowCloses && !d.failure.closed">
+              <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                ngbTooltip="Holders claim for two years after the house fails. After that anyone may close it: its partners get their residual and the rest of the escrow goes to the noteholders' mutual fund.">Claim window</span></td>
+              <td>
+                <ng-container *ngIf="d.failure.claimWindowOpen; else windowOver">open until block <app-credit-height [height]="d.failure.claimWindowCloses" [tipHeight]="d.tip"></app-credit-height></ng-container>
+                <ng-template #windowOver>ended at block <app-credit-height [height]="d.failure.claimWindowCloses" [tipHeight]="d.tip"></app-credit-height>: anyone may close the house</ng-template>
+              </td>
+            </tr>
+            <tr *ngIf="d.failure.closed">
+              <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
+                ngbTooltip="The close paid each partner exactly its residual and the rest of the escrow to the noteholders' mutual fund output, which consensus locks.">Closed</span></td>
+              <td>
+                <ng-container *ngIf="view.activity.close as close; else closeNotListed">
+                  at block <app-credit-height [height]="close.height" [tipHeight]="d.tip"></app-credit-height>
+                  <div class="sub">by <a [routerLink]="['/tx/' | relativeUrl, close.txid]" [title]="close.txid">{{ close.txid | shortenString: 12 }}</a>, which pays the mutual fund</div>
+                </ng-container>
+                <ng-template #closeNotListed>yes <span class="muted">(the close is older than the explorer's recent credit activity)</span></ng-template>
+              </td>
             </tr>
             <tr *ngIf="d.house.insolventunits !== undefined">
               <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"

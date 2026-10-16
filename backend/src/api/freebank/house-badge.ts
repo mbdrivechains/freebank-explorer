@@ -19,7 +19,8 @@
 //                                    clause. Redemptions are queued, not paid at par; a demanded
 //                                    note earns defer_interest_bps a year. From v0.2.18 a suspension
 //                                    has no end date: it ends by a reopen (an attestation at the
-//                                    floor plus a buffer) or by silence (defer_silence_insolvent_height).
+//                                    floor plus a buffer), by silence (defer_silence_insolvent_height) or, from
+//                                    v0.2.28, at the 12-month cap (defer_cap_insolvent_height).
 //                       - insolvent: stressed for HOUSE_STRESSED_WINDOW blocks (1008 on the
 //                                    real networks; regtest may override it) without recovering,
 //                                    or a suspended house that stopped attesting (silence).
@@ -93,8 +94,15 @@ export interface HouseBadgeFields {
   protest_open?: number;
   defer_invoked_height?: number;
   defer_silence_insolvent_height?: number;
+  defer_insolvent_height?: number; // v0.2.28: the earlier of silence and the 12-month cap (defer_cap_insolvent_height)
+  defer_cap_insolvent_height?: number;
   defer_interest_bps?: number;
   defer_activations?: number;
+  // v0.2.28 a failed house's timeline (FAILED_HOUSE_DESIGN.md B, E)
+  insolvent_since?: number; // only once insolvent: the height it became insolvent
+  collection_done?: boolean; // only once insolvent: the loan book has run off (or the collection window ended)
+  claim_window_closes?: number; // only once insolvent: from this height anyone may CLOSE the house
+  closed?: boolean; // CLOSEd: the partners got their residual, the rest went to the mutual fund
 }
 
 export interface HouseBadgeResult {
@@ -134,9 +142,20 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
     reason,
   });
 
-  if (status === 'insolvent' || house.status === 'insolvent' || isNum(house.insolventheight)) {
-    const since = isNum(house.insolventheight) ? ` since block ${house.insolventheight}` : '';
-    return result('insolvent', `Insolvent${since}: its notes are impaired claims, paid out pro rata from the house's escrow, not at par.`);
+  if (status === 'insolvent' || house.status === 'insolvent' || isNum(house.insolventheight) || isNum(house.insolvent_since) || house.closed === true) {
+    const sinceHeight = isNum(house.insolvent_since) ? house.insolvent_since : house.insolventheight;
+    const since = isNum(sinceHeight) ? ` since block ${sinceHeight}` : '';
+    if (house.closed === true) {
+      const at = isNum(sinceHeight) ? ` at block ${sinceHeight}` : '';
+      return result('insolvent', `Closed: the house failed${at} and its claim window has ended. Its partners got their residual and the ` +
+        `rest of its escrow went to the noteholders' mutual fund; no more claims are paid.`);
+    }
+    if (house.collection_done === false) {
+      return result('insolvent', `Insolvent${since}, collecting: the bills it holds are repaid into its escrow, and claims are paid ` +
+        `once its loan book is empty or the collection window ends. Its notes are impaired claims, not paid at par.`);
+    }
+    const window = isNum(house.claim_window_closes) ? ` Claims are open until block ${house.claim_window_closes}.` : '';
+    return result('insolvent', `Insolvent${since}: its notes are impaired claims, paid out pro rata from the house's escrow, not at par.${window}`);
   }
 
   if (status === 'wounddown') {
@@ -147,9 +166,14 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
     if (status === 'deferred') {
       const since = isNum(house.defer_invoked_height) && house.defer_invoked_height > 0 ? ` since block ${house.defer_invoked_height}` : '';
       const rate = isNum(house.defer_interest_bps) && house.defer_interest_bps > 0 ? ` and earn ${house.defer_interest_bps / 100}% a year` : '';
-      const silence = isNum(house.defer_silence_insolvent_height) && house.defer_silence_insolvent_height > 0
-        ? ` It becomes insolvent at block ${house.defer_silence_insolvent_height} unless it attests before then.`
-        : '';
+      const silenceAt = isNum(house.defer_silence_insolvent_height) ? house.defer_silence_insolvent_height : 0;
+      const capAt = isNum(house.defer_cap_insolvent_height) ? house.defer_cap_insolvent_height : 0;
+      const silence = capAt > 0 && (silenceAt === 0 || capAt <= silenceAt)
+        ? ` It becomes insolvent at block ${capAt}, when the suspension reaches its 12-month limit.`
+        : silenceAt > 0
+          ? ` It becomes insolvent at block ${silenceAt} unless it attests before then` +
+            (capAt > 0 ? `, and at block ${capAt} at the latest (a suspension lasts at most 12 months).` : '.')
+          : '';
       const count = isNum(house.defer_activations) && house.defer_activations > 1
         ? ` This is suspension number ${house.defer_activations}.`
         : '';
@@ -162,7 +186,7 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
     } else if (belowFloor) {
       reason += ': its last attestation showed reserves below the 10% floor';
     } else if (isNum(house.protest_open) && house.protest_open > 0) {
-      reason += ': a noteholder protest is open';
+      reason += ': a protest is open (of its notes or a term deposit)';
     } else if (deadline !== null && tipHeight > deadline) {
       reason += `: it is past its attestation deadline (block ${deadline})`;
     }
