@@ -32,7 +32,7 @@ export const BILL_STATUS_HELP: { [key in BillStatusKey]: string } = {
   active: 'Outstanding and held privately: the acceptor has not paid it yet.',
   discounted: 'Outstanding and bought by a house before maturity: it sits on that house\'s loan book, and the house collects the face value.',
   retired: 'Paid: the acceptor paid the face value to the holder.',
-  defaulted: 'Unpaid after the grace period: the holder claimed the escrow bond instead.',
+  defaulted: 'Unpaid after the grace period: the escrow bond was claimed instead (by the holder, or into the escrow of the house that held it).',
   disputed: 'Marked disputed (reserved for a future dispute process).',
   unknown: 'A status this explorer does not recognise.',
 };
