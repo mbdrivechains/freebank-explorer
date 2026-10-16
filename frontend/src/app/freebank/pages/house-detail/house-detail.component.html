@@ -65,7 +65,7 @@
                   ngbTooltip="The status in force at the latest block. The chain works it out from the house's attestations, any open protest and the option clause.">Status</span></td>
                 <td>
                   {{ d.statusLabel }}
-                  <span class="muted" *ngIf="d.house.stress_since"> since block <app-credit-height [height]="d.house.stress_since" [tipHeight]="d.tip"></app-credit-height></span>
+                  <span class="muted" *ngIf="d.statusSince"> since block <app-credit-height [height]="d.statusSince" [tipHeight]="d.tip"></app-credit-height></span>
                 </td>
               </tr>
               <tr *ngIf="d.storedStatusLabel">

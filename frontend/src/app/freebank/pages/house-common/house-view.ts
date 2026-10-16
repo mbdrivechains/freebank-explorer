@@ -42,6 +42,31 @@ export function houseStatusLabel(status: string | null | undefined): string {
   return HOUSE_STATUS_LABELS[status] || status;
 }
 
+/** The status to show (v0.2.28: a closed or collecting failed house says so). */
+export function houseStatusText(house: FreebankHouse): string {
+  const effective = house.effective_status || house.status;
+  if (house.closed === true) {
+    return 'Closed (a failed house)';
+  }
+  if (effective === 'insolvent' && house.collection_done === false) {
+    return 'Insolvent, collecting';
+  }
+  return houseStatusLabel(effective);
+}
+
+/**
+ * The height the status shown began, or 0: when the house became insolvent (insolvent_since, the node's answer for
+ * the next block, once the tip reaches it; else insolventheight), or when its stress began (stress_since).
+ */
+export function houseStatusSince(house: FreebankHouse, tip: number | null): number {
+  const effective = house.effective_status || house.status;
+  if (effective === 'insolvent' || house.status === 'insolvent' || house.closed === true) {
+    const since = house.insolvent_since && (tip === null || house.insolvent_since <= tip) ? house.insolvent_since : 0;
+    return since || house.insolventheight || 0;
+  }
+  return effective === 'stressed' || effective === 'deferred' ? house.stress_since || 0 : 0;
+}
+
 export function houseTierLabel(tier: number): string {
   return HOUSE_TIER_LABELS[tier] || `Tier ${tier}`;
 }

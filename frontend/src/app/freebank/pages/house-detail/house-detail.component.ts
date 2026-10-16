@@ -17,7 +17,7 @@ import { SATS_PER_ECX, formatBlockCount, formatBlocksFromTip, formatBps, poolSpo
 import {
   HOUSE_TYPE_LABELS, HOUSE_TYPE_TOOLTIPS, houseHasMembers,
   ActivityDetail, AttestationClock, BillMaturity, HouseCapacity, activityNamesHouse, attestationClock, billMaturity,
-  describeActivity, ecxToGrams, formatPercent, houseCapacity, houseStatusLabel, houseTierLabel, unitsToGrams,
+  describeActivity, ecxToGrams, formatPercent, houseCapacity, houseStatusLabel, houseStatusSince, houseStatusText, houseTierLabel, unitsToGrams,
 } from '@app/freebank/pages/house-common/house-view';
 import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
@@ -69,6 +69,7 @@ export interface HouseDetailData {
   house: FreebankHouse;
   health: HouseHealth;
   statusLabel: string;
+  statusSince: number;            // the height the status began (0: none to show)
   storedStatusLabel: string | null;  // set when the stored status differs from the status in force
   ratioText: string;
   neverAttested: boolean;
@@ -230,8 +231,8 @@ function toData(response: FreebankHouseResponse): HouseDetailData {
     tip,
     house,
     health,
-    statusLabel: house.closed === true ? 'Closed (a failed house)'
-      : effective === 'insolvent' && house.collection_done === false ? 'Insolvent, collecting' : houseStatusLabel(effective),
+    statusLabel: houseStatusText(house),
+    statusSince: houseStatusSince(house, tip),
     storedStatusLabel: house.status && house.status !== effective ? houseStatusLabel(house.status) : null,
     ratioText: formatAttestedRatio(house),
     neverAttested: houseNeverAttested(house),

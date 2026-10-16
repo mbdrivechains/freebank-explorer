@@ -62,7 +62,7 @@
           </td>
           <td class="col-status">
             {{ row.statusLabel }}
-            <div class="sub" *ngIf="row.house.stress_since">since block {{ row.house.stress_since }}</div>
+            <div class="sub" *ngIf="row.statusSince">since block {{ row.statusSince }}</div>
           </td>
           <td class="col-ratio text-right">
             <span [class.muted]="!row.house.mintedunits">{{ row.ratioText }}</span>

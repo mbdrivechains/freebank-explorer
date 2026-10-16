@@ -10,7 +10,7 @@ import { FreebankHouse, FreebankHousesResponse } from '@interfaces/freebank-cred
 import { formatEcx, formatUnits } from '@app/freebank/credit-units';
 import { HOUSE_BADGE_LABELS, HOUSE_BADGE_ORDER, HouseBadge, HouseHealth, formatAttestedRatio, houseHealth, houseNeverAttested } from '@app/freebank/house-health';
 import {
-  AttestationClock, HOUSE_TYPE_LABELS, HOUSE_TYPE_TOOLTIPS, HouseCapacity, attestationClock, houseCapacity, houseStatusLabel,
+  AttestationClock, HOUSE_TYPE_LABELS, HOUSE_TYPE_TOOLTIPS, HouseCapacity, attestationClock, houseCapacity, houseStatusSince, houseStatusText,
 } from '@app/freebank/pages/house-common/house-view';
 import { GOLD_SHOWN } from '@app/freebank/gold-display';
 
@@ -18,6 +18,7 @@ export interface HouseListRow {
   house: FreebankHouse;
   health: HouseHealth;
   statusLabel: string;
+  statusSince: number;            // the height the status began (0: none to show)
   ratioText: string;
   capacity: HouseCapacity;
   capitalTip: string;             // the capital-cap sum in words
@@ -92,7 +93,8 @@ export class HouseListComponent implements OnInit {
       return {
         house,
         health,
-        statusLabel: houseStatusLabel(house.effective_status || house.status),
+        statusLabel: houseStatusText(house),
+        statusSince: houseStatusSince(house, tip),
         ratioText: formatAttestedRatio(house),
         capacity,
         capitalTip: capitalCapTip(house, capacity),
