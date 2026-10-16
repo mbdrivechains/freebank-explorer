@@ -144,7 +144,9 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
   const capAt = house.defer_cap_insolvent_height || 0; // v0.2.28: a suspension lasts at most 12 months
   const insolventAt = house.defer_insolvent_height || (capAt && silenceAt ? Math.min(capAt, silenceAt) : capAt || silenceAt);
   const deferExpired = deferred && insolventAt > 0 && tip !== null && tip >= insolventAt;
-  const insolventSince = house.insolvent_since || house.insolventheight || 0;
+  // insolvent_since is the node's answer for the NEXT block (HouseInsolventSince at tip + 1): count it once reached
+  const nodeSince = house.insolvent_since && (tip === null || house.insolvent_since <= tip) ? house.insolvent_since : 0;
+  const insolventSince = nodeSince || house.insolventheight || 0;
   const lateForPar = tip !== null && nextDue !== null && tip > nextDue;
 
   const health: HouseHealth = {
@@ -173,7 +175,7 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
     health.notesAtPar = false;
     health.notesImpaired = true;
     health.parEligible = false;
-    health.summary = house.closed === true ? 'Closed: a failed house, its claim window over.'
+    health.summary = house.closed === true ? 'Closed: a failed house, wound up.'
       : house.collection_done === false ? 'Insolvent, collecting: claims wait until its loan book runs off.'
       : 'Insolvent: its notes are claims on the pot, not par.';
     if (deferExpired && !insolventSince) {
@@ -182,23 +184,35 @@ export function houseHealth(house: FreebankHouse, tipHeight?: number | null): Ho
         : `The house was suspended and stopped attesting: it became insolvent at block ${insolventAt}.`);
     } else if (insolventSince) {
       reasons.push(`Insolvent since block ${insolventSince}${relative(insolventSince, tip)}.`);
+      // a v0.2.28 node keeps the suspension's heights: say which ended it
+      if (capAt && insolventSince === capAt) {
+        reasons.push('It stayed suspended for the 12-month limit.');
+      } else if (silenceAt && insolventSince === silenceAt) {
+        reasons.push('It was suspended and stopped attesting.');
+      }
     } else if (house.stress_since) {
       reasons.push(`Stressed since block ${house.stress_since} and did not recover within the stressed window, so the house is insolvent.`);
     } else {
       reasons.push('The house is insolvent.');
     }
-    reasons.push('Its notes are no longer paid at par: each holder claims a pro-rata share of the house\'s pot.');
+    if (house.closed !== true) {
+      reasons.push('Its notes are no longer paid at par: each holder claims a pro-rata share of the house\'s pot.');
+    }
     if (isNumber(house.insolventpot)) {
       const units = isNumber(house.insolventunits) ? ` for ${formatUnits(house.insolventunits)} note units outstanding` : '';
       reasons.push(`Pot: ${formatEcx(house.insolventpot)} ECX${units}.`);
     }
     if (house.closed === true) {
-      reasons.push('Closed after its claim window: its partners took their residual and the rest of its escrow went to the noteholders\' mutual fund. No more claims are paid.');
+      // HouseClosed: every partner settled, by the partners' settle once every holder was paid, or by a CLOSE after
+      // the claim window (which sends what is left of the escrow to the noteholders' mutual fund)
+      reasons.push('Closed: the house has been wound up and its partners took their residual. No more claims are paid.');
     } else if (house.collection_done === false) {
       reasons.push('Collecting: the bills it holds pay into its escrow as they fall due. Claims are paid once its loan book is empty, or when the collection window ends.');
     } else if (isNumber(house.claim_window_closes) && house.claim_window_closes > 0) {
-      reasons.push(`Claims are open until block ${house.claim_window_closes}${relative(house.claim_window_closes, tip)}. ` +
-        'After that anyone may close the house, and what is left of its escrow goes to the noteholders\' mutual fund.');
+      reasons.push(tip !== null && tip >= house.claim_window_closes
+        ? `Its claim window ended at block ${house.claim_window_closes}: claims are paid until someone closes the house, which sends what is left of its escrow to the noteholders' mutual fund.`
+        : `Claims are paid at least until block ${house.claim_window_closes}${relative(house.claim_window_closes, tip)}. ` +
+          'From then anyone may close the house, and what is left of its escrow goes to the noteholders\' mutual fund.');
     }
   } else if (effective === 'wounddown' || house.status === 'wounddown') {
     health.badge = 'wound_down';

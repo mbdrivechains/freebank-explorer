@@ -142,19 +142,25 @@ export function houseBadge(house: HouseBadgeFields, tipHeight: number): HouseBad
     reason,
   });
 
-  if (status === 'insolvent' || house.status === 'insolvent' || isNum(house.insolventheight) || isNum(house.insolvent_since) || house.closed === true) {
-    const sinceHeight = isNum(house.insolvent_since) ? house.insolvent_since : house.insolventheight;
+  // insolvent_since is the node's answer for the NEXT block (HouseInsolventSince at tip + 1): count it only once reached
+  const insolventSince = isNum(house.insolvent_since) && house.insolvent_since <= tipHeight ? house.insolvent_since : undefined;
+  if (status === 'insolvent' || house.status === 'insolvent' || isNum(house.insolventheight) || insolventSince !== undefined || house.closed === true) {
+    const sinceHeight = insolventSince ?? house.insolventheight;
     const since = isNum(sinceHeight) ? ` since block ${sinceHeight}` : '';
     if (house.closed === true) {
+      // HouseClosed: every partner settled. Either the partners' settle once every holder was paid (the residual to
+      // the partners), or a CLOSE after the claim window (the rest of the escrow to the mutual fund)
       const at = isNum(sinceHeight) ? ` at block ${sinceHeight}` : '';
-      return result('insolvent', `Closed: the house failed${at} and its claim window has ended. Its partners got their residual and the ` +
-        `rest of its escrow went to the noteholders' mutual fund; no more claims are paid.`);
+      return result('insolvent', `Closed: the house failed${at} and has been wound up. Its partners took their residual; no more claims are paid.`);
     }
     if (house.collection_done === false) {
       return result('insolvent', `Insolvent${since}, collecting: the bills it holds are repaid into its escrow, and claims are paid ` +
         `once its loan book is empty or the collection window ends. Its notes are impaired claims, not paid at par.`);
     }
-    const window = isNum(house.claim_window_closes) ? ` Claims are open until block ${house.claim_window_closes}.` : '';
+    // claims stay open until someone CLOSEs the house, which is allowed from claim_window_closes
+    const window = !isNum(house.claim_window_closes) ? ''
+      : tipHeight < house.claim_window_closes ? ` Claims are paid at least until block ${house.claim_window_closes}, when anyone may close the house.`
+      : ` Its claim window ended at block ${house.claim_window_closes}: claims are paid until someone closes the house.`;
     return result('insolvent', `Insolvent${since}: its notes are impaired claims, paid out pro rata from the house's escrow, not at par.${window}`);
   }
 

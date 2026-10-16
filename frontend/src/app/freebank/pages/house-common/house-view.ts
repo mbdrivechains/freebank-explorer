@@ -396,11 +396,11 @@ export function describeActivity(item: FreebankActivityItem, houseId: number): A
       } else if (op === 'hclaim') {
         text = 'unpaid: the house claimed the escrow';
       } else if (op === 'hretire_notes') {
-        // v0.2.27 repay in kind: this house's notes come home, burned at par
+        // v0.2.27 repay in kind (no maturity gate, so maybe early): this house's notes come home, burned at par
         const burned = num(d.units_burned);
         const rest = num(d.face_sats) - burned;
-        text = rest > 0 ? `paid at maturity: ${units(burned)} of this house's notes and ${ecx(rest)}`
-          : `paid at maturity, all in this house's notes (${units(burned)})`;
+        text = rest > 0 ? `repaid: ${units(burned)} of this house's notes and ${ecx(rest)}`
+          : `repaid, all in this house's notes (${units(burned)})`;
       } else if (op === 'hretire_escrow') {
         text = 'paid into the escrow (the house has stopped paying)' + (num(d.units_burned) > 0 ? `, ${units(d.units_burned)} in this house's notes` : '');
       } else if (op === 'hclaim_escrow') {

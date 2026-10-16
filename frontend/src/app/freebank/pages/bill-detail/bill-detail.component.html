@@ -75,7 +75,7 @@
                   {{ bill.grace_blocks | blockCount }}
                   <span class="sub">
                     Ends at block <app-credit-height [height]="view.maturity.graceEndHeight" [tipHeight]="view.tipHeight"></app-credit-height>.
-                    <ng-container *ngIf="view.maturity.phase !== 'closed'">If still unpaid, {{ bill.owner_house_id ? 'the house' : 'the holder' }} can claim the escrow from block {{ view.maturity.claimableFrom }}.</ng-container>
+                    <ng-container *ngIf="view.maturity.phase !== 'closed'">If still unpaid, {{ bill.owner_house_id ? 'the house' : 'the holder' }} can claim the escrow from block {{ view.maturity.claimableFrom }}<ng-container *ngIf="bill.owner_house_id">; if the house has stopped paying, anyone can move it into the house's escrow instead</ng-container>.</ng-container>
                   </span>
                 </td>
               </tr>

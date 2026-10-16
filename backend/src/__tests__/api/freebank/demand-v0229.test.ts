@@ -87,6 +87,10 @@ describe('FreeBank deposit demands (v0.2.29)', () => {
     const badge = houseBadge(fx.house, fx.tip);
     expect(badge.badge).toEqual('insolvent');
     expect(badge.reason).toContain(`since block ${fx.house.insolvent_since}`);
-    expect(badge.reason).toContain(`Claims are open until block ${fx.house.claim_window_closes}`);
+    expect(badge.reason).toContain(`Claims are paid at least until block ${fx.house.claim_window_closes}, when anyone may close the house.`);
+    // past that height claims go on until a CLOSE; and insolvent_since counts only once the tip reaches it
+    expect(houseBadge(fx.house, fx.house.claim_window_closes).reason).toContain('claims are paid until someone closes the house');
+    const nextBlock = { ...fx.house, effective_status: 'deferred', status: 'open', insolventheight: undefined, insolvent_since: fx.tip + 1, defer_invoked_height: 100 };
+    expect(houseBadge(nextBlock, fx.tip).badge).toEqual('stressed');
   });
 });

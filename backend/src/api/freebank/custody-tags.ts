@@ -486,7 +486,7 @@ export const CUSTODY_TOOLTIPS: Readonly<Record<CustodyLabelKind, string>> = {
   house_till: `Reserves the house locked when it deferred payment. ${LOCKED}: ${HOUSE_SPENDERS}`,
   house_spread: `The spread kept back when notes were redeemed, added to the house's escrow. ${LOCKED}: ${HOUSE_SPENDERS}`,
   house_claim_change: `What an insolvency claim left of the house's escrow. ${LOCKED}: ${HOUSE_SPENDERS}`,
-  house_bill_escrow: `A bill the house held paid into its escrow after the house stopped paying (suspended or insolvent), so the holders it stopped paying can reach the money. ${LOCKED}: only an insolvency claim or the close of the house can spend it.`,
+  house_bill_escrow: `A bill the house held paid into its escrow after the house stopped paying (suspended or insolvent), so the holders it stopped paying can reach the money. ${LOCKED}: ${HOUSE_SPENDERS}`,
   bill_escrow: `The bond posted when the bill was issued. ${LOCKED}: only the bill's own transactions can spend it.`,
   pool_note_reserve: `Notes the pool holds. ${LOCKED}: only the pool's own transactions can spend them.`,
   pool_ecx_reserve: `ECX the pool holds. ${LOCKED}: only the pool's own transactions can spend it.`,

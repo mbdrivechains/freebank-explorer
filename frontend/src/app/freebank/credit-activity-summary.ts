@@ -338,11 +338,11 @@ function depositSummary(op: string | null, d: FreebankDecodedPayload): string {
     case 'demand': {
       // v0.2.29: the matured receipt goes into custody; anyone may then pay it to the payout address
       const to = str(d, 'payout_address');
-      return (principal !== null ? `A saver demanded payment of a ${units(principal)} term deposit` : 'A saver demanded payment of a term deposit') +
+      return (principal !== null ? `A saver demanded payment of a term deposit of ${units(principal)}` : 'A saver demanded payment of a term deposit') +
         ` at ${house(id)}` + (to ? `, to be paid to ${to}` : '');
     }
     case 'protest':
-      return (principal !== null ? `A saver protested an unpaid demand for a ${units(principal)} term deposit` : 'A saver protested an unpaid demand for a term deposit') +
+      return (principal !== null ? `A saver protested an unpaid demand for a term deposit of ${units(principal)}` : 'A saver protested an unpaid demand for a term deposit') +
         ` at ${house(id)}` + (num(d, 'demand_height') ? ` (demanded at block ${num(d, 'demand_height')})` : '');
     case 'discharge': {
       const to = str(d, 'payout_address');

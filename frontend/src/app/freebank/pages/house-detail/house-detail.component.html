@@ -192,8 +192,8 @@
       <div class="box house-insolvency">
         <p *ngIf="!d.failure.closed; else closedText">This house's notes are no longer paid at par. Each holder claims a pro-rata share of the pot, so its notes are
           impaired claims, shown apart from par balances.</p>
-        <ng-template #closedText><p>This house failed and is closed: its claim window has ended, its partners took their residual, and
-          the rest of its escrow went to the noteholders' mutual fund. No more claims are paid.</p></ng-template>
+        <ng-template #closedText><p>This house failed and has been wound up: its partners took their residual, and no more claims
+          are paid.</p></ng-template>
         <table class="table table-borderless table-striped house-facts">
           <tbody>
             <tr *ngIf="d.failure.since">
@@ -216,21 +216,22 @@
             </tr>
             <tr *ngIf="d.failure.claimWindowCloses && !d.failure.closed">
               <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                ngbTooltip="Holders claim for two years after the house fails. After that anyone may close it: its partners get their residual and the rest of the escrow goes to the noteholders' mutual fund.">Claim window</span></td>
+                ngbTooltip="Holders can claim for at least two years after the house fails. From then anyone may close it: its partners get their residual and what is left of the escrow goes to the noteholders' mutual fund.">Claim window</span></td>
               <td>
                 <ng-container *ngIf="d.failure.claimWindowOpen; else windowOver">open until block <app-credit-height [height]="d.failure.claimWindowCloses" [tipHeight]="d.tip"></app-credit-height></ng-container>
-                <ng-template #windowOver>ended at block <app-credit-height [height]="d.failure.claimWindowCloses" [tipHeight]="d.tip"></app-credit-height>: anyone may close the house</ng-template>
+                <ng-template #windowOver>ended at block <app-credit-height [height]="d.failure.claimWindowCloses" [tipHeight]="d.tip"></app-credit-height>
+                  <div class="sub">claims are paid until someone closes the house</div></ng-template>
               </td>
             </tr>
             <tr *ngIf="d.failure.closed">
               <td><span class="credit-term" tabindex="0" container="body" placement="right bottom"
-                ngbTooltip="The close paid each partner exactly its residual and the rest of the escrow to the noteholders' mutual fund output, which consensus locks.">Closed</span></td>
+                ngbTooltip="Wound up: either its partners settled once every holder had been paid, or anyone closed it after the claim window. A close pays each partner exactly its residual and what is left of the escrow to the noteholders' mutual fund output, which consensus locks.">Closed</span></td>
               <td>
                 <ng-container *ngIf="view.activity.close as close; else closeNotListed">
-                  at block <app-credit-height [height]="close.height" [tipHeight]="d.tip"></app-credit-height>
-                  <div class="sub">by <a [routerLink]="['/tx/' | relativeUrl, close.txid]" [title]="close.txid">{{ close.txid | shortenString: 12 }}</a>, which pays the mutual fund</div>
+                  at block <app-credit-height [height]="close.height" [tipHeight]="d.tip"></app-credit-height>, after the claim window
+                  <div class="sub">by <a [routerLink]="['/tx/' | relativeUrl, close.txid]" [title]="close.txid">{{ close.txid | shortenString: 12 }}</a>: any escrow left went to the mutual fund</div>
                 </ng-container>
-                <ng-template #closeNotListed>yes <span class="muted">(the close is older than the explorer's recent credit activity)</span></ng-template>
+                <ng-template #closeNotListed>yes, wound up</ng-template>
               </td>
             </tr>
             <tr *ngIf="d.house.insolventunits !== undefined">

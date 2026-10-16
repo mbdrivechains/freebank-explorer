@@ -89,7 +89,6 @@ describe('FreeBank failed house (v0.2.28-v0.2.29)', () => {
     expect(fx.house.insolvent_since).toEqual(fx.house.defer_cap_insolvent_height);
     const badge = houseBadge(fx.house, fx.tip);
     expect(badge.badge).toEqual('insolvent');
-    expect(badge.reason).toMatch(/^Closed: the house failed at block 481 and its claim window has ended/);
-    expect(badge.reason).toContain('mutual fund');
+    expect(badge.reason).toEqual('Closed: the house failed at block 481 and has been wound up. Its partners took their residual; no more claims are paid.');
   });
 });

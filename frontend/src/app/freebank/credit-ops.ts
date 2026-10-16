@@ -42,10 +42,10 @@ export const CREDIT_OPS: { [family in FreebankTxFamily]: { [op: number]: CreditO
     6: { name: 'recourse', label: 'Recourse' },
     7: { name: 'hretire', label: 'Retire (held by a house)' },
     8: { name: 'hclaim', label: 'Claim escrow (held by a house)' },
-    // v0.2.27 repay in kind; v0.2.28 a failed house's bills pay into its escrow
+    // v0.2.27 repay in kind; v0.2.28 a suspended or insolvent house's bills pay into its escrow
     9: { name: 'hretire_notes', label: 'Retire, paid in the house\'s notes' },
-    10: { name: 'hretire_escrow', label: 'Retire into a failed house\'s escrow' },
-    11: { name: 'hclaim_escrow', label: 'Bond into a failed house\'s escrow (defaulted)' },
+    10: { name: 'hretire_escrow', label: 'Retire into the escrow (house not paying)' },
+    11: { name: 'hclaim_escrow', label: 'Bond into the escrow (defaulted, house not paying)' },
   },
   house: {
     1: { name: 'register', label: 'Register house' },

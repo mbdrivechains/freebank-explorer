@@ -159,7 +159,8 @@ function deferralView(house: FreebankHouse, tip: number): HouseDeferral {
 }
 
 function houseFailure(house: FreebankHouse, tip: number): HouseFailure {
-  const since = house.insolvent_since || house.insolventheight || 0;
+  // insolvent_since is the node's answer for the next block: count it once the tip reaches it
+  const since = (house.insolvent_since && house.insolvent_since <= tip ? house.insolvent_since : 0) || house.insolventheight || 0;
   const closes = house.claim_window_closes || 0;
   return {
     since,
