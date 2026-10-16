@@ -316,6 +316,7 @@
 </div>
 
 <ng-template #eventDetails let-event>
+  <ng-template #aHouse>the house</ng-template>
   <ng-container [ngSwitch]="event.kind">
     <ng-container *ngSwitchCase="'issue'">Drawn and accepted; escrow locked</ng-container>
     <ng-container *ngSwitchCase="'endorse'">
@@ -330,9 +331,9 @@
     <ng-container *ngSwitchCase="'hretire'">The acceptor paid the face value to <a *ngIf="event.houseId; else theHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a><ng-template #theHouse>the house</ng-template></ng-container>
     <ng-container *ngSwitchCase="'claim'">The holder took the escrow bond</ng-container>
     <ng-container *ngSwitchCase="'hclaim'">The house took the escrow bond</ng-container>
-    <ng-container *ngSwitchCase="'hretire_notes'">The acceptor paid <a *ngIf="event.houseId; else theHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a><ng-container *ngIf="event.unitsBurned !== null"><ng-container *ngIf="event.faceSats !== null && event.unitsBurned < event.faceSats; else allNotes"> {{ event.unitsBurned | noteUnits }} units of the house's own notes and {{ event.faceSats - event.unitsBurned | satsAsEcx }} ECX</ng-container><ng-template #allNotes> all in the house's own notes ({{ event.unitsBurned | noteUnits }} units)</ng-template></ng-container>; the notes are burned</ng-container>
-    <ng-container *ngSwitchCase="'hretire_escrow'">The acceptor paid the face value into the escrow of <a *ngIf="event.houseId; else theHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a>, which has stopped paying<ng-container *ngIf="event.unitsBurned">, {{ event.unitsBurned | noteUnits }} units of it in the house's own notes</ng-container></ng-container>
-    <ng-container *ngSwitchCase="'hclaim_escrow'">Unpaid after grace: the escrow bond moved into the escrow of <a *ngIf="event.houseId; else theHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a>, which has stopped paying</ng-container>
+    <ng-container *ngSwitchCase="'hretire_notes'">The acceptor paid <a *ngIf="event.houseId; else aHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a><ng-container *ngIf="event.unitsBurned !== null"><ng-container *ngIf="event.faceSats !== null && event.unitsBurned < event.faceSats; else allNotes"> {{ event.unitsBurned | noteUnits }} units of the house's own notes and {{ event.faceSats - event.unitsBurned | satsAsEcx }} ECX</ng-container><ng-template #allNotes> all in the house's own notes ({{ event.unitsBurned | noteUnits }} units)</ng-template></ng-container>; the notes are burned</ng-container>
+    <ng-container *ngSwitchCase="'hretire_escrow'">The acceptor paid the face value into the escrow of <a *ngIf="event.houseId; else aHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a>, which has stopped paying<ng-container *ngIf="event.unitsBurned">, {{ event.unitsBurned | noteUnits }} units of it in the house's own notes</ng-container></ng-container>
+    <ng-container *ngSwitchCase="'hclaim_escrow'">Unpaid after grace: the escrow bond moved into the escrow of <a *ngIf="event.houseId; else aHouse" [routerLink]="['/house/' | relativeUrl, event.houseId]">house {{ event.houseId }}</a>, which has stopped paying</ng-container>
     <ng-container *ngSwitchCase="'recourse'">A party liable on the bill (the drawer or an endorser) paid the holder and took the bill over</ng-container>
     <ng-container *ngSwitchDefault></ng-container>
   </ng-container>
