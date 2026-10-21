@@ -52,6 +52,7 @@ class Blocks {
   private oldestCoreLogTimestamp: number | undefined | null = undefined;
 
   private mainLoopTimeout: number = 120000;
+  private nodeRewindChecked = false;
 
   constructor() { }
 
@@ -1009,6 +1010,18 @@ class Blocks {
       this.currentBlockHeight = this.blocks[this.blocks.length - 1].height;
     }
 
+    // FreeBank: the node may have gone back to a shorter or different chain (a node rewrite, or blocks lost before they
+    // reached its disk). Upstream only notices once the node passes our tip, and meanwhile lists the lost blocks; check
+    // at the first run (the database keeps the blocks of before a restart) and whenever the node is not ahead of us.
+    if (!this.nodeRewindChecked || this.currentBlockHeight >= blockHeightTip) {
+      try {
+        await this.$followNodeRewind(blockHeightTip, timer);
+        this.nodeRewindChecked = true;
+      } catch (e) {
+        logger.warn(`Could not check for a node rewind: ${e instanceof Error ? e.message : e}`, logger.tags.mining);
+      }
+    }
+
     if (blockHeightTip - this.currentBlockHeight > config.MEMPOOL.INITIAL_BLOCKS_AMOUNT * 2) {
       logger.info(`${blockHeightTip - this.currentBlockHeight} blocks since tip. Fast forwarding to the ${config.MEMPOOL.INITIAL_BLOCKS_AMOUNT} recent blocks`);
       this.currentBlockHeight = blockHeightTip - config.MEMPOOL.INITIAL_BLOCKS_AMOUNT;
@@ -1257,6 +1270,66 @@ class Blocks {
     // not already indexed
     const hash = await bitcoinApi.$getBlockHash(height);
     return this.$indexBlock(hash);
+  }
+
+  /**
+   * FreeBank: when the node went back to a shorter or different chain, mark our blocks it no longer has as stale (as a
+   * reorg does) and carry on from the last block we share with it; the main loop then reads the node's blocks from
+   * there. When the node is at our tip this costs one getblockhash.
+   * @asyncUnsafe
+   */
+  private async $followNodeRewind(nodeTipHeight: number, timer: any): Promise<void> {
+    const memoryTip = this.blocks.length ? this.blocks[this.blocks.length - 1] : null;
+    const nodeHashAt = async (height: number): Promise<string | null> => height <= nodeTipHeight ? bitcoinCoreApi.$getBlockHash(height) : null;
+    if (this.nodeRewindChecked && memoryTip && await nodeHashAt(memoryTip.height) === memoryTip.id) {
+      return;
+    }
+    const indexing = Common.indexingEnabled();
+    let top = memoryTip?.height ?? -1;
+    if (indexing) {
+      top = Math.max(top, await blocksRepository.$getCanonicalTipHeight());
+    }
+    // walk down from our highest block to the first height where we hold exactly the node's block
+    let height = top;
+    for (; height >= 0; height--) {
+      const nodeHash = await nodeHashAt(height);
+      const ours = new Set(this.blocks.filter(b => b.height === height).map(b => b.id));
+      if (indexing) {
+        (await blocksRepository.$getCanonicalHashesAtHeight(height)).forEach(hash => ours.add(hash));
+      }
+      if (ours.size === 0 || (ours.size === 1 && ours.has(nodeHash as string))) {
+        break;
+      }
+      if (indexing) {
+        // the node's block at this height (if we hold it) becomes canonical, every other one stale
+        await blocksRepository.$setCanonicalBlockAtHeight(nodeHash, height);
+      }
+    }
+    const fork = height;
+    if (fork === top) {
+      return; // nothing lost
+    }
+    logger.warn(`The node went back to block ${fork} (its tip is ${nodeTipHeight}): blocks ${fork + 1} to ${top} left the chain`, logger.tags.mining);
+    this.updateTimerProgress(timer, `dropped blocks above ${fork} after a node rewind`);
+
+    const dropped = new Set(this.blocks.filter(b => b.height > fork).map(b => b.id));
+    this.blocks = this.blocks.filter(b => b.height <= fork);
+    this.blockSummaries = this.blockSummaries.filter(s => !dropped.has(s.id));
+    // never move forward here: with an empty block cache the main loop starts below the tip on purpose
+    this.currentBlockHeight = Math.min(this.currentBlockHeight, fork);
+    chainTips.clearOrphanCacheAboveHeight(fork);
+
+    if (indexing) {
+      // force re-indexing of block-related data, as after a reorg
+      const forkBlock = fork >= 0 ? await blocksRepository.$getBlockByHeight(fork) : null;
+      await HashratesRepository.$deleteHashratesFromTimestamp((forkBlock?.timestamp ?? 0) - 604800);
+      await DifficultyAdjustmentsRepository.$deleteAdjustementsFromHeight(fork + 1);
+      await cpfpRepository.$deleteClustersFrom(fork + 1);
+      await AccelerationRepository.$deleteAccelerationsFrom(fork + 1);
+      await mining.$indexDifficultyAdjustments();
+      indexer.reindex();
+    }
+    websocketHandler.handleReorg();
   }
 
   /** @asyncUnsafe */
