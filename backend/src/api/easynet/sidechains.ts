@@ -8,7 +8,7 @@ import {
   applyBlock, emptySidechainState, failsAtHeight, SIDECHAIN_RULES, SidechainProposal, SidechainRules, SidechainState,
 } from './sidechain-rules';
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;   // 2: the snapshots are saved too, to step back over a rewind after a restart
 const SNAPSHOTS_KEPT = 30;   // states of the latest blocks, to step back over a reorg without a full replay
 const SAVE_EVERY = 500;      // blocks, while catching up
 
@@ -46,11 +46,13 @@ class SidechainIndex {
       if (best === this.state.hash) {
         return;
       }
-      // step back while our tip is not on the node's chain
-      while (this.state.height >= 0 && await bitcoinClient.getBlockHash(this.state.height) !== this.state.hash) {
-        this.stepBack();
-      }
       this.tipHeight = await bitcoinClient.getBlockCount();
+      // step back while our tip is above the node's (it went back to a shorter chain) or not on its chain
+      let steppedBack = false;
+      while (this.state.height > this.tipHeight || (this.state.height >= 0 && await bitcoinClient.getBlockHash(this.state.height) !== this.state.hash)) {
+        this.stepBack();
+        steppedBack = true;
+      }
       let done = 0;
       while (this.state.height < this.tipHeight) {
         const height = this.state.height + 1;
@@ -74,7 +76,7 @@ class SidechainIndex {
           logger.info(`Sidechain slots: replayed to block ${height} of ${this.tipHeight}`);
         }
       }
-      if (done > 0) {
+      if (done > 0 || steppedBack) {
         this.save();
       }
     } catch (e) {
@@ -99,6 +101,7 @@ class SidechainIndex {
       const saved = JSON.parse(fs.readFileSync(this.file, 'utf8'));
       if (saved.version === CACHE_VERSION && saved.rules === this.rules?.name && saved.startHeight === this.startHeight) {
         this.state = saved.state;
+        this.snapshots = Array.isArray(saved.snapshots) ? saved.snapshots : [];
         logger.info(`Sidechain slots: loaded at block ${this.state.height}`);
       }
     } catch (e) {
@@ -109,7 +112,7 @@ class SidechainIndex {
   private save(): void {
     try {
       const tmp = this.file + '.tmp';
-      fs.writeFileSync(tmp, JSON.stringify({ version: CACHE_VERSION, rules: this.rules?.name, startHeight: this.startHeight, state: this.state }));
+      fs.writeFileSync(tmp, JSON.stringify({ version: CACHE_VERSION, rules: this.rules?.name, startHeight: this.startHeight, state: this.state, snapshots: this.snapshots }));
       fs.renameSync(tmp, this.file);
     } catch (e) {
       logger.warn(`Sidechain slots: cannot save (${e instanceof Error ? e.message : e})`);

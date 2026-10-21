@@ -353,6 +353,24 @@ class BlocksRepository {
   }
 
   /**
+   * easynet: the height of the highest block on the canonical chain (stale blocks left out), or -1
+   * @asyncSafe
+   */
+  public async $getCanonicalTipHeight(): Promise<number> {
+    const [rows]: any[] = await DB.query('SELECT MAX(height) AS maxHeight FROM blocks WHERE stale = 0');
+    return rows[0]?.maxHeight ?? -1;
+  }
+
+  /**
+   * easynet: the hashes of the canonical (not stale) blocks indexed at a height; more than one only by mistake
+   * @asyncSafe
+   */
+  public async $getCanonicalHashesAtHeight(height: number): Promise<string[]> {
+    const [rows]: any[] = await DB.query('SELECT hash FROM blocks WHERE height = ? AND stale = 0', [height]);
+    return rows.map((r: any) => r.hash);
+  }
+
+  /**
    * Get blocks count for a period
    * @asyncSafe
    */
